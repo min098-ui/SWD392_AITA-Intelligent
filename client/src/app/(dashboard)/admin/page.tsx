@@ -11,13 +11,13 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'keys' | 'prompts' | 'users'>('keys');
 
   const [apiKeys, setApiKeys] = useState([
-    { id: 1, provider: 'Google Gemini (gemini-1.5-pro)', status: 'ACTIVE', usage: 142, rotated_at: 'Hôm nay 10:15', key: 'enc_gemini_api_key_****89a' },
-    { id: 2, provider: 'OpenAI (gpt-4o)', status: 'ACTIVE', usage: 89, rotated_at: 'Hôm qua 18:30', key: 'enc_openai_api_key_****b42' },
-    { id: 3, provider: 'Google Gemini Backup', status: 'RATE_LIMITED', usage: 500, rotated_at: '2 giờ trước', key: 'enc_gemini_backup_****11c' },
+    { id: 1, provider: 'Google Gemini (gemini-1.5-pro)', status: 'ACTIVE', usage: 142, rotated_at: 'Today 10:15', key: 'enc_gemini_api_key_****89a' },
+    { id: 2, provider: 'OpenAI (gpt-4o)', status: 'ACTIVE', usage: 89, rotated_at: 'Yesterday 18:30', key: 'enc_openai_api_key_****b42' },
+    { id: 3, provider: 'Google Gemini Backup', status: 'RATE_LIMITED', usage: 500, rotated_at: '2 hours ago', key: 'enc_gemini_backup_****11c' },
   ]);
 
   const handleRotateKey = (id: number) => {
-    alert(`Đã kích hoạt xoay tua (Rotate Key #${id}) và chuyển sang Key hoạt động tiếp theo!`);
+    alert(`Activated key rotation (Rotate Key #${id}) and switched to next active key!`);
   };
 
   return (
@@ -28,12 +28,12 @@ export default function AdminDashboard() {
         <div className="glass-card" style={{ padding: '1.5rem 2rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <span className="badge badge-danger">Quản Trị Hệ Thống</span>
+              <span className="badge badge-danger">System Admin</span>
               <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>System Administrator</h2>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>(admin@fpt.edu.vn)</span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              Khu vực quản lý: <strong style={{ color: '#fff' }}>Hạ tầng AI, Quản lý Key Pool, Prompt Templates &amp; Tài khoản</strong>
+              Management Scope: <strong style={{ color: '#fff' }}>AI Infrastructure, Key Pool Management, Prompt Templates &amp; Accounts</strong>
             </p>
           </div>
 
@@ -49,14 +49,14 @@ export default function AdminDashboard() {
             className={activeTab === 'keys' ? 'btn-primary' : 'btn-secondary'}
             style={{ fontSize: '0.9rem', padding: '8px 16px' }}
           >
-            <Key size={16} /> Quản Lý AI Key Pool &amp; Xoay Vòng (Rotation)
+            <Key size={16} /> AI Key Pool &amp; Rotation Management
           </button>
           <button 
             onClick={() => setActiveTab('prompts')}
             className={activeTab === 'prompts' ? 'btn-primary' : 'btn-secondary'}
             style={{ fontSize: '0.9rem', padding: '8px 16px' }}
           >
-            <FileText size={16} /> Phiên Bản Prompt Templates
+            <FileText size={16} /> Prompt Templates Versioning
           </button>
         </div>
 
@@ -65,13 +65,13 @@ export default function AdminDashboard() {
           <div className="glass-card" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.15rem' }}>Kho Khóa AI API (Key Pool Management)</h3>
+                <h3 style={{ fontSize: '1.15rem' }}>AI API Key Pool (Key Pool Management)</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Đáp ứng NFR-REL-02: Tự động xoay tua API Key khi gặp lỗi Rate Limit (HTTP 429) hoặc hết quota.
+                  Complies with NFR-REL-02: Automatic key failover &amp; rotation on Rate Limit (HTTP 429) or quota exhaustion.
                 </p>
               </div>
               <button className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-                <PlusCircle size={15} /> Thêm Key Mới
+                <PlusCircle size={15} /> Add New Key
               </button>
             </div>
 
@@ -96,9 +96,9 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '1.5rem' }}>
-                      <span>Key Encrypted: <code>{k.key}</code></span>
-                      <span>Số lượt gọi: <strong>{k.usage}</strong></span>
-                      <span>Lần xoay tua cuối: {k.rotated_at}</span>
+                      <span>Encrypted Key: <code>{k.key}</code></span>
+                      <span>Requests: <strong>{k.usage}</strong></span>
+                      <span>Last Rotated: {k.rotated_at}</span>
                     </div>
                   </div>
 
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
                     className="btn-secondary" 
                     style={{ fontSize: '0.82rem', padding: '6px 14px' }}
                   >
-                    <RefreshCw size={14} /> Xoay tua Key này (Rotate)
+                    <RefreshCw size={14} /> Rotate this Key
                   </button>
                 </div>
               ))}
@@ -118,9 +118,9 @@ export default function AdminDashboard() {
         {/* TAB 2: PROMPT TEMPLATES */}
         {activeTab === 'prompts' && (
           <div className="glass-card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.15rem', marginBottom: '0.5rem' }}>Quản Lý Phiên Bản Prompt Templates (NFR-MAI-02)</h3>
+            <h3 style={{ fontSize: '1.15rem', marginBottom: '0.5rem' }}>Prompt Templates Version Control (NFR-MAI-02)</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              Mỗi prompt được đánh version rõ ràng để đảm bảo tính tái lập và giải trình khi chấm điểm đồ án.
+              Each prompt is strictly versioned to ensure reproducibility and explainability during grading.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
                   <strong>Code Grading Feedback Prompt</strong>
                   <span className="badge badge-info">Version: v1.0</span>
                 </div>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Mục đích: Chấm điểm bài nộp và sinh nhận xét định tính chi tiết</p>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Purpose: Grade submissions and generate detailed qualitative feedback</p>
                 <div className="code-box" style={{ fontSize: '0.78rem' }}>
                   Evaluate the student submission for assignment {"{{assignment_title}}"}. Rubric: {"{{criterion}}"}. Expected: {"{{expected_output}}"}. Provide constructive review and complexity analysis.
                 </div>
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
                   <strong>Interactive AI Tutor Chat Prompt</strong>
                   <span className="badge badge-info">Version: v1.0</span>
                 </div>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Mục đích: Hỗ trợ sinh viên giải thích code theo phương pháp gợi mở (Socratic method)</p>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Purpose: Support students via the Socratic method without giving direct solutions</p>
                 <div className="code-box" style={{ fontSize: '0.78rem' }}>
                   You are AITA, a friendly and knowledgeable AI coding tutor. Guide the student using the Socratic method without giving out direct solutions.
                 </div>

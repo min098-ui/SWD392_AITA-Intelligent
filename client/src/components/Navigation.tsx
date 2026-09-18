@@ -60,7 +60,7 @@ export default function Navigation() {
             background: 'rgba(255,255,255,0.04)'
           }}>
             <GraduationCap size={16} color="#38bdf8" />
-            Sinh viên (Student)
+            Student
           </Link>
 
           <Link href="/lecturer" style={{
@@ -74,7 +74,7 @@ export default function Navigation() {
             background: 'rgba(255,255,255,0.04)'
           }}>
             <Code2 size={16} color="#34d399" />
-            Giảng viên (Lecturer)
+            Lecturer
           </Link>
 
           <Link href="/admin" style={{
@@ -88,7 +88,7 @@ export default function Navigation() {
             background: 'rgba(255,255,255,0.04)'
           }}>
             <ShieldCheck size={16} color="#f43f5e" />
-            Quản trị (Admin)
+            Admin
           </Link>
         </nav>
 

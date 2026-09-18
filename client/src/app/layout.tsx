@@ -1,5 +1,5 @@
 import React from 'react';
-import '../styles/globals.css';
+import './globals.css';
 
 export const metadata = {
   title: 'AITA-INTELLIGENT | AI Teaching Assistant & Code Analytics Platform',
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
+    <html lang="en">
       <body>
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           {children}

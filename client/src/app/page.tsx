@@ -27,7 +27,7 @@ export default function HomePage() {
             color: '#60a5fa',
             marginBottom: '1.5rem'
           }}>
-            <Sparkles size={16} /> Đồ án SWD392 • FPT University Quy Nhơn • Nhóm 4
+            <Sparkles size={16} /> SWD392 Project • FPT University Quy Nhon • Group 4
           </div>
 
           <h1 style={{
@@ -40,13 +40,13 @@ export default function HomePage() {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
-            Hệ Thống Trợ Giảng AI &amp; <br />
+            AI-Powered Teaching Assistant &amp; <br />
             <span style={{
               background: 'var(--accent-gradient)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}>
-              Chấm Điểm Code Tự Động Trong Sandbox
+              Automated Sandbox Code Grading
             </span>
           </h1>
 
@@ -56,16 +56,16 @@ export default function HomePage() {
             maxWidth: '750px',
             margin: '0 auto 2.5rem'
           }}>
-            Giải pháp toàn diện cho sinh viên và giảng viên: Thực thi code an toàn với Docker Sandbox, 
-            phản hồi lỗi định tính thông minh bằng AI, theo dõi đóng góp Git chống free-rider và đánh giá chéo nội bộ.
+            A comprehensive solution for students and instructors: Secure code execution in Docker Sandbox, 
+            intelligent qualitative AI error feedback, Git contribution tracking against free-riding, and internal peer audits.
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <Link href="/student" className="btn-primary" style={{ padding: '12px 24px', fontSize: '1rem' }}>
-              Vào Không Gian Sinh Viên <ArrowRight size={18} />
+              Enter Student Workspace <ArrowRight size={18} />
             </Link>
             <Link href="/lecturer" className="btn-secondary" style={{ padding: '12px 24px', fontSize: '1rem' }}>
-              Không Gian Giảng Viên
+              Lecturer Workspace
             </Link>
           </div>
         </section>
@@ -93,12 +93,12 @@ export default function HomePage() {
             }}>
               <Terminal size={26} />
             </div>
-            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>Sinh Viên (Student)</h3>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>Student</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginBottom: '1.2rem' }}>
-              Nộp bài qua Git Hash, xem kết quả test case chạy từ Sandbox Docker, nhận xét chi tiết của AI và chat hỏi bài với AI Tutor.
+              Submit assignments via Git Hash, inspect test cases executed in Docker Sandbox, receive AI qualitative reviews, and chat with AI Tutor.
             </p>
             <Link href="/student" style={{ color: '#38bdf8', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Mở Dashboard Sinh viên <ArrowRight size={15} />
+              Open Student Dashboard <ArrowRight size={15} />
             </Link>
           </div>
 
@@ -118,12 +118,12 @@ export default function HomePage() {
             }}>
               <Cpu size={26} />
             </div>
-            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>Giảng Viên (Lecturer)</h3>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>Lecturer</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginBottom: '1.2rem' }}>
-              Cấu hình bài tập, thiết lập tiêu chí Rubric (ẩn/hiện test case), quản lý nhóm sinh viên và kiểm tra mức độ đóng góp qua Git commits.
+              Configure assignments, define Rubric criteria (public / hidden test cases), manage student teams, and monitor Git commit contributions.
             </p>
             <Link href="/lecturer" style={{ color: '#34d399', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Mở Dashboard Giảng viên <ArrowRight size={15} />
+              Open Lecturer Dashboard <ArrowRight size={15} />
             </Link>
           </div>
 
@@ -143,12 +143,12 @@ export default function HomePage() {
             }}>
               <ShieldCheck size={26} />
             </div>
-            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>Quản Trị (Admin)</h3>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.6rem' }}>Admin</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginBottom: '1.2rem' }}>
-              Quản lý tài khoản người dùng, phân công giảng viên và kiểm soát kho API Key (Key Pool rotation) cùng phiên bản Prompt Templates.
+              Manage user accounts, assign lecturers, oversee AI Key Pool rotation, and maintain Prompt Template versions.
             </p>
             <Link href="/admin" style={{ color: '#fb7185', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Mở Dashboard Quản trị <ArrowRight size={15} />
+              Open Admin Dashboard <ArrowRight size={15} />
             </Link>
           </div>
         </section>
@@ -157,10 +157,10 @@ export default function HomePage() {
         <section className="glass-card" style={{ padding: '2rem', borderLeft: '4px solid var(--accent-primary)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
             <Database size={24} color="#60a5fa" />
-            <h2 style={{ fontSize: '1.35rem' }}>Cơ sở dữ liệu 14 Thực thể (PostgreSQL Schema)</h2>
+            <h2 style={{ fontSize: '1.35rem' }}>14 Relational Database Entities (PostgreSQL Schema)</h2>
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-            Toàn bộ 14 bảng đã được ánh xạ chuẩn xác từ sơ đồ ERD vào file <code>database/schema.sql</code> và có sẵn dữ liệu mẫu trong <code>database/seed.sql</code>:
+            All 14 tables are mapped from the ERD design in <code>database/schema.sql</code> and populated with initial seed data in <code>database/seed.sql</code>:
           </p>
 
           <div style={{
@@ -170,20 +170,20 @@ export default function HomePage() {
             fontSize: '0.88rem'
           }}>
             {[
-              'users (Tài khoản & Phân quyền)',
-              'courses (Khóa học & Lớp)',
-              'teams (Nhóm đồ án & Repo URL)',
-              'team_members (Phân chia module)',
-              'assignments (Đầu việc & Deadline)',
-              'rubric_rules (Test cases ẩn/hiện)',
-              'submissions (Lịch sử nộp bài)',
-              'grading_jobs (Hàng đợi Docker)',
-              'grading_results (Điểm & AI feedback)',
-              'prompt_templates (Quản lý Version)',
-              'ai_api_keys (Xoay vòng Key Pool)',
-              'tutor_chat_messages (Trợ giảng AI)',
-              'git_commits (Lines added/deleted)',
-              'peer_audits (Đánh giá chéo sinh viên)'
+              'users (Accounts & Roles)',
+              'courses (Courses & Classes)',
+              'teams (Project Teams & Repos)',
+              'team_members (Module Assignments)',
+              'assignments (Tasks & Deadlines)',
+              'rubric_rules (Public / Hidden Tests)',
+              'submissions (Submission Records)',
+              'grading_jobs (Docker Execution Queue)',
+              'grading_results (Scores & AI Feedback)',
+              'prompt_templates (Version Control)',
+              'ai_api_keys (Key Pool Rotation)',
+              'tutor_chat_messages (AI Tutor Chat)',
+              'git_commits (Lines Added / Deleted)',
+              'peer_audits (Peer Reviews)'
             ].map((table, idx) => (
               <div key={idx} style={{
                 display: 'flex',

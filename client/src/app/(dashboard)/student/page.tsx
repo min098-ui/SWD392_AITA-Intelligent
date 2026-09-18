@@ -14,7 +14,7 @@ export default function StudentDashboard() {
   const [messages, setMessages] = useState([
     {
       sender: 'AI',
-      text: 'Chào bạn! Mình là Trợ giảng AI (AITA). Bài nộp của bạn vừa hoàn thành chấm trong Docker Sandbox đạt 9.5/10. Bạn có cần mình phân tích đoạn code nào hoặc tối ưu thời gian chạy không?'
+      text: 'Hello! I am your AI Teaching Assistant (AITA). Your submission has just completed grading in Docker Sandbox with a score of 9.5/10. Would you like me to analyze any specific piece of code or suggest runtime optimizations?'
     }
   ]);
   const [inputMsg, setInputMsg] = useState('');
@@ -33,7 +33,7 @@ export default function StudentDashboard() {
         ...prev, 
         {
           sender: 'AI',
-          text: `💡 **Phản hồi từ AI Tutor:** Về thắc mắc "${userText}" của bạn:\nTrong hàm xử lý ma trận, bạn đang sử dụng 2 vòng lặp lồng nhau $O(N^2)$. Nếu mảng kích thước lớn, bạn có thể cân nhắc dùng kỹ thuật Hai con trỏ (Two Pointers) hoặc Hash Map để giảm xuống $O(N)$ nhé!`
+          text: `💡 **AI Tutor Feedback:** Regarding your question "${userText}":\nIn the matrix calculation routine, you are currently using nested loops with $O(N^2)$ complexity. If input dimensions scale up, consider using Two Pointers or Hash Map indexing to reduce complexity to $O(N)$!`
         }
       ]);
     }, 800);
@@ -47,12 +47,12 @@ export default function StudentDashboard() {
         <div className="glass-card" style={{ padding: '1.5rem 2rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <span className="badge badge-info">Sinh Viên</span>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>Lê Nguyễn Ánh Mai</h2>
+              <span className="badge badge-info">Student</span>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>Le Nguyen Anh Mai</h2>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>(mai.lna.qe190151@fpt.edu.vn)</span>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              Môn học: <strong style={{ color: '#fff' }}>SWD392 - FA26</strong> • Nhóm: <strong style={{ color: '#fff' }}>Group 4 (AITA Project)</strong>
+              Course: <strong style={{ color: '#fff' }}>SWD392 - FA26</strong> • Team: <strong style={{ color: '#fff' }}>Group 4 (AITA Project)</strong>
             </p>
           </div>
 
@@ -62,7 +62,7 @@ export default function StudentDashboard() {
             padding: '8px 16px',
             borderRadius: '10px'
           }}>
-            <span style={{ fontSize: '0.75rem', color: '#93c5fd', display: 'block' }}>Module phụ trách (Assigned Module)</span>
+            <span style={{ fontSize: '0.75rem', color: '#93c5fd', display: 'block' }}>Assigned Module</span>
             <strong style={{ fontSize: '0.92rem', color: '#60a5fa' }}>Architecture, Auth &amp; Course Core</strong>
           </div>
         </div>
@@ -74,21 +74,21 @@ export default function StudentDashboard() {
             className={activeTab === 'results' ? 'btn-primary' : 'btn-secondary'}
             style={{ fontSize: '0.9rem', padding: '8px 16px' }}
           >
-            <CheckCircle2 size={16} /> Kết Quả Chấm Điểm &amp; Feedback AI
+            <CheckCircle2 size={16} /> Grading Results &amp; AI Feedback
           </button>
           <button 
             onClick={() => setActiveTab('chat')}
             className={activeTab === 'chat' ? 'btn-primary' : 'btn-secondary'}
             style={{ fontSize: '0.9rem', padding: '8px 16px' }}
           >
-            <Bot size={16} /> Trợ Giảng AI (Tutor Chat)
+            <Bot size={16} /> AI Tutor (Socratic Chat)
           </button>
           <button 
             onClick={() => setActiveTab('submit')}
             className={activeTab === 'submit' ? 'btn-primary' : 'btn-secondary'}
             style={{ fontSize: '0.9rem', padding: '8px 16px' }}
           >
-            <FileCode size={16} /> Nộp Bài Mới
+            <FileCode size={16} /> New Submission
           </button>
         </div>
 
@@ -105,7 +105,7 @@ export default function StudentDashboard() {
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', gap: '1.5rem', marginBottom: '1.5rem' }}>
                   <span>Commit: <code style={{ color: '#38bdf8' }}>7a9f4c2...</code></span>
                   <span>Sandbox: <code style={{ color: '#a78bfa' }}>docker_sandbox_c891</code></span>
-                  <span>Thời gian chạy: <strong>142ms</strong></span>
+                  <span>Execution Time: <strong>142ms</strong></span>
                 </div>
 
                 {/* Rubric Rules Result List */}
@@ -129,7 +129,7 @@ export default function StudentDashboard() {
                       <span className="badge badge-success">PASSED • 3.0 / 3.0</span>
                     </div>
                     <div className="code-box" style={{ fontSize: '0.8rem', margin: '8px 0', color: 'var(--text-muted)' }}>
-                      [Hidden Test Case] Sinh viên vượt qua toàn bộ 5/5 test case kiểm thử biên bí mật.
+                      [Hidden Test Case] Student successfully passed all 5/5 secret boundary test cases.
                     </div>
                   </div>
 
@@ -137,14 +137,14 @@ export default function StudentDashboard() {
                   <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                       <span style={{ fontWeight: 600, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc' }}>
-                        <Sparkles size={16} /> Đánh giá Clean Code &amp; Kiến trúc bằng AI
+                        <Sparkles size={16} /> Clean Code &amp; Architecture Review by AI
                       </span>
                       <span className="badge badge-success">3.5 / 4.0</span>
                     </div>
                     <p style={{ fontSize: '0.88rem', color: '#e2e8f0', marginTop: '8px', lineHeight: 1.6 }}>
-                      🤖 <strong>AI Feedback:</strong> Nhóm đã áp dụng tốt mô hình 3 lớp phân tách rõ ràng. 
-                      Các hàm xử lý có đặt tên biến rõ ràng, xử lý exception đầy đủ. 
-                      Điểm trừ nhỏ: Module xác thực JWT có thể chuyển cấu hình Secret Key ra biến môi trường thay vì để hardcode fallback.
+                      🤖 <strong>AI Feedback:</strong> The team properly implemented a clean 3-tier architecture with clear layer separation. 
+                      Functions have intuitive naming and exceptions are handled systematically. 
+                      Minor improvement: Move JWT secret configuration to environment variables rather than having hardcoded fallbacks.
                     </p>
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export default function StudentDashboard() {
             {/* Right: Quick actions & Peer audit */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
               <div className="glass-card" style={{ padding: '1.5rem' }}>
-                <h4 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Thông tin Repository</h4>
+                <h4 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Repository Information</h4>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                   <p style={{ marginBottom: '6px' }}>Repo URL:</p>
                   <code style={{ color: '#60a5fa', wordBreak: 'break-all' }}>
@@ -162,12 +162,12 @@ export default function StudentDashboard() {
                   </code>
                 </div>
                 <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                  <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>Đánh giá chéo (Peer Audit)</h4>
+                  <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>Peer Audit</h4>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                    Vòng 1 (Audit Round 1) đã mở. Vui lòng chấm điểm đóng góp cho 4 thành viên còn lại trong nhóm.
+                    Audit Round 1 is open. Please review and evaluate contributions for the other 4 team members.
                   </p>
                   <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center' }}>
-                    Mở Bảng Chấm Peer Audit
+                    Open Peer Audit Sheet
                   </button>
                 </div>
               </div>
@@ -186,7 +186,7 @@ export default function StudentDashboard() {
                 </div>
                 <div>
                   <h4 style={{ fontSize: '0.95rem' }}>AITA Coding Assistant (Socratic Tutor)</h4>
-                  <span style={{ fontSize: '0.75rem', color: '#34d399' }}>● Online • Đang gắn ngữ cảnh Bài nộp #1</span>
+                  <span style={{ fontSize: '0.75rem', color: '#34d399' }}>● Online • Context linked to Submission #1</span>
                 </div>
               </div>
               <span className="badge badge-info">Gemini 1.5 Pro / GPT-4o</span>
@@ -210,7 +210,7 @@ export default function StudentDashboard() {
                   }}
                 >
                   <strong style={{ display: 'block', fontSize: '0.75rem', color: m.sender === 'STUDENT' ? '#93c5fd' : '#c084fc', marginBottom: '4px' }}>
-                    {m.sender === 'STUDENT' ? 'Bạn' : '🤖 Trợ Giảng AITA'}
+                    {m.sender === 'STUDENT' ? 'You' : '🤖 AITA Tutor'}
                   </strong>
                   {m.text}
                 </div>
@@ -221,7 +221,7 @@ export default function StudentDashboard() {
             <form onSubmit={handleSendMessage} style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '10px', background: 'rgba(255,255,255,0.02)' }}>
               <input 
                 type="text"
-                placeholder="Đặt câu hỏi về lỗi test case hoặc cách tối ưu code..."
+                placeholder="Ask a question about test case failures or code optimization..."
                 value={inputMsg}
                 onChange={e => setInputMsg(e.target.value)}
                 style={{
@@ -237,7 +237,7 @@ export default function StudentDashboard() {
                 }}
               />
               <button type="submit" className="btn-primary">
-                <Send size={16} /> Gửi
+                <Send size={16} /> Send
               </button>
             </form>
           </div>
@@ -246,15 +246,15 @@ export default function StudentDashboard() {
         {/* TAB 3: SUBMISSION FORM */}
         {activeTab === 'submit' && (
           <div className="glass-card" style={{ maxWidth: '700px', margin: '0 auto', padding: '2rem' }}>
-            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>Nộp Bài Tập Đại Diện Nhóm</h3>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem' }}>Submit Assignment on behalf of Team</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '1.5rem' }}>
-              Sau khi bấm nộp, hệ thống sẽ tự động khởi chạy Docker Sandbox để biên dịch và chạy bộ test cases, 
-              đồng thời AI sẽ phân tích chất lượng code và trả về kết quả trong vòng 1-2 phút.
+              Upon submission, the system automatically launches a Docker Sandbox container to compile and run the test suite, 
+              while AI analyzes code quality and returns results within 1-2 minutes.
             </p>
 
-            <form onSubmit={e => { e.preventDefault(); alert('Đã tạo submission và đưa vào Docker Sandbox queue thành công!'); setActiveTab('results'); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            <form onSubmit={e => { e.preventDefault(); alert('Submission created and queued in Docker Sandbox successfully!'); setActiveTab('results'); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>Đường dẫn Artifact / Repository Git (*)</label>
+                <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>Git Repository / Artifact URL (*)</label>
                 <input 
                   type="text" 
                   defaultValue="https://github.com/aita-project/aita-intelligent.git"
@@ -269,13 +269,13 @@ export default function StudentDashboard() {
                   type="text" 
                   defaultValue="7a9f4c28e9b11029c0d3817f"
                   required
-                  placeholder="Ví dụ: 7a9f4c28e9b11029c0d3817f"
+                  placeholder="e.g.: 7a9f4c28e9b11029c0d3817f"
                   style={{ width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff' }} 
                 />
               </div>
 
               <button type="submit" className="btn-primary" style={{ padding: '12px', justifyContent: 'center', marginTop: '0.5rem' }}>
-                Xác Nhận Nộp Bài &amp; Chạy Docker Sandbox
+                Confirm Submission &amp; Run Docker Sandbox
               </button>
             </form>
           </div>
