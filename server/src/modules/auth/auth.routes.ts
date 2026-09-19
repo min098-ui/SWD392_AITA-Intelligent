@@ -5,6 +5,52 @@ import { pool } from '../../config/db';
 
 const router = Router();
 
+// POST /api/auth/register
+router.post('/register', async (req: Request, res: Response) => {
+  const { name, email, password, role } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Name, email, and password are required' });
+  }
+
+  // Validate role
+  const userRole = (role === 'STUDENT' || role === 'LECTURER' || role === 'ADMIN') ? role : 'STUDENT';
+
+  try {
+    // Check if user already exists
+    const existingUser = await pool.query('SELECT user_id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ message: 'Email đã được sử dụng. Vui lòng chọn email khác.' });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Insert user
+    const result = await pool.query(
+      `INSERT INTO users (full_name, email, password_hash, role) 
+       VALUES ($1, $2, $3, $4) RETURNING user_id, full_name, email, role`,
+      [name, email, passwordHash, userRole]
+    );
+
+    const newUser = result.rows[0];
+
+    return res.status(201).json({
+      message: 'Đăng ký thành công',
+      user: {
+        userId: newUser.user_id,
+        fullName: newUser.full_name,
+        email: newUser.email,
+        role: newUser.role,
+      },
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // POST /api/auth/login
 router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;

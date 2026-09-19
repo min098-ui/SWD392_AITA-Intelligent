@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import Navigation from '../../../components/Navigation';
 import { 
   Send, Bot, CheckCircle2, Clock, GitBranch, MessageSquare, 
-  Terminal, AlertCircle, FileCode, Users, ExternalLink, Sparkles
+  Terminal, AlertCircle, FileCode, Users, ExternalLink, Sparkles, BookOpen
 } from 'lucide-react';
 
 export default function StudentDashboard() {
-  const [activeTab, setActiveTab] = useState<'submit' | 'results' | 'chat' | 'peer'>('results');
+  const [activeTab, setActiveTab] = useState<'courses' | 'submit' | 'results' | 'chat' | 'peer' | 'analytics'>('courses');
   
   // Chat state
   const [messages, setMessages] = useState([
@@ -68,7 +68,14 @@ export default function StudentDashboard() {
         </div>
 
         {/* Tab Navigation */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem' }}>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setActiveTab('courses')}
+            className={activeTab === 'courses' ? 'btn-primary' : 'btn-secondary'}
+            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
+          >
+            <BookOpen size={16} /> My Courses &amp; Deadlines
+          </button>
           <button 
             onClick={() => setActiveTab('results')}
             className={activeTab === 'results' ? 'btn-primary' : 'btn-secondary'}
@@ -90,7 +97,76 @@ export default function StudentDashboard() {
           >
             <FileCode size={16} /> New Submission
           </button>
+          <button 
+            onClick={() => setActiveTab('analytics')}
+            className={activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}
+            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
+          >
+            <GitBranch size={16} /> Git Analytics
+          </button>
+          <button 
+            onClick={() => setActiveTab('peer')}
+            className={activeTab === 'peer' ? 'btn-primary' : 'btn-secondary'}
+            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
+          >
+            <Users size={16} /> Peer Audit
+          </button>
         </div>
+
+        {/* TAB 0: COURSES */}
+        {activeTab === 'courses' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BookOpen size={20} color="#38bdf8" /> Enrolled Courses
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+              {/* Course Card */}
+              <div className="glass-card" style={{ padding: '1.5rem', borderTop: '4px solid #38bdf8' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  <div>
+                    <span className="badge badge-info" style={{ marginBottom: '8px' }}>SWD392</span>
+                    <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Software Architecture and Design</h4>
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                  Lecturer: Dr. Nguyen Van GiaoVien
+                </p>
+                
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f43f5e', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={14} /> Due in 2 days
+                    </span>
+                  </div>
+                  <h5 style={{ fontSize: '0.95rem', marginBottom: '4px' }}>Milestone 1: Backend API &amp; Sandbox Runner</h5>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                    Implement authentication, Docker sandbox environment, and core database schema.
+                  </p>
+                  <button onClick={() => setActiveTab('submit')} className="btn-primary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem', padding: '8px' }}>
+                    Go to Submission
+                  </button>
+                </div>
+              </div>
+
+              {/* Course Card 2 */}
+              <div className="glass-card" style={{ padding: '1.5rem', borderTop: '4px solid #a78bfa', opacity: 0.8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  <div>
+                    <span className="badge" style={{ marginBottom: '8px', background: 'rgba(167, 139, 250, 0.2)', color: '#c4b5fd', border: '1px solid rgba(167, 139, 250, 0.4)' }}>PRJ301</span>
+                    <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Java Web Application Development</h4>
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                  Lecturer: Dr. Tran Thi B
+                </p>
+                <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  No upcoming deadlines
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: RESULTS */}
         {activeTab === 'results' && (
@@ -276,6 +352,98 @@ export default function StudentDashboard() {
 
               <button type="submit" className="btn-primary" style={{ padding: '12px', justifyContent: 'center', marginTop: '0.5rem' }}>
                 Confirm Submission &amp; Run Docker Sandbox
+              </button>
+            </form>
+          </div>
+        )}
+        {/* TAB 4: GIT ANALYTICS */}
+        {activeTab === 'analytics' && (
+          <div className="glass-card" style={{ padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <GitBranch size={20} color="#38bdf8" /> Team Git Contribution Report
+            </h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Your Commits</div>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#38bdf8' }}>42</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Your Lines of Code (LOC)</div>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#a78bfa' }}>1,245</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Team Ranking</div>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#34d399' }}>#2 / 5</div>
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <h4 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Team Contribution Overview</h4>
+              {/* Mock Bar Chart */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {[
+                  { name: 'Nguyen Van A', loc: 1450, color: '#38bdf8' },
+                  { name: 'Le Nguyen Anh Mai', loc: 1245, color: '#34d399' },
+                  { name: 'Tran Thi C', loc: 1100, color: '#a78bfa' },
+                  { name: 'Pham Van D', loc: 950, color: '#fbbf24' },
+                  { name: 'Hoang E', loc: 120, color: '#f43f5e', alert: true },
+                ].map((member, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '150px', fontSize: '0.9rem', color: member.alert ? '#f43f5e' : 'var(--text-main)' }}>
+                      {member.name} {member.name === 'Le Nguyen Anh Mai' && '(You)'}
+                    </div>
+                    <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', height: '12px', borderRadius: '6px', overflow: 'hidden' }}>
+                      <div style={{ width: `${(member.loc / 1500) * 100}%`, background: member.color, height: '100%' }} />
+                    </div>
+                    <div style={{ width: '60px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'right' }}>
+                      {member.loc}
+                    </div>
+                    {member.alert && (
+                      <span className="badge badge-error" style={{ fontSize: '0.7rem' }}>Free-Rider Warning</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: PEER AUDIT */}
+        {activeTab === 'peer' && (
+          <div className="glass-card" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
+            <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Users size={20} color="#f472b6" /> Peer Audit Evaluation
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '2rem' }}>
+              Evaluate your teammates based on their contribution, communication, and code quality. 
+              Your evaluation is strictly confidential and will only be seen by the lecturer.
+            </p>
+
+            <form onSubmit={e => { e.preventDefault(); alert('Peer Audit submitted successfully!'); setActiveTab('results'); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '8px', fontWeight: 600 }}>Select Teammate</label>
+                <select style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }}>
+                  <option value="">-- Choose a member to evaluate --</option>
+                  <option value="1">Nguyen Van A</option>
+                  <option value="2">Tran Thi C</option>
+                  <option value="3">Pham Van D</option>
+                  <option value="4">Hoang E</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '8px', fontWeight: 600 }}>Contribution Score (1-10)</label>
+                <input type="number" min="1" max="10" placeholder="e.g. 8" required style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '8px', fontWeight: 600 }}>Constructive Feedback</label>
+                <textarea rows={4} placeholder="Describe their strengths and areas for improvement..." required style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem', resize: 'vertical' }}></textarea>
+              </div>
+
+              <button type="submit" className="btn-primary" style={{ padding: '12px', justifyContent: 'center', marginTop: '1rem' }}>
+                Submit Evaluation
               </button>
             </form>
           </div>
