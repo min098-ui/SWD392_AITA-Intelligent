@@ -1,5 +1,6 @@
 import React from 'react';
 import './globals.css';
+import { LanguageProvider } from '../context/LanguageContext';
 
 export const metadata = {
   title: 'AITA-INTELLIGENT | AI Teaching Assistant & Code Analytics Platform',
@@ -12,12 +13,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="vi">
       <body>
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-          {children}
-        </div>
+        <LanguageProvider>
+          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+            {children}
+          </div>
+        </LanguageProvider>
       </body>
     </html>
   );
 }
+

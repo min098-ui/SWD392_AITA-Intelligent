@@ -135,14 +135,9 @@ export default function HomePage() {
             animation: 'fadeInUp 1s ease-out 0.6s both'
           }}>
             {!isLoggedIn ? (
-              <>
-                <Link href="/register" className="btn-primary" style={{ padding: '14px 32px', fontSize: '1.05rem', borderRadius: '12px' }}>
-                  Create Free Account <ArrowRight size={20} />
-                </Link>
-                <Link href="/login" className="btn-secondary" style={{ padding: '14px 32px', fontSize: '1.05rem', borderRadius: '12px', background: 'rgba(255,255,255,0.02)' }}>
-                  Sign In to Workspace
-                </Link>
-              </>
+              <Link href="/login" className="btn-primary" style={{ padding: '15px 36px', fontSize: '1.05rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                Sign In to Campus Workspace <ArrowRight size={20} />
+              </Link>
             ) : (
               <Link href={getDashboardLink()} className="btn-primary" style={{ padding: '14px 32px', fontSize: '1.05rem', borderRadius: '12px' }}>
                 Go to Dashboard <ArrowRight size={20} />
@@ -262,8 +257,8 @@ export default function HomePage() {
             Join educators and students who are already using AITA-INTELLIGENT to streamline grading and supercharge learning.
           </p>
           {!isLoggedIn ? (
-            <Link href="/register" className="btn-primary" style={{ padding: '16px 36px', fontSize: '1.1rem', borderRadius: '12px' }}>
-              Get Started Now
+            <Link href="/login" className="btn-primary" style={{ padding: '16px 36px', fontSize: '1.1rem', borderRadius: '12px' }}>
+              Sign In to Campus Portal <ArrowRight size={20} />
             </Link>
           ) : (
             <Link href={getDashboardLink()} className="btn-primary" style={{ padding: '16px 36px', fontSize: '1.1rem', borderRadius: '12px' }}>
