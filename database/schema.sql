@@ -158,9 +158,14 @@ CREATE TABLE IF NOT EXISTS tutor_chat_messages (
 );
 
 -- Indexes for Query Performance & Lookups
+CREATE INDEX IF NOT EXISTS idx_courses_lecturer ON courses(lecturer_id);
+CREATE INDEX IF NOT EXISTS idx_teams_course ON teams(course_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions(assignment_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_team ON submissions(team_id);
 CREATE INDEX IF NOT EXISTS idx_grading_jobs_status ON grading_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_grading_results_job ON grading_results(grading_job_id);
 CREATE INDEX IF NOT EXISTS idx_git_commits_team ON git_commits(team_id);
 CREATE INDEX IF NOT EXISTS idx_tutor_messages_submission ON tutor_chat_messages(submission_id);
+
