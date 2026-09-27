@@ -4,12 +4,15 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bot, Code2, ShieldCheck, GraduationCap } from 'lucide-react';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Navigation({ initialIsLoggedIn = false }: { initialIsLoggedIn?: boolean }) {
   const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn);
   const [userRole, setUserRole] = useState('');
   const pathname = usePathname();
   const router = useRouter();
+  const { lang } = useLanguage();
 
   useEffect(() => {
     // Kiểm tra token khi component mount hoặc khi chuyển trang
@@ -85,51 +88,43 @@ export default function Navigation({ initialIsLoggedIn = false }: { initialIsLog
           <div style={{ display: 'flex', gap: '8px' }}>
             {userRole === 'STUDENT' && (
               <Link href="/student" style={{ padding: '6px 12px', fontSize: '0.85rem', color: pathname.startsWith('/student') ? 'var(--text-main)' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', background: pathname.startsWith('/student') ? 'rgba(255,255,255,0.05)' : 'transparent', borderRadius: '6px' }}>
-                <GraduationCap size={16} /> Student Dashboard
+                <GraduationCap size={16} /> {lang === 'vi' ? 'Bảng Điều Khiển SV' : 'Student Dashboard'}
               </Link>
             )}
             {userRole === 'LECTURER' && (
               <Link href="/lecturer" style={{ padding: '6px 12px', fontSize: '0.85rem', color: pathname.startsWith('/lecturer') ? 'var(--text-main)' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', background: pathname.startsWith('/lecturer') ? 'rgba(255,255,255,0.05)' : 'transparent', borderRadius: '6px' }}>
-                <Code2 size={16} /> Lecturer Dashboard
+                <Code2 size={16} /> {lang === 'vi' ? 'Bảng Điều Khiển GV' : 'Lecturer Dashboard'}
               </Link>
             )}
             {userRole === 'ADMIN' && (
               <Link href="/admin" style={{ padding: '6px 12px', fontSize: '0.85rem', color: pathname.startsWith('/admin') ? 'var(--text-main)' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', background: pathname.startsWith('/admin') ? 'rgba(255,255,255,0.05)' : 'transparent', borderRadius: '6px' }}>
-                <ShieldCheck size={16} /> Admin Dashboard
+                <ShieldCheck size={16} /> {lang === 'vi' ? 'Quản Trị Hệ Thống' : 'Admin Dashboard'}
               </Link>
             )}
           </div>
         )}
 
         {/* Right Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* Nút chuyển đổi ngôn ngữ Toàn hệ thống */}
+          <LanguageSwitcher />
+
           {isLoggedIn && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: '9999px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-              Sandbox: Ready
+              {lang === 'vi' ? 'Sandbox: Sẵn sàng' : 'Sandbox: Ready'}
             </div>
           )}
           
           {!isLoggedIn && (
-            <>
-              <Link href="/login" style={{
-                fontSize: '0.9rem',
-                fontWeight: 500,
-                color: 'var(--text-main)',
-                transition: 'color 0.2s ease'
-              }}>
-                Sign In
-              </Link>
-              
-              <Link href="/register" className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
-                Get Started
-              </Link>
-            </>
+            <Link href="/login" className="btn-primary" style={{ padding: '8px 20px', fontSize: '0.9rem', borderRadius: '10px' }}>
+              {lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}
+            </Link>
           )}
           
           {isLoggedIn && (
             <button onClick={handleLogout} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.9rem', outline: 'none' }}>
-              Sign Out
+              {lang === 'vi' ? 'Đăng Xuất' : 'Sign Out'}
             </button>
           )}
         </div>
@@ -137,3 +132,4 @@ export default function Navigation({ initialIsLoggedIn = false }: { initialIsLog
     </header>
   );
 }
+
