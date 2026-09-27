@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "test:member1": "tsc && node dist/test/verify-member1.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
