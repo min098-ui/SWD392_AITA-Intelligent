@@ -1,12 +1,37 @@
+# Dependencies
 node_modules/
+*/node_modules/
+
+# Environment variables & secrets (NEVER commit real keys/secrets!)
 .env
-.env.local
-dist/
-build/
+.env.*
+*.env
+server/.env
+server/.env.*
+client/.env
+client/.env.*
+!*.example
+!**/.env.example
+
+# Next.js & Build outputs
 .next/
-*.log
-.DS_Store
-Thumbs.db
+client/.next/
+dist/
+server/dist/
+build/
+client/out/
+*.tsbuildinfo
+client/tsconfig.tsbuildinfo
+
+# Database & Cache data volumes
 postgres_data/
 redis_data/
+
+# Logs & OS artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
 coverage/
