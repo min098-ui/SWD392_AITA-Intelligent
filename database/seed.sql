@@ -3,16 +3,18 @@
 -- Course: SWD392 - Group 4
 -- =============================================================================
 
--- 1. Insert Users (Password is 'Password@123' hashed with bcrypt)
+-- 1. Insert Users (5 sample accounts: 1 Admin, 1 Lecturer, 3 Students; Password is 'Password@123')
 INSERT INTO users (user_id, full_name, email, password_hash, role) VALUES
-(1, 'System Administrator', 'admin@fpt.edu.vn', '$2a$10$wT8vGZzI9n7vYqO/V55u0u9Q.VdZlZkS8aVvE1Vp2bH6rJ9gK2YWe', 'ADMIN'),
-(2, 'Dr. Nguyen Van Giang', 'giangnv@fe.edu.vn', '$2a$10$wT8vGZzI9n7vYqO/V55u0u9Q.VdZlZkS8aVvE1Vp2bH6rJ9gK2YWe', 'LECTURER'),
-(3, 'Lê Nguyễn Ánh Mai', 'mai.lna.qe190151@fpt.edu.vn', '$2a$10$wT8vGZzI9n7vYqO/V55u0u9Q.VdZlZkS8aVvE1Vp2bH6rJ9gK2YWe', 'STUDENT'),
-(4, 'Đỗ Trần Đăng Khoa', 'khoa.dtd.qe190122@fpt.edu.vn', '$2a$10$wT8vGZzI9n7vYqO/V55u0u9Q.VdZlZkS8aVvE1Vp2bH6rJ9gK2YWe', 'STUDENT'),
-(5, 'Nguyễn Quốc Thanh Phong', 'phong.nqt.qe190030@fpt.edu.vn', '$2a$10$wT8vGZzI9n7vYqO/V55u0u9Q.VdZlZkS8aVvE1Vp2bH6rJ9gK2YWe', 'STUDENT'),
-(6, 'Đinh Gia Huy', 'huy.dg.qe190149@fpt.edu.vn', '$2a$10$wT8vGZzI9n7vYqO/V55u0u9Q.VdZlZkS8aVvE1Vp2bH6rJ9gK2YWe', 'STUDENT'),
-(7, 'Nguyễn Tường Vy', 'vy.nt.qe180099@fpt.edu.vn', '$2a$10$wT8vGZzI9n7vYqO/V55u0u9Q.VdZlZkS8aVvE1Vp2bH6rJ9gK2YWe', 'STUDENT')
-ON CONFLICT (user_id) DO NOTHING;
+(1, 'System Administrator', 'admin@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN'),
+(2, 'Dr. Nguyen Van Giang', 'giangnv@fe.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER'),
+(3, 'Sinh Viên 1 (Auth & Architecture)', 'student1@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT'),
+(4, 'Sinh Viên 2 (Docker Sandbox)', 'student2@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT'),
+(5, 'Sinh Viên 3 (AI Tutor & Prompts)', 'student3@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT')
+ON CONFLICT (user_id) DO UPDATE SET
+  full_name = EXCLUDED.full_name,
+  email = EXCLUDED.email,
+  password_hash = EXCLUDED.password_hash,
+  role = EXCLUDED.role;
 
 SELECT setval('users_user_id_seq', (SELECT MAX(user_id) FROM users));
 
@@ -34,10 +36,9 @@ SELECT setval('teams_team_id_seq', (SELECT MAX(team_id) FROM teams));
 INSERT INTO team_members (team_id, user_id, assigned_module) VALUES
 (1, 3, 'Software Architecture, Auth & Course Core'),
 (1, 4, 'Docker Sandbox Runner & Async Grading Queue'),
-(1, 5, 'AI Engine, Socratic Tutor & Key Rotation'),
-(1, 6, 'Database Schema, Git Analytics & Peer Audit'),
-(1, 7, 'Frontend Web App (Next.js 14) & UI/UX')
-ON CONFLICT ON CONSTRAINT uq_team_user DO NOTHING;
+(1, 5, 'AI Engine, Socratic Tutor & Key Rotation')
+ON CONFLICT ON CONSTRAINT uq_team_user DO UPDATE SET
+  assigned_module = EXCLUDED.assigned_module;
 
 -- 5. Insert Prompt Templates
 INSERT INTO prompt_templates (prompt_template_id, name, purpose, template_content, version) VALUES
