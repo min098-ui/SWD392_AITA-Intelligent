@@ -1,7 +1,11 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
+import path from 'path';
+
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 
 const realPool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://aita_user:aita_password_123@localhost:5432/aita_db',

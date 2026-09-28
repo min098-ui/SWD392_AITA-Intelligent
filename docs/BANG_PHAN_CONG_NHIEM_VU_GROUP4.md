@@ -1,55 +1,25 @@
-# AITA-INTELLIGENT: AI-Powered Teaching Assistant & AST Code Analytics Platform
+# BẢNG PHÂN CHIA CÔNG VIỆC 5 THÀNH VIÊN (TEAM TASK ALLOCATION)
 
-> **Môn học:** SWD392 – Software Architecture & Design Project (FPT University Quy Nhơn)
-> **Nhóm:** Group 4
-> **Hệ thống:** Chấm code tự động trong Docker Sandbox · Trợ giảng AI Socratic · Phân tích đóng góp Git · Đánh giá chéo nội bộ nhóm
-
----
-
-## 📂 Cấu Trúc Dự Án
-
-```
-SWD392_AITA-Intelligent/
-├── client/                     # Frontend: Next.js 14 + React 18 + TypeScript (Port 3000)
-│   ├── .env.example            # Mẫu cấu hình biến môi trường Frontend (.env.local)
-│   └── src/
-│       ├── app/                # App Router — Trang chủ, Auth, Dashboard Sinh viên / Giảng viên / Admin
-│       ├── components/         # UI Components tái sử dụng (Navigation, LanguageSwitcher, Chatbot, Tables)
-│       ├── context/            # LanguageContext đa ngôn ngữ (VI / EN)
-│       └── styles/             # Global CSS Design System (Dark Glassmorphic UI/UX)
-│
-├── server/                     # Backend API & Sandbox Runner: Express + TypeScript (Port 5000)
-│   ├── sandbox-images/         # Dockerfile Runner cô lập tài nguyên cho bài nộp sinh viên
-│   ├── .env.example            # Mẫu cấu hình biến môi trường Backend (.env)
-│   └── src/
-│       ├── config/             # Cấu hình PostgreSQL Pool, Redis, Environment
-│       ├── common/             # Middleware JWT, Phân quyền RBAC
-│       └── modules/
-│           ├── auth/           # Đăng nhập (Local, Google/GitHub OAuth), cấp Token JWT
-│           ├── courses/        # Quản lý môn học, lớp học & danh sách sinh viên
-│           ├── teams/          # Quản lý nhóm đồ án và thành viên trong nhóm
-│           ├── assignments/    # Quản lý bài tập, rubric test case ẩn/hiện
-│           ├── submissions/    # Nộp bài (Git hash), đưa vào hàng đợi chấm
-│           ├── ai-tutor/       # Chatbot Trợ giảng AI, Key Pool & Rotation
-│           ├── git-analytics/  # Kéo commit history, phân tích lines added/deleted
-│           └── peer-audits/    # Đánh giá chéo giữa các thành viên trong nhóm
-│
-├── database/                   # Cơ sở dữ liệu PostgreSQL 16
-│   ├── schema.sql              # DDL 16 bảng chuẩn 3NF theo ERD & SRS
-│   └── seed.sql                # Dữ liệu mẫu khởi tạo (Users, Courses, Teams, Rubrics)
-│
-├── docs/                       # Tài liệu SRS đặc tả yêu cầu & sơ đồ kiến trúc
-├── docker-compose.yml          # Khởi chạy PostgreSQL (5432) & Redis (6379)
-└── README.md
-```
+> **Dự án:** AITA-INTELLIGENT — AI-Powered Teaching Assistant & AST Code Analytics Platform  
+> **Môn học:** SWD392 – Software Architecture & Design Project (FPT University Quy Nhơn)  
+> **Nhóm thực hiện:** Group 4  
+> **Tech Stack:** Next.js 14 · Express + TypeScript · PostgreSQL 16 · Redis · BullMQ · Docker · Gemini AI  
 
 ---
 
-## 👥 Phân Chia Công Việc Cho 5 Thành Viên (Team Task Allocation)
+## 👥 Danh Sách 5 Thành Viên & Vai Trò
 
-### 1. Bản Đồ Phân Bổ Trách Nhiệm (Responsibility Matrix - RACI)
+1. **Thành viên 1** – Software Architect & Core Auth Engineer (Trưởng nhóm / Kiến trúc sư)
+2. **Thành viên 2** – Docker Sandbox & Autograding Engineer
+3. **Thành viên 3** – AI Engine & Key Rotation Engineer
+4. **Thành viên 4** – Git Analytics & Peer Audit Engineer
+5. **Thành viên 5** – Frontend Lead & UI/UX & QA
 
-Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng với 5 trụ cột kỹ thuật của dự án, đảm bảo khối lượng công việc cân bằng, không chồng chéo và dễ dàng chấm điểm đóng góp cá nhân trong đồ án SWD392:
+---
+
+## 1. Bản Đồ Phân Bổ Trách Nhiệm (Responsibility Matrix - RACI)
+
+Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng với 5 trụ cột kỹ thuật của dự án, đảm bảo khối lượng công việc cân bằng, độc lập, không chồng chéo và minh bạch khi chấm điểm đồ án:
 
 | Vai Trò | Trọng Tâm Nhiệm Vụ | Module Backend Phụ Trách | Bảng DB Phụ Trách | Business Rules |
 | :--- | :--- | :--- | :--- | :--- |
@@ -61,83 +31,89 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 
 ---
 
-### 2. Chi Tiết Task Cụ Thể Từng Thành Viên
+## 2. Chi Tiết Nhiệm Vụ Từng Thành Viên
 
-#### 👤 Thành Viên 1: Software Architect & Core Auth Engineer
+### 👤 Thành Viên 1: Software Architect & Core Auth Engineer
 *Nhiệm vụ: Thiết kế kiến trúc tổng thể, xây dựng nền tảng xác thực và phân quyền, quản lý môn học, ghi danh và nhóm.*
 
 - **Kiến trúc & DevOps:**
   - Thiết lập và duy trì `docker-compose.yml` khởi động đồng bộ PostgreSQL (port 5432) và Redis (port 6379).
   - Cấu hình Express server `src/index.ts`, CORS, middleware pipeline, health check endpoint `/api/health`.
-  - Quản lý file `.env.example`, `tsconfig.json`, `.gitignore` — đảm bảo không lộ secret.
+  - Quản lý file `.env.example`, `tsconfig.json`, `.gitignore` — đảm bảo an toàn bí mật hệ thống.
   - Thiết kế `database/schema.sql` cho các bảng nền tảng: `users`, `courses`, `course_enrollments`, `teams`, `team_members` và viết `database/seed.sql` nạp dữ liệu mẫu.
 
-- **Module `auth` — Đăng nhập & JWT:**
+- **Module `auth` — Đăng nhập & Phân quyền JWT:**
   - API `POST /api/auth/register`: Hash mật khẩu bằng **Bcrypt (salt = 10)** trước khi lưu (`BR-01`).
   - API `POST /api/auth/login`: Xác thực email/password, cấp **JWT Access Token** với payload `{ userId, role }`.
   - Viết `src/common/auth.middleware.ts`: Middleware `authenticateJWT` xác minh token và middleware `requireRole('ADMIN' | 'LECTURER' | 'STUDENT')` kiểm tra RBAC 3 cấp.
 
 - **Module `courses` — Quản lý Môn học & Ghi danh:**
-  - API `GET /api/courses` — Lấy danh sách môn học (Giảng viên xem môn mình dạy, Admin xem tất cả).
-  - API `POST /api/courses` — Giảng viên tạo môn học mới.
-  - API `GET /api/courses/:id` — Chi tiết môn học kèm danh sách nhóm và sinh viên.
-  - API `POST /api/courses/:id/enroll` — Ghi danh sinh viên vào khóa học (`course_enrollments`).
-  - API `GET /api/courses/:id/students` — Lấy danh sách sinh viên đã ghi danh môn học.
+  - API `GET /api/courses`: Lấy danh sách môn học (Giảng viên xem môn mình dạy, Admin xem tất cả).
+  - API `POST /api/courses`: Giảng viên tạo môn học mới.
+  - API `GET /api/courses/:id`: Chi tiết môn học kèm danh sách nhóm và sinh viên.
+  - API `POST /api/courses/:id/enroll`: Ghi danh sinh viên vào khóa học (`course_enrollments`).
+  - API `GET /api/courses/:id/students`: Lấy danh sách sinh viên đã ghi danh vào môn học.
 
 - **Module `teams` — Quản lý Nhóm:**
   - API `POST /api/teams`: Giảng viên tạo nhóm, gán `repo_url` GitHub cho nhóm.
   - API `POST /api/teams/:teamId/members`: Thêm sinh viên vào nhóm với `assigned_module` và `role` (`LEADER` / `MEMBER`).
-  - API `GET /api/teams/:teamId` — Lấy thông tin nhóm và danh sách thành viên.
+  - API `GET /api/teams/:teamId`: Lấy thông tin nhóm và danh sách thành viên.
 
-#### 👤 Thành Viên 2: Docker Sandbox & Autograding Engineer
+---
+
+### 👤 Thành Viên 2: Docker Sandbox & Autograding Engineer
 *Nhiệm vụ: Xây dựng pipeline chấm bài tự động trong Docker Container cô lập và hàng đợi xử lý bất đồng bộ.*
 
 - **Sandbox Runner (`server/sandbox-images/`):**
   - Viết `Dockerfile` cho từng ngôn ngữ hỗ trợ (Python, JavaScript/Node.js): Non-root user, network disabled, ulimit.
   - Cấu hình **giới hạn tài nguyên container**: CPU 0.5 core · RAM 256MB · Timeout 10–30 giây (`BR-03`).
-  - Dùng thư viện `dockerode` để tạo container, chạy code sinh viên, đọc stdout/stderr và xóa container sau khi chạy xong.
+  - Dùng thư viện `dockerode` để tạo container, chạy code sinh viên, đọc stdout/stderr và xóa container sau khi hoàn tất.
 
-- **Module `assignments` — Quản lý Bài Tập:**
+- **Module `assignments` — Quản lý Bài Tập & Rubric:**
   - API `POST /api/assignments`: Giảng viên tạo bài tập với `start_date`, `due_date`, `max_score`, `submission_type` (`INDIVIDUAL` / `TEAM`).
   - API `POST /api/assignments/:id/rubrics`: Thêm **Rubric Rule** (AUTOMATED / MANUAL / AI_ANALYSIS), thiết lập `is_hidden = true` cho test case ẩn.
   - API `GET /api/assignments/:id/rubrics`: Trả về test case — Sinh viên chỉ thấy kết quả Đạt/Không Đạt với test ẩn, không xem được `input_data` / `expected_output` (`BR-06`).
 
 - **Module `submissions` — Nộp bài:**
-  - API `POST /api/submissions`: Sinh viên nộp `artifact_url` (URL GitHub/file) và `git_commit_hash`, lưu `submitted_by_user_id`. Hệ thống tự động tạo **Grading Job** với priority tương ứng và đưa vào BullMQ Queue.
-  - API `GET /api/submissions/:id` — Lấy trạng thái bài nộp (SUBMITTED → QUEUED → GRADING → GRADED | FAILED).
+  - API `POST /api/submissions`: Sinh viên nộp `artifact_url` (URL GitHub/file zip) và `git_commit_hash`, lưu `submitted_by_user_id`. Hệ thống tự động tạo **Grading Job** với priority tương ứng và đưa vào BullMQ Queue.
+  - API `GET /api/submissions/:id`: Lấy trạng thái bài nộp (SUBMITTED → QUEUED → GRADING → GRADED | FAILED).
 
-- **Module `grading` — Worker Chấm Bài:**
+- **Module `grading` — Worker Chấm Bài (BullMQ & Redis):**
   - Cấu hình **BullMQ Worker** kết nối Redis, lắng nghe queue `grading-queue`.
   - Luồng xử lý: Kéo code từ `artifact_url` → Spin up Docker Container (`sandbox_container_id`) → Chạy từng Rubric Rule → So sánh `actual_output` với `expected_output` → Lưu `grading_results` (ứng với từng `rubric_rule_id`) → Cập nhật `status = 'COMPLETED'`.
   - Xử lý lỗi: Nếu container timeout hoặc crash → Cập nhật `status = 'FAILED'`, lưu log lỗi và tăng `retry_count`.
-  - API `GET /api/grading/:jobId/results` — Lấy kết quả chi tiết từng test case và AI feedback.
+  - API `GET /api/grading/:jobId/results`: Lấy kết quả chi tiết từng test case và nhận xét AI feedback.
 
-#### 👤 Thành Viên 3: AI Engine & Key Rotation Engineer
-*Nhiệm vụ: Tích hợp Gemini AI làm trợ giảng Socratic, quản lý Key Pool mã hóa và Prompt Template versioning.*
+---
+
+### 👤 Thành Viên 3: AI Engine & Key Rotation Engineer
+*Nhiệm vụ: Tích hợp Gemini AI làm trợ giảng Socratic, quản lý Key Pool mã hóa AES-256 và Prompt Template versioning.*
 
 - **Bảo mật AI API Keys (`ai_api_keys`):**
   - Viết service mã hóa/giải mã **AES-256** cho `api_key_encrypted` trước khi lưu vào DB (`BR-02`).
-  - API Admin `GET /api/ai-tutor/admin/keys` — Xem danh sách key, trạng thái (`ACTIVE` / `RATE_LIMITED` / `EXHAUSTED`), `usage_count`, `rotated_at`.
-  - API Admin `POST /api/ai-tutor/admin/keys` — Thêm key Gemini mới vào pool.
-  - API Admin `PATCH /api/ai-tutor/admin/keys/:id/status` — Thay đổi trạng thái key thủ công.
+  - API Admin `GET /api/ai-tutor/admin/keys`: Xem danh sách key, trạng thái (`ACTIVE` / `RATE_LIMITED` / `EXHAUSTED`), `usage_count`, `rotated_at`.
+  - API Admin `POST /api/ai-tutor/admin/keys`: Thêm key Gemini mới vào pool.
+  - API Admin `PATCH /api/ai-tutor/admin/keys/:id/status`: Thay đổi trạng thái key thủ công.
 
 - **Logic Key Rotation tự động (`BR-04`):**
   - Hàm `getNextActiveApiKey()`: Luôn chọn key `ACTIVE` có `usage_count` thấp nhất (Least-Used / Round-robin).
   - Khi gặp HTTP 429 (Rate Limit) từ Gemini: Tự động đánh dấu key hiện tại thành `RATE_LIMITED`, gọi lại `getNextActiveApiKey()` và thử request tiếp theo.
-  - Cập nhật `usage_count++` và `rotated_at` sau mỗi lần dùng.
+  - Cập nhật `usage_count++` và `rotated_at` sau mỗi lần gọi.
 
 - **Prompt Template Versioning (`BR-05`):**
   - Bảng `prompt_templates` lưu `version` (v1.0, v2.0...) cho mỗi system prompt (`purpose`: `Grading`, `TutorChat`).
-  - API `GET /api/ai-tutor/admin/prompts` — Liệt kê tất cả template theo `purpose`.
-  - API Admin `POST /api/ai-tutor/admin/prompts` — Thêm version mới, không xóa version cũ (audit trail).
+  - API `GET /api/ai-tutor/admin/prompts`: Liệt kê tất cả template theo `purpose`.
+  - API Admin `POST /api/ai-tutor/admin/prompts`: Thêm version mới, không ghi đè version cũ (audit trail).
 
 - **Module `ai-tutor` — Chatbot Trợ giảng Socratic & Chat Sessions:**
-  - API `POST /api/ai-tutor/sessions` — Tạo phiên chat mới (`tutor_chat_sessions`), gắn với `submission_id` hoặc `assignment_id`.
-  - API `GET /api/ai-tutor/sessions/:sessionId/messages` — Lấy lịch sử tin nhắn của phiên chat.
-  - API `POST /api/ai-tutor/sessions/:sessionId/chat` — Sinh viên gửi câu hỏi → Hệ thống lấy Prompt Template phù hợp → Gọi Gemini AI với phong cách **Socratic** (dẫn dắt gợi ý, không cho đáp án thẳng) → Lưu tin nhắn vào `tutor_chat_messages`.
+  - API `POST /api/ai-tutor/sessions`: Tạo phiên chat mới (`tutor_chat_sessions`), gắn với `submission_id` hoặc `assignment_id`.
+  - API `GET /api/ai-tutor/sessions/:sessionId/messages`: Lấy lịch sử tin nhắn của phiên chat.
+  - API `POST /api/ai-tutor/sessions/:sessionId/chat`: Sinh viên gửi câu hỏi → Hệ thống lấy Prompt Template phù hợp → Gọi Gemini AI với phong cách **Socratic** (dẫn dắt gợi ý, không cho đáp án thẳng) → Lưu tin nhắn vào `tutor_chat_messages`.
   - Tích hợp **AI Grading Feedback**: Sau khi chấm xong, gọi Gemini sinh ra `ai_feedback` nhận xét code chi tiết cho từng rubric rule trong `grading_results`.
 
-#### 👤 Thành Viên 4: Git Analytics & Peer Audit Engineer
+---
+
+### 👤 Thành Viên 4: Git Analytics & Peer Audit Engineer
 *Nhiệm vụ: Phân tích đóng góp cá nhân từ GitHub, phát hiện free-rider và xây dựng hệ thống đánh giá chéo nội bộ nhóm.*
 
 - **Module `git-analytics` — Phân tích GitHub:**
@@ -145,16 +121,18 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
   - API `POST /api/git/:teamId/sync`: Trigger đồng bộ commit history mới nhất từ GitHub vào bảng `git_commits`.
   - Với mỗi commit, lưu `commit_hash`, `author_user_id` (map từ GitHub email sang `users.user_id`), `lines_added`, `lines_deleted`, `committed_at`.
   - **Bộ lọc Noise (BR-07):** Loại bỏ các file sinh tự động (`node_modules/`, `dist/`, `build/`, `package-lock.json`, `.next/`) khỏi thống kê LOC để tính đóng góp thực chất.
-  - API `GET /api/git/:teamId/commits` — Trả về danh sách commit và bảng thống kê tổng hợp `lines_added` / `lines_deleted` / `total_commits` per thành viên.
+  - API `GET /api/git/:teamId/commits`: Trả về danh sách commit và bảng thống kê tổng hợp `lines_added` / `lines_deleted` / `total_commits` per thành viên.
   - **Free-Rider Detection (`BR-07`):** So sánh tỷ lệ đóng góp từng thành viên (LOC%) — nếu thấp hơn ngưỡng (ví dụ: <5% tổng nhóm), tự động đánh dấu cảnh báo cho Giảng viên.
 
 - **Module `peer-audits` — Đánh giá Chéo Nội bộ:**
-  - API `POST /api/peer-audits` — Sinh viên gửi đánh giá thành viên cùng nhóm: `team_id`, `assignment_id`, `reviewer_id`, `reviewee_id`, `audit_round`, `score`, `comments`.
+  - API `POST /api/peer-audits`: Sinh viên gửi đánh giá thành viên cùng nhóm: `team_id`, `assignment_id`, `reviewer_id`, `reviewee_id`, `audit_round`, `score`, `comments`.
   - **Ràng buộc DB cứng (`BR-08`):** Constraint `CHECK (reviewer_id <> reviewee_id)` ở tầng database cấm sinh viên tự đánh giá chính mình và `UNIQUE (assignment_id, reviewer_id, reviewee_id, audit_round)`.
-  - API `GET /api/peer-audits/team/:teamId/assignment/:assignmentId` — Lấy danh sách phiếu đánh giá theo đợt nộp bài.
-  - API `GET /api/peer-audits/team/:teamId/summary` — Tính điểm trung bình đánh giá chéo từng thành viên trong nhóm (`AVG(score)` group by `reviewee_id`), phục vụ Giảng viên.
+  - API `GET /api/peer-audits/team/:teamId/assignment/:assignmentId`: Lấy danh sách phiếu đánh giá theo đợt nộp bài.
+  - API `GET /api/peer-audits/team/:teamId/summary`: Tính điểm trung bình đánh giá chéo từng thành viên trong nhóm (`AVG(score)` group by `reviewee_id`), phục vụ Giảng viên.
 
-#### 👤 Thành Viên 5: Frontend Lead & UI/UX & QA
+---
+
+### 👤 Thành Viên 5: Frontend Lead & UI/UX & QA
 *Nhiệm vụ: Xây dựng toàn bộ giao diện Next.js 14 với thiết kế Glassmorphic tối, tích hợp tất cả API và đảm bảo chất lượng kiểm thử.*
 
 - **Hệ thống Design (`client/src/styles/`):**
@@ -197,7 +175,7 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 
 ---
 
-### 3. Lộ Trình Triển Khai Cho Cả Nhóm (Milestone Roadmap)
+## 3. Lộ Trình Triển Khai (Milestone Roadmap)
 
 ```mermaid
 gantt
@@ -220,7 +198,9 @@ gantt
 
 ---
 
-### 4. Quy Trình Phối Hợp Trên GitHub
+## 4. Quy Trình Phối Hợp Trên GitHub
+
+### Chiến lược nhánh (Git Branching Strategy)
 
 | Nhánh | Mục đích | Phụ trách chính |
 | :--- | :--- | :--- |
@@ -232,15 +212,20 @@ gantt
 | `feature/git-analytics-peer-audit` | Octokit Git Sync · Free-Rider Detection · Peer Audit API | **Thành viên 4** |
 | `feature/frontend-dashboard-ui` | Next.js 14 · Glassmorphic UI · Toàn bộ Dashboards | **Thành viên 5** |
 
+### Quy tắc làm việc nhóm:
+1. Mỗi Pull Request (PR) phải có ít nhất **1 thành viên khác review và approve**.
+2. Phải chạy `npm run build` không lỗi trước khi merge code vào `develop`.
+3. Format commit message: `[TV{số}] feat/fix/refactor: Nội dung công việc`.
+
 ---
 
-### 5. Bảng API Endpoints Phân Chia Theo Thành Viên
+## 5. Danh Sách API Endpoints Phân Chia Theo Thành Viên
 
-| Thành viên | Method | Endpoint | Mô tả |
+| Thành viên | Method | Endpoint | Mô tả chức năng |
 | :--- | :--- | :--- | :--- |
 | **TV1** | POST | `/api/auth/register` | Đăng ký tài khoản, mã hóa Bcrypt |
-| **TV1** | POST | `/api/auth/login` | Đăng nhập, cấp JWT Token |
-| **TV1** | GET | `/api/courses` | Danh sách môn học |
+| **TV1** | POST | `/api/auth/login` | Đăng nhập, cấp JWT Access Token |
+| **TV1** | GET | `/api/courses` | Lấy danh sách môn học |
 | **TV1** | POST | `/api/courses` | Giảng viên tạo môn học mới |
 | **TV1** | POST | `/api/courses/:id/enroll` | Ghi danh sinh viên vào lớp học |
 | **TV1** | GET | `/api/courses/:id/students` | Lấy danh sách sinh viên trong lớp |
@@ -248,11 +233,11 @@ gantt
 | **TV1** | POST | `/api/teams/:id/members` | Thêm sinh viên vào nhóm kèm vai trò & module |
 | **TV2** | POST | `/api/assignments` | Giảng viên tạo bài tập / Milestone |
 | **TV2** | POST | `/api/assignments/:id/rubrics` | Thêm tiêu chí Rubric / test case ẩn/hiện |
-| **TV2** | POST | `/api/submissions` | Nộp bài (`artifact_url`, `commit_hash`) → BullMQ |
+| **TV2** | POST | `/api/submissions` | Nộp bài (`artifact_url`, `commit_hash`) → BullMQ Queue |
 | **TV2** | GET | `/api/grading/:jobId/results` | Lấy kết quả chấm chi tiết từng tiêu chí Rubric |
 | **TV3** | POST | `/api/ai-tutor/sessions` | Khởi tạo phiên chat với Trợ giảng AI |
-| **TV3** | GET | `/api/ai-tutor/sessions/:id/messages` | Lấy lịch sử chat theo phiên |
-| **TV3** | POST | `/api/ai-tutor/sessions/:id/chat` | Gửi câu hỏi và nhận gợi ý Socratic từ Gemini |
+| **TV3** | GET | `/api/ai-tutor/sessions/:id/messages` | Lấy lịch sử chat theo từng phiên |
+| **TV3** | POST | `/api/ai-tutor/sessions/:id/chat` | Gửi câu hỏi và nhận gợi ý Socratic từ Gemini AI |
 | **TV3** | GET | `/api/ai-tutor/admin/keys` | Quản lý AI Key Pool, kiểm tra xoay tua key |
 | **TV3** | GET | `/api/ai-tutor/admin/prompts` | Quản lý các phiên bản Prompt Template |
 | **TV4** | POST | `/api/git/:teamId/sync` | Kéo commit history từ GitHub về hệ thống |
@@ -263,111 +248,3 @@ gantt
 | **TV5** | *(UI)* | `localhost:3000/student` | Toàn bộ Dashboard Sinh viên |
 | **TV5** | *(UI)* | `localhost:3000/lecturer` | Toàn bộ Dashboard Giảng viên |
 | **TV5** | *(UI)* | `localhost:3000/admin` | Toàn bộ Dashboard Quản trị viên |
-
----
-
-## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
-
-### Yêu Cầu Môi Trường
-
-| Công cụ | Phiên bản | Ghi chú |
-|:---|:---|:---|
-| Node.js | >= 20.x (khuyên 22.x) | [nodejs.org](https://nodejs.org) |
-| Docker Desktop | >= 4.x | Phải đang **chạy** trước bước 2 |
-| Git CLI | >= 2.x | [git-scm.com](https://git-scm.com) |
-
----
-
-### Bước 1 — Clone dự án
-
-```bash
-git clone https://github.com/min098-ui/SWD392_AITA-Intelligent.git
-cd SWD392_AITA-Intelligent
-```
-
----
-
-### Bước 2 — Tạo file `.env`
-
-```bash
-cp .env.example .env
-```
-
-> Mở file `.env` và điền `GEMINI_API_KEY`, `GITHUB_ACCESS_TOKEN` của nhóm vào.
-
----
-
-### Bước 3 — Khởi động Database & Redis (Docker)
-
-```bash
-docker compose up -d
-```
-
-> Lệnh này tự động khởi tạo PostgreSQL, nạp 16 bảng từ `schema.sql` và dữ liệu mẫu từ `seed.sql`.
-
-Kiểm tra container đang chạy:
-
-```bash
-docker compose ps
-```
-
----
-
-### Bước 4 — Khởi chạy Backend API (Port 5000)
-
-```bash
-cd server
-npm install
-npm run dev
-```
-
-- API hoạt động tại: **http://localhost:5000**
-- Kiểm tra hệ thống: **http://localhost:5000/api/health**
-
----
-
-### Bước 5 — Khởi chạy Frontend (Port 3000)
-
-Mở tab terminal mới:
-
-```bash
-cd client
-npm install
-npm run dev
-```
-
-- Web Dashboard: **http://localhost:3000**
-- 🎓 Sinh viên: http://localhost:3000/student
-- 👨‍🏫 Giảng viên: http://localhost:3000/lecturer
-- ⚙️ Quản trị: http://localhost:3000/admin
-
----
-
-## 📌 Quy Tắc Nghiệp Vụ Cốt Lõi (Business Rules)
-
-| Mã | Quy tắc |
-|:---|:---|
-| **BR-01** | Phân quyền RBAC 3 roles: ADMIN · LECTURER · STUDENT. Mật khẩu lưu dạng Bcrypt (salt = 10) |
-| **BR-02** | AI API Key của bên thứ ba phải mã hóa AES-256 trước khi lưu vào CSDL |
-| **BR-03** | Code sinh viên chạy trong Docker Container non-root: CPU 0.5 core · RAM 256MB · timeout 10–30s |
-| **BR-04** | Khi gặp HTTP 429 (Rate Limit), tự động xoay sang API Key dự phòng ACTIVE (Key Rotation) |
-| **BR-05** | Mọi Prompt Template phải có trường `version` (v1.0, v2.0...) để kiểm toán AI |
-| **BR-06** | Test case ẩn (`is_hidden = true`): sinh viên chỉ thấy Đạt/Không đạt, không xem được input/output |
-| **BR-07** | Tự động phân tích `lines_added`, `lines_deleted` từ GitHub để phát hiện free-rider |
-| **BR-08** | Peer audit: ràng buộc DB cấm sinh viên tự đánh giá chính mình (`reviewer_id <> reviewee_id`) |
-
----
-
-## 🔑 Tài Khoản Mẫu (Seed Data)
-
-> **Mật khẩu mặc định cho tất cả tài khoản:** `Password@123`
-
-| Vai trò | Email đăng nhập | Tên |
-|:---|:---|:---|
-| Admin | admin@fpt.edu.vn | System Administrator |
-| Giảng viên | giangnv@fe.edu.vn | Dr. Nguyen Van Giang |
-| Sinh viên 1 | student1@fpt.edu.vn | Sinh Viên 1 (Auth & Architecture) |
-| Sinh viên 2 | student2@fpt.edu.vn | Sinh Viên 2 (Docker Sandbox) |
-| Sinh viên 3 | student3@fpt.edu.vn | Sinh Viên 3 (AI Tutor & Prompts) |
-| Sinh viên 4 | student4@fpt.edu.vn | Sinh Viên 4 (Git & Peer Audit) |
-| Sinh viên 5 | student5@fpt.edu.vn | Sinh Viên 5 (Frontend UI/UX) |

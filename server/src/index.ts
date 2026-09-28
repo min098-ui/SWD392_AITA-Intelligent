@@ -1,6 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 
 import authRoutes from './modules/auth/auth.routes';
 import coursesRoutes from './modules/courses/courses.routes';
@@ -11,8 +16,6 @@ import aiTutorRoutes from './modules/ai-tutor/ai-tutor.routes';
 import gitRoutes from './modules/git-analytics/git.routes';
 import peerAuditsRoutes from './modules/peer-audits/peer-audits.routes';
 import { pool } from './config/db';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

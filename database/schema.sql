@@ -1,7 +1,7 @@
 -- =============================================================================
--- AITA-INTELLIGENT Database Schema (PostgreSQL)
--- Course: SWD392 - Software Design Project (Group 4)
--- Total 14 Domain Entities matching ERD & SRS Specification
+-- AITA-INTELLIGENT Database Schema (PostgreSQL 16)
+-- Course: SWD392 - Software Architecture & Design Project (Group 4)
+-- Total 16 Domain Entities matching ERD (3NF) & SRS Specification
 -- =============================================================================
 
 -- 1. Users Table (Admin, Lecturer, Student)
@@ -11,65 +11,90 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN', 'LECTURER', 'STUDENT')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Courses Table
 CREATE TABLE IF NOT EXISTS courses (
     course_id SERIAL PRIMARY KEY,
-    course_code VARCHAR(50) NOT NULL,
+    course_code VARCHAR(50) UNIQUE NOT NULL,
     course_name VARCHAR(150) NOT NULL,
     semester VARCHAR(20) NOT NULL,
-    lecturer_id INT NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT
+    lecturer_id INT NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Teams Table
+-- 3. Course Enrollments Table (Sinh viên ghi danh môn học)
+CREATE TABLE IF NOT EXISTS course_enrollments (
+    enrollment_id SERIAL PRIMARY KEY,
+    course_id INT NOT NULL REFERENCES courses(course_id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    enrolled_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_course_enrollment UNIQUE (course_id, user_id)
+);
+
+-- 4. Teams Table
 CREATE TABLE IF NOT EXISTS teams (
     team_id SERIAL PRIMARY KEY,
-    team_name VARCHAR(100) NOT NULL,
     course_id INT NOT NULL REFERENCES courses(course_id) ON DELETE CASCADE,
-    repo_url VARCHAR(255) NOT NULL
+    team_name VARCHAR(100) NOT NULL,
+    repo_url VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_course_team_name UNIQUE (course_id, team_name)
 );
 
--- 4. Team Members Table (Mapping students to teams & modules)
+-- 5. Team Members Table (Mapping students to teams & modules)
 CREATE TABLE IF NOT EXISTS team_members (
     team_member_id SERIAL PRIMARY KEY,
     team_id INT NOT NULL REFERENCES teams(team_id) ON DELETE CASCADE,
     user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     assigned_module VARCHAR(100) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'MEMBER' CHECK (role IN ('LEADER', 'MEMBER')),
+    joined_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_team_user UNIQUE (team_id, user_id)
 );
 
--- 5. Prompt Templates (Versioned system prompts for AI Grading & AI Tutor)
+-- 6. Prompt Templates (Versioned system prompts for AI Grading & AI Tutor)
 CREATE TABLE IF NOT EXISTS prompt_templates (
     prompt_template_id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    purpose VARCHAR(100) NOT NULL,
+    template_name VARCHAR(100),
+    name VARCHAR(100),
+    purpose VARCHAR(50) NOT NULL,
+    system_prompt TEXT,
     template_content TEXT NOT NULL,
-    version VARCHAR(20) NOT NULL DEFAULT 'v1.0'
+    temperature FLOAT NOT NULL DEFAULT 0.2,
+    version VARCHAR(20) NOT NULL DEFAULT 'v1.0',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. AI API Keys (Key Pool with rotation and encryption)
+-- 7. AI API Keys (Key Pool with rotation and encryption)
 CREATE TABLE IF NOT EXISTS ai_api_keys (
     ai_api_key_id SERIAL PRIMARY KEY,
     provider VARCHAR(50) NOT NULL,
+    api_key_encrypted VARCHAR(255),
     key_value_encrypted VARCHAR(255) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'RATE_LIMITED', 'EXHAUSTED')),
     usage_count INT NOT NULL DEFAULT 0,
-    rotated_at TIMESTAMP WITH TIME ZONE
+    rotated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Assignments Table
+-- 8. Assignments Table
 CREATE TABLE IF NOT EXISTS assignments (
     assignment_id SERIAL PRIMARY KEY,
     course_id INT NOT NULL REFERENCES courses(course_id) ON DELETE CASCADE,
     title VARCHAR(150) NOT NULL,
     description TEXT,
-    deadline TIMESTAMP WITH TIME ZONE NOT NULL,
-    max_score FLOAT NOT NULL DEFAULT 10.0
+    start_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    due_date TIMESTAMPTZ,
+    deadline TIMESTAMPTZ,
+    max_score FLOAT NOT NULL DEFAULT 10.0,
+    submission_type VARCHAR(20) NOT NULL DEFAULT 'TEAM' CHECK (submission_type IN ('INDIVIDUAL', 'TEAM')),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Rubric Rules Table (Test cases & evaluation criteria)
+-- 9. Rubric Rules Table (Test cases & evaluation criteria)
 CREATE TABLE IF NOT EXISTS rubric_rules (
     rubric_rule_id SERIAL PRIMARY KEY,
     assignment_id INT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
@@ -82,18 +107,19 @@ CREATE TABLE IF NOT EXISTS rubric_rules (
     is_hidden BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- 9. Submissions Table
+-- 10. Submissions Table
 CREATE TABLE IF NOT EXISTS submissions (
     submission_id SERIAL PRIMARY KEY,
     assignment_id INT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
-    team_id INT NOT NULL REFERENCES teams(team_id) ON DELETE CASCADE,
+    team_id INT REFERENCES teams(team_id) ON DELETE CASCADE,
+    submitted_by_user_id INT REFERENCES users(user_id) ON DELETE RESTRICT,
     artifact_url VARCHAR(255) NOT NULL,
     git_commit_hash VARCHAR(40) NOT NULL,
-    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    submitted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(20) NOT NULL DEFAULT 'SUBMITTED' CHECK (status IN ('SUBMITTED', 'QUEUED', 'GRADING', 'GRADED', 'FAILED'))
 );
 
--- 10. Grading Jobs Table (Async Queue Pipeline & Sandbox execution)
+-- 11. Grading Jobs Table (Async Queue Pipeline & Sandbox execution)
 CREATE TABLE IF NOT EXISTS grading_jobs (
     grading_job_id SERIAL PRIMARY KEY,
     submission_id INT NOT NULL REFERENCES submissions(submission_id) ON DELETE CASCADE,
@@ -102,11 +128,12 @@ CREATE TABLE IF NOT EXISTS grading_jobs (
     priority INT NOT NULL DEFAULT 1,
     status VARCHAR(20) NOT NULL DEFAULT 'QUEUED' CHECK (status IN ('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED')),
     sandbox_container_id VARCHAR(100),
-    queued_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP WITH TIME ZONE
+    retry_count INT NOT NULL DEFAULT 0,
+    queued_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMPTZ
 );
 
--- 11. Grading Results Table (Per-rule test case execution & AI feedback)
+-- 12. Grading Results Table (Per-rule test case execution & AI feedback)
 CREATE TABLE IF NOT EXISTS grading_results (
     grading_result_id SERIAL PRIMARY KEY,
     grading_job_id INT NOT NULL REFERENCES grading_jobs(grading_job_id) ON DELETE CASCADE,
@@ -116,48 +143,66 @@ CREATE TABLE IF NOT EXISTS grading_results (
     passed BOOLEAN NOT NULL DEFAULT FALSE,
     execution_time_ms INT DEFAULT 0,
     ai_feedback TEXT,
-    is_ai_generated BOOLEAN NOT NULL DEFAULT FALSE
+    is_ai_generated BOOLEAN NOT NULL DEFAULT FALSE,
+    graded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- 12. Git Commits Table (Tracking member contributions & lines changed)
+-- 13. Git Commits Table (Tracking member contributions & lines changed)
 CREATE TABLE IF NOT EXISTS git_commits (
     commit_id SERIAL PRIMARY KEY,
     team_id INT NOT NULL REFERENCES teams(team_id) ON DELETE CASCADE,
     author_user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
-    commit_hash VARCHAR(40) NOT NULL,
-    message TEXT,
+    assignment_id INT REFERENCES assignments(assignment_id) ON DELETE SET NULL,
+    commit_hash VARCHAR(40) UNIQUE NOT NULL,
+    commit_message TEXT,
     lines_added INT DEFAULT 0,
     lines_deleted INT DEFAULT 0,
-    committed_at TIMESTAMP WITH TIME ZONE NOT NULL
+    committed_at TIMESTAMPTZ NOT NULL
 );
 
--- 13. Peer Audits Table (Cross-evaluation among team members)
+-- 14. Peer Audits Table (Cross-evaluation among team members)
 CREATE TABLE IF NOT EXISTS peer_audits (
     audit_id SERIAL PRIMARY KEY,
     team_id INT NOT NULL REFERENCES teams(team_id) ON DELETE CASCADE,
+    assignment_id INT REFERENCES assignments(assignment_id) ON DELETE CASCADE,
     reviewer_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     reviewee_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
     audit_round INT NOT NULL DEFAULT 1,
+    score FLOAT NOT NULL DEFAULT 10.0,
     comments TEXT,
     passed BOOLEAN NOT NULL DEFAULT TRUE,
-    score FLOAT NOT NULL DEFAULT 10.0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_peer_not_self CHECK (reviewer_id <> reviewee_id)
+    evaluated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_peer_not_self CHECK (reviewer_id <> reviewee_id),
+    CONSTRAINT uq_peer_audit_round UNIQUE (assignment_id, reviewer_id, reviewee_id, audit_round)
 );
 
--- 14. Tutor Chat Messages Table (Interactive AI Tutor attached to submission)
+-- 15. Tutor Chat Sessions Table (Interactive AI Tutor Conversation Context)
+CREATE TABLE IF NOT EXISTS tutor_chat_sessions (
+    session_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    submission_id INT REFERENCES submissions(submission_id) ON DELETE SET NULL,
+    assignment_id INT REFERENCES assignments(assignment_id) ON DELETE SET NULL,
+    prompt_template_id INT REFERENCES prompt_templates(prompt_template_id) ON DELETE SET NULL,
+    session_title VARCHAR(150) NOT NULL DEFAULT 'New Conversation',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 16. Tutor Chat Messages Table (Messages belonging to a Session)
 CREATE TABLE IF NOT EXISTS tutor_chat_messages (
     message_id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    submission_id INT NOT NULL REFERENCES submissions(submission_id) ON DELETE CASCADE,
+    session_id INT REFERENCES tutor_chat_sessions(session_id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    submission_id INT REFERENCES submissions(submission_id) ON DELETE CASCADE,
     prompt_template_id INT REFERENCES prompt_templates(prompt_template_id) ON DELETE SET NULL,
     ai_api_key_id INT REFERENCES ai_api_keys(ai_api_key_id) ON DELETE SET NULL,
     sender_type VARCHAR(20) NOT NULL CHECK (sender_type IN ('STUDENT', 'AI')),
     content TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for Query Performance & Lookups
+-- =============================================================================
 CREATE INDEX IF NOT EXISTS idx_courses_lecturer ON courses(lecturer_id);
 CREATE INDEX IF NOT EXISTS idx_teams_course ON teams(course_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
@@ -166,6 +211,10 @@ CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON submissions(assignment_
 CREATE INDEX IF NOT EXISTS idx_submissions_team ON submissions(team_id);
 CREATE INDEX IF NOT EXISTS idx_grading_jobs_status ON grading_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_grading_results_job ON grading_results(grading_job_id);
+CREATE INDEX IF NOT EXISTS idx_grading_results_rubric ON grading_results(rubric_rule_id);
 CREATE INDEX IF NOT EXISTS idx_git_commits_team ON git_commits(team_id);
+CREATE INDEX IF NOT EXISTS idx_peer_audits_team_round ON peer_audits(team_id, audit_round);
+CREATE INDEX IF NOT EXISTS idx_tutor_sessions_user ON tutor_chat_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_tutor_messages_session ON tutor_chat_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_tutor_messages_submission ON tutor_chat_messages(submission_id);
 
