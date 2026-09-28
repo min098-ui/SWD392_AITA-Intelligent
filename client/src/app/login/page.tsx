@@ -98,7 +98,7 @@ function LoginContent() {
     }
     const clientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '').trim();
     if (!clientId) {
-      setErrorMessage(currentT === 'vi' ? 'Chưa cấu hình Google Client ID trong file môi trường (.env.local)' : 'Google Client ID not configured in .env.local');
+      setErrorMessage(lang === 'vi' ? 'Chưa cấu hình Google Client ID trong file môi trường (.env.local)' : 'Google Client ID not configured in .env.local');
       setRedirectingProvider(null);
       return;
     }
@@ -118,7 +118,7 @@ function LoginContent() {
     }
     const clientId = (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || '').trim();
     if (!clientId) {
-      setErrorMessage(currentT === 'vi' ? 'Chưa cấu hình GitHub Client ID trong file môi trường (.env.local)' : 'GitHub Client ID not configured in .env.local');
+      setErrorMessage(lang === 'vi' ? 'Chưa cấu hình GitHub Client ID trong file môi trường (.env.local)' : 'GitHub Client ID not configured in .env.local');
       setRedirectingProvider(null);
       return;
     }
