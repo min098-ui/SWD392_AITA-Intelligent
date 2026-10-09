@@ -7,10 +7,8 @@ RUN addgroup -S -g 1001 runner && adduser -S -u 1001 -G runner runner
 
 WORKDIR /app
 
-# Ensure non-root owns directory
 RUN chown -R runner:runner /app
 
 USER runner
 
-# Default command
 CMD ["python", "main.py"]
