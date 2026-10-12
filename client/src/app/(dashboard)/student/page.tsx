@@ -146,41 +146,51 @@ export default function StudentDashboard() {
       const teamRes = await fetch('http://localhost:5000/api/teams', {
         headers: { ...authHeader }
       });
+      let targetTeam: TeamInfo | null = null;
       if (teamRes.ok) {
         const tData = await teamRes.json();
-        if (tData.teams && userId) {
-          // Find team this student belongs to
-          const myT = tData.teams.find((t: TeamInfo) =>
-            t.members && t.members.some((m: TeamMember) => m.user_id === userId)
-          );
-          if (myT) {
-            setMyTeam(myT);
-            // Pre-fill repo URL from team
-            if (myT.repo_url && !repoUrl) setRepoUrl(myT.repo_url);
-
-            // 3. Fetch assignments for that course
-            const assignRes = await fetch(`http://localhost:5000/api/assignments?course_id=${myT.course_id}`, {
-              headers: { ...authHeader }
-            });
-            if (assignRes.ok) {
-              const aData = await assignRes.json();
-              const aList = aData.assignments || [];
-              setAssignments(aList);
-              if (aList.length > 0 && !selectedAssignment) {
-                setSelectedAssignment(aList[0].assignment_id);
-              }
-            }
-
-            // 4. Fetch submissions for team
-            const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${myT.team_id}`, {
-              headers: { ...authHeader }
-            });
-            if (subRes.ok) {
-              const sData = await subRes.json();
-              setMySubmissions(sData.submissions || []);
-            }
+        const teamsList: TeamInfo[] = tData.teams || [];
+        if (teamsList.length > 0) {
+          if (userId) {
+            targetTeam = teamsList.find((t: TeamInfo) =>
+              t.members && t.members.some((m: TeamMember) => m.user_id === userId)
+            ) || null;
+          }
+          // Default/fallback to first team if student isn't explicitly assigned
+          if (!targetTeam && teamsList.length > 0) {
+            targetTeam = teamsList[0];
           }
         }
+      }
+
+      if (targetTeam) {
+        setMyTeam(targetTeam);
+        // Pre-fill repo URL from team
+        if (targetTeam.repo_url && !repoUrl) setRepoUrl(targetTeam.repo_url);
+      }
+
+      // 3. Always fetch assignments (with or without course filter)
+      const courseParam = targetTeam?.course_id ? `?course_id=${targetTeam.course_id}` : '';
+      const assignRes = await fetch(`http://localhost:5000/api/assignments${courseParam}`, {
+        headers: { ...authHeader }
+      });
+      if (assignRes.ok) {
+        const aData = await assignRes.json();
+        const aList = aData.assignments || [];
+        setAssignments(aList);
+        if (aList.length > 0) {
+          setSelectedAssignment((prev) => prev || aList[0].assignment_id);
+        }
+      }
+
+      // 4. Fetch submissions for team if available
+      const teamIdToFetch = targetTeam?.team_id || 1;
+      const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${teamIdToFetch}`, {
+        headers: { ...authHeader }
+      });
+      if (subRes.ok) {
+        const sData = await subRes.json();
+        setMySubmissions(sData.submissions || []);
       }
     } catch (err) {
       console.error('Error fetching student data:', err);
@@ -230,10 +240,11 @@ export default function StudentDashboard() {
       setSubmitError(lang === 'vi' ? 'Vui lòng nhập URL repo và commit hash!' : 'Please enter repo URL and commit hash!');
       return;
     }
-    if (!selectedAssignment || !myTeam) {
-      setSubmitError(lang === 'vi' ? 'Không tìm thấy nhóm hoặc bài tập của bạn trong hệ thống!' : 'No team or assignment found!');
+    if (!selectedAssignment) {
+      setSubmitError(lang === 'vi' ? 'Vui lòng chọn bài tập cần nộp!' : 'Please select an assignment!');
       return;
     }
+    const teamIdToSubmit = myTeam?.team_id || 1;
 
     setIsSubmitting(true);
     setSubmitStep(1);
@@ -250,7 +261,7 @@ export default function StudentDashboard() {
         },
         body: JSON.stringify({
           assignment_id: Number(selectedAssignment),
-          team_id: myTeam.team_id,
+          team_id: teamIdToSubmit,
           artifact_url: repoUrl.trim(),
           git_commit_hash: commitHash.trim()
         })

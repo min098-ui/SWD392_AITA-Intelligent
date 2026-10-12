@@ -210,7 +210,7 @@ Khi thực thi lệnh `npm run test:member2`, hệ thống vượt qua **21/21 a
 
 ---
 
-## 6. Hướng Dẫn Chạy & Demo Khi Bảo Vệ Đồ Án
+## 6. Hướng Dẫn Chạy & Demo
 
 ### 1. Khởi động môi trường Database & Redis
 ```bash
