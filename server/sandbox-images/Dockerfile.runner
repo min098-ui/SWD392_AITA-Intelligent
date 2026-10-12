@@ -1,9 +1,9 @@
-# Dockerfile for Isolated Student Code Sandbox
+# Dockerfile for Isolated Python Sandbox Runner
 # SWD392 - AITA Sandbox Runner
 FROM python:3.11-alpine
 
 # Security: Create non-root user
-RUN addgroup -S runner && adduser -S runner -G runner
+RUN addgroup -S -g 1001 runner && adduser -S -u 1001 -G runner runner
 
 WORKDIR /app
 
