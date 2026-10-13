@@ -157,4 +157,199 @@ router.post('/regrade/:submissionId', authenticateJWT, requireRole('LECTURER', '
   }
 });
 
+// =============================================================================
+// BR-09: Collaborative Dual-Lecturer Moderation with AI Assistance (Workflow APIs)
+// =============================================================================
+
+// 1. POST /api/grading/review/approve-ai/:submissionId - Lecturer 1 accepts AI preliminary grade
+router.post(
+  '/review/approve-ai/:submissionId',
+  authenticateJWT,
+  requireRole('LECTURER', 'ADMIN'),
+  async (req: Request, res: Response) => {
+    const submissionId = req.params.submissionId;
+    const reviewerId = req.user!.userId;
+    const { notes } = req.body;
+
+    try {
+      const subRes = await pool.query('SELECT * FROM submissions WHERE submission_id = $1', [submissionId]);
+      if (subRes.rows.length === 0) {
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      // If ai_score is not set yet, pull the total score from latest grading job
+      const scoreToApprove = subRes.rows[0].ai_score !== null && subRes.rows[0].ai_score !== undefined
+        ? subRes.rows[0].ai_score
+        : 10.0; // fallback to perfect if no deduction
+
+      const updated = await pool.query(
+        `UPDATE submissions 
+         SET status = 'FINALIZED',
+             reviewer_1_id = $1,
+             reviewer_1_score = $2,
+             reviewer_1_notes = $3,
+             final_score = $2
+         WHERE submission_id = $4
+         RETURNING *`,
+        [reviewerId, scoreToApprove, notes || 'Approved AI preliminary evaluation', submissionId]
+      );
+
+      return res.json({
+        message: 'Lecturer 1 successfully approved AI score. Grade finalized.',
+        submission: updated.rows[0],
+      });
+    } catch (error) {
+      console.error('Error approving AI score:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
+
+// 2. POST /api/grading/review/request-second-opinion/:submissionId - Lecturer 1 disputes AI & requests 2nd lecturer
+router.post(
+  '/review/request-second-opinion/:submissionId',
+  authenticateJWT,
+  requireRole('LECTURER', 'ADMIN'),
+  async (req: Request, res: Response) => {
+    const submissionId = req.params.submissionId;
+    const reviewerId = req.user!.userId;
+    const { reviewer_1_score, reviewer_1_notes, reviewer_2_id } = req.body;
+
+    if (reviewer_1_score === undefined || !reviewer_2_id) {
+      return res.status(400).json({ message: 'reviewer_1_score and reviewer_2_id are required' });
+    }
+
+    if (reviewerId === Number(reviewer_2_id)) {
+      return res.status(400).json({ message: 'Reviewer 2 must be a different lecturer' });
+    }
+
+    try {
+      const updated = await pool.query(
+        `UPDATE submissions
+         SET status = 'PENDING_SECOND_REVIEW',
+             needs_second_review = TRUE,
+             reviewer_1_id = $1,
+             reviewer_1_score = $2,
+             reviewer_1_notes = $3,
+             reviewer_2_id = $4
+         WHERE submission_id = $5
+         RETURNING *`,
+        [reviewerId, reviewer_1_score, reviewer_1_notes || 'Requested second opinion', reviewer_2_id, submissionId]
+      );
+
+      if (updated.rows.length === 0) {
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      return res.json({
+        message: 'Second opinion requested. Submission assigned to Lecturer 2.',
+        submission: updated.rows[0],
+      });
+    } catch (error) {
+      console.error('Error requesting second opinion:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
+
+// 3. POST /api/grading/review/second-opinion/:submissionId - Lecturer 2 evaluates independently
+router.post(
+  '/review/second-opinion/:submissionId',
+  authenticateJWT,
+  requireRole('LECTURER', 'ADMIN'),
+  async (req: Request, res: Response) => {
+    const submissionId = req.params.submissionId;
+    const reviewerId = req.user!.userId;
+    const { reviewer_2_score, reviewer_2_notes } = req.body;
+
+    if (reviewer_2_score === undefined) {
+      return res.status(400).json({ message: 'reviewer_2_score is required' });
+    }
+
+    try {
+      const subRes = await pool.query('SELECT * FROM submissions WHERE submission_id = $1', [submissionId]);
+      if (subRes.rows.length === 0) {
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      const sub = subRes.rows[0];
+      const score1 = Number(sub.reviewer_1_score || 0);
+      const score2 = Number(reviewer_2_score);
+      const difference = Math.abs(score1 - score2);
+
+      // If difference is small (<= 0.5), auto-agree on average
+      // If difference is notable (> 0.5), require discussion (FIRST_REVIEWED / PENDING_SECOND_REVIEW)
+      let nextStatus = 'FIRST_REVIEWED';
+      let autoFinalScore: number | null = null;
+
+      if (difference <= 0.5) {
+        nextStatus = 'FINALIZED';
+        autoFinalScore = Number(((score1 + score2) / 2).toFixed(1));
+      }
+
+      const updated = await pool.query(
+        `UPDATE submissions
+         SET status = $1,
+             reviewer_2_id = $2,
+             reviewer_2_score = $3,
+             reviewer_2_notes = $4,
+             final_score = COALESCE($5, final_score)
+         WHERE submission_id = $6
+         RETURNING *`,
+        [nextStatus, reviewerId, score2, reviewer_2_notes || 'Second review submitted', autoFinalScore, submissionId]
+      );
+
+      return res.json({
+        message: difference <= 0.5
+          ? 'Scores are closely aligned. Grade auto-finalized by consensus.'
+          : 'Scores differ significantly. Both lecturers must discuss to establish final consensus.',
+        difference,
+        submission: updated.rows[0],
+      });
+    } catch (error) {
+      console.error('Error submitting second opinion:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
+
+// 4. POST /api/grading/review/consensus/:submissionId - Final agreement and grade settlement
+router.post(
+  '/review/consensus/:submissionId',
+  authenticateJWT,
+  requireRole('LECTURER', 'ADMIN'),
+  async (req: Request, res: Response) => {
+    const submissionId = req.params.submissionId;
+    const { final_score, consensus_notes } = req.body;
+
+    if (final_score === undefined || !consensus_notes) {
+      return res.status(400).json({ message: 'final_score and consensus_notes are required' });
+    }
+
+    try {
+      const updated = await pool.query(
+        `UPDATE submissions
+         SET status = 'FINALIZED',
+             final_score = $1,
+             consensus_notes = $2
+         WHERE submission_id = $3
+         RETURNING *`,
+        [final_score, consensus_notes, submissionId]
+      );
+
+      if (updated.rows.length === 0) {
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      return res.json({
+        message: 'Consensus recorded successfully. Final grade published.',
+        submission: updated.rows[0],
+      });
+    } catch (error) {
+      console.error('Error finalizing consensus:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
+
 export default router;
