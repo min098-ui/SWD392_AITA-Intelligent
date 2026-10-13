@@ -80,9 +80,11 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 // Initialize Background BullMQ Grading Worker
 gradingWorkerService.initWorker();
 
-app.listen(PORT, () => {
-  console.log(`🚀 AITA Backend Server running on http://localhost:${PORT}`);
-  console.log(`🩺 Healthcheck: http://localhost:${PORT}/api/health`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 AITA Backend Server running on http://localhost:${PORT}`);
+    console.log(`🩺 Healthcheck: http://localhost:${PORT}/api/health`);
+  });
+}
 
 export default app;

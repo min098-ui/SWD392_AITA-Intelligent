@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS rubric_rules (
     is_hidden BOOLEAN NOT NULL DEFAULT FALSE
 );
 
--- 10. Submissions Table
+-- 10. Submissions Table (With BR-09 Human-in-the-Loop Dual-Lecturer Moderation)
 CREATE TABLE IF NOT EXISTS submissions (
     submission_id SERIAL PRIMARY KEY,
     assignment_id INT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
@@ -116,7 +116,19 @@ CREATE TABLE IF NOT EXISTS submissions (
     artifact_url VARCHAR(255) NOT NULL,
     git_commit_hash VARCHAR(40) NOT NULL,
     submitted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20) NOT NULL DEFAULT 'SUBMITTED' CHECK (status IN ('SUBMITTED', 'QUEUED', 'GRADING', 'GRADED', 'FAILED'))
+    status VARCHAR(30) NOT NULL DEFAULT 'SUBMITTED' CHECK (status IN ('SUBMITTED', 'QUEUED', 'GRADING', 'GRADED', 'FAILED', 'AI_PREGRADED', 'FIRST_REVIEWED', 'PENDING_SECOND_REVIEW', 'FINALIZED')),
+    -- BR-09: Collaborative Dual-Lecturer Moderation with AI Assistance
+    ai_score FLOAT,
+    ai_feedback TEXT,
+    reviewer_1_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+    reviewer_1_score FLOAT,
+    reviewer_1_notes TEXT,
+    needs_second_review BOOLEAN DEFAULT FALSE,
+    reviewer_2_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+    reviewer_2_score FLOAT,
+    reviewer_2_notes TEXT,
+    consensus_notes TEXT,
+    final_score FLOAT
 );
 
 -- 11. Grading Jobs Table (Async Queue Pipeline & Sandbox execution)
