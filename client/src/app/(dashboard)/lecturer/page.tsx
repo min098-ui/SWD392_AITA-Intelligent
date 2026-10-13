@@ -6,7 +6,8 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { 
   Users, BookOpen, GitBranch, Settings, CheckCircle2, 
   AlertTriangle, Filter, Search, ShieldCheck, Download, FolderOpen, Plus, 
-  Link as LinkIcon, Edit3, RotateCw, Loader2, Sparkles, Terminal, X, Check
+  Link as LinkIcon, Edit3, RotateCw, Loader2, Sparkles, Terminal, X, Check,
+  Clock, UserCheck, FileText, Award, ArrowRight, UserPlus
 } from 'lucide-react';
 
 interface SubmissionItem {
@@ -22,6 +23,18 @@ interface SubmissionItem {
   sandboxOutput: string;
   aiFeedback: string;
   overrideNote: string;
+  // BR-09: Collaborative Dual-Lecturer Moderation
+  moderationStatus?: 'AI_PREGRADED' | 'FIRST_REVIEWED' | 'PENDING_SECOND_REVIEW' | 'FINALIZED';
+  ai_score?: number;
+  reviewer_1_name?: string;
+  reviewer_1_score?: number;
+  reviewer_1_notes?: string;
+  needs_second_review?: boolean;
+  reviewer_2_name?: string;
+  reviewer_2_score?: number;
+  reviewer_2_notes?: string;
+  consensus_notes?: string;
+  final_score?: number;
 }
 
 interface CourseItem {
@@ -116,7 +129,14 @@ export default function LecturerDashboard() {
       time: '2026-09-27 10:15',
       sandboxOutput: `[Docker Runner v2.4] Initializing container from image: aita-sandbox:node18-slim\nMounting repository from git SHA: 7a9f4c28e9b1\nRunning 10 test cases against rubric rules...\n✔ TC1: Valid Authentication (42ms)\n✔ TC2: Boundary Array Index Check (68ms)\n✔ TC3: Hidden Edge Case [SQL/Payload Sanitation] (85ms)\n------------------------------------------------\nAll 10/10 test cases passed. Sandbox execution time: 195ms.`,
       aiFeedback: `🤖 Phân tích AI (Gemini 1.5 Pro): Sinh viên áp dụng đúng kiến trúc phân lớp Clean Architecture, mã nguồn có docstring đầy đủ. Xử lý timeout và kết nối cơ sở dữ liệu đạt chuẩn. Gợi ý thêm: Cần tăng độ bao phủ kiểm thử đơn vị cho hàm tính toán token.`,
-      overrideNote: ''
+      overrideNote: 'Thống nhất điểm số xuất sắc cùng mô hình AI.',
+      moderationStatus: 'FINALIZED',
+      ai_score: 9.5,
+      reviewer_1_name: 'TS. Nguyễn Văn Giảng',
+      reviewer_1_score: 9.5,
+      reviewer_1_notes: 'Thống nhất với đánh giá của AI, kiến trúc dự án phân lớp chặt chẽ.',
+      final_score: 9.5,
+      consensus_notes: 'Cả 2 giảng viên và AI đạt mức đồng thuận tuyệt đối 9.5/10.'
     },
     {
       id: 2,
@@ -130,7 +150,13 @@ export default function LecturerDashboard() {
       time: '2026-09-27 09:30',
       sandboxOutput: `[Docker Runner] All 10 test cases passed. Execution time: 240ms.`,
       aiFeedback: `🤖 Phân tích AI: Code sạch, tách biệt module tốt. Các hàm xử lý lỗi rõ ràng.`,
-      overrideNote: ''
+      overrideNote: '',
+      moderationStatus: 'AI_PREGRADED',
+      ai_score: 9.0,
+      reviewer_1_name: '',
+      reviewer_1_score: undefined,
+      reviewer_1_notes: '',
+      needs_second_review: false
     },
     {
       id: 3,
@@ -144,7 +170,14 @@ export default function LecturerDashboard() {
       time: '2026-09-26 21:00',
       sandboxOutput: `[Docker Runner] 9/10 test cases passed. 1 test case exceeded timeout threshold (150ms).`,
       aiFeedback: `🤖 Phân tích AI: Có vòng lặp lồng O(N^2) ở module tính ma trận, cần tối ưu sang Two Pointers.`,
-      overrideNote: ''
+      overrideNote: 'Trừ điểm thuật toán O(N^2), chuyển GV2 chấm chéo kiểm tra độc lập.',
+      moderationStatus: 'PENDING_SECOND_REVIEW',
+      ai_score: 8.5,
+      reviewer_1_name: 'TS. Nguyễn Văn Giảng',
+      reviewer_1_score: 7.5,
+      reviewer_1_notes: 'Thuật toán chưa tối ưu, trừ 1.0 điểm so với AI. Đề nghị GV2 kiểm định.',
+      needs_second_review: true,
+      reviewer_2_name: 'ThS. Trần Thị Chuyên Môn'
     },
     {
       id: 4,
@@ -158,7 +191,13 @@ export default function LecturerDashboard() {
       time: '2026-09-26 18:45',
       sandboxOutput: `[Docker Runner] Lỗi biên dịch TypeScript: Cannot find module '../config/db'. 7/10 test cases failed.`,
       aiFeedback: `🤖 Phân tích AI: Code thiếu file config kết nối database dẫn tới crash container.`,
-      overrideNote: ''
+      overrideNote: 'GV1 đã xem xét cho cơ hội nộp lại.',
+      moderationStatus: 'FIRST_REVIEWED',
+      ai_score: 3.5,
+      reviewer_1_name: 'TS. Nguyễn Văn Giảng',
+      reviewer_1_score: 4.0,
+      reviewer_1_notes: 'Lỗi cấu hình cơ bản, cộng 0.5 điểm động viên và nhắc nộp lại bài.',
+      needs_second_review: false
     },
   ]);
 
@@ -169,6 +208,17 @@ export default function LecturerDashboard() {
   const [isRegrading, setIsRegrading] = useState<boolean>(false);
   const [successToast, setSuccessToast] = useState<string>('');
   const [modalError, setModalError] = useState<string>('');
+
+  // BR-09 Dual-Lecturer Moderation Workflow State
+  const [activeModalStage, setActiveModalStage] = useState<'review1' | 'review2' | 'consensus'>('review1');
+  const [reviewer1Score, setReviewer1Score] = useState<number>(0);
+  const [reviewer1Notes, setReviewer1Notes] = useState<string>('');
+  const [assignedReviewer2, setAssignedReviewer2] = useState<string>('ThS. Trần Thị Chuyên Môn');
+  const [reviewer2Score, setReviewer2Score] = useState<number>(0);
+  const [reviewer2Notes, setReviewer2Notes] = useState<string>('');
+  const [consensusNotes, setConsensusNotes] = useState<string>('');
+  const [finalScoreInput, setFinalScoreInput] = useState<number>(0);
+  const [scoreDiffNotice, setScoreDiffNotice] = useState<string>('');
 
   // Helper để lấy token hoặc tự động cấp token hợp lệ
   const getToken = async (): Promise<string> => {
@@ -426,8 +476,199 @@ export default function LecturerDashboard() {
 
   const openGradingModal = (sub: SubmissionItem) => {
     setSelectedSub(sub);
-    setEditingGrade(sub.grade);
-    setEditingNote(sub.overrideNote || '');
+    setEditingGrade(sub.final_score ?? sub.grade);
+    setEditingNote(sub.overrideNote || sub.reviewer_1_notes || '');
+    setReviewer1Score(sub.reviewer_1_score ?? sub.grade ?? (sub.ai_score || 8.0));
+    setReviewer1Notes(sub.reviewer_1_notes || sub.overrideNote || '');
+    setReviewer2Score(sub.reviewer_2_score ?? sub.grade ?? 8.0);
+    setReviewer2Notes(sub.reviewer_2_notes || '');
+    setConsensusNotes(sub.consensus_notes || '');
+    setFinalScoreInput(sub.final_score ?? sub.grade ?? 8.5);
+    setScoreDiffNotice('');
+
+    if (sub.moderationStatus === 'PENDING_SECOND_REVIEW') {
+      setActiveModalStage('review2');
+    } else if (sub.moderationStatus === 'FINALIZED' && sub.consensus_notes) {
+      setActiveModalStage('consensus');
+    } else {
+      setActiveModalStage('review1');
+    }
+  };
+
+  // BR-09 Action 1: Phê duyệt điểm AI trực tiếp (Approve AI Score)
+  const handleApproveAI = async (sub: SubmissionItem) => {
+    const aiScoreVal = sub.ai_score ?? sub.grade ?? 9.0;
+    try {
+      const token = await getToken();
+      await fetch(`http://localhost:5000/api/grading/review/approve-ai/${sub.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ notes: 'Phê duyệt điểm sơ bộ từ AI model.' })
+      }).catch(() => {});
+    } catch (e) {}
+
+    setSubmissions(prev => prev.map(s => {
+      if (s.id === sub.id) {
+        return {
+          ...s,
+          moderationStatus: 'FINALIZED',
+          grade: aiScoreVal,
+          final_score: aiScoreVal,
+          reviewer_1_name: currentUser?.fullName || 'Dr. Nguyen Van Giang',
+          reviewer_1_score: aiScoreVal,
+          reviewer_1_notes: 'Đã phê duyệt điểm sơ bộ từ AI model.',
+          consensus_notes: 'Giảng viên đồng thuận điểm đánh giá tự động của AI.'
+        };
+      }
+      return s;
+    }));
+
+    setSuccessToast(lang === 'vi' ? '⚡ Phê duyệt điểm AI thành công! Điểm bài nộp đã được chốt (FINALIZED).' : '⚡ AI score approved! Grade finalized.');
+    setSelectedSub(null);
+    setTimeout(() => setSuccessToast(''), 3500);
+  };
+
+  // BR-09 Action 2: GV 1 chấm lại & Yêu cầu GV 2 chấm chéo (Request Second Opinion)
+  const handleRequestSecondOpinion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSub) return;
+
+    try {
+      const token = await getToken();
+      await fetch(`http://localhost:5000/api/grading/review/request-second-opinion/${selectedSub.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          reviewer_1_score: Number(reviewer1Score),
+          reviewer_1_notes: reviewer1Notes,
+          reviewer_2_id: 2
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
+    setSubmissions(prev => prev.map(s => {
+      if (s.id === selectedSub.id) {
+        return {
+          ...s,
+          moderationStatus: 'PENDING_SECOND_REVIEW',
+          needs_second_review: true,
+          reviewer_1_name: currentUser?.fullName || 'Dr. Nguyen Van Giang',
+          reviewer_1_score: Number(reviewer1Score),
+          reviewer_1_notes: reviewer1Notes,
+          reviewer_2_name: assignedReviewer2,
+        };
+      }
+      return s;
+    }));
+
+    setSuccessToast(lang === 'vi' 
+      ? `🔄 Đã chuyển bài cho ${assignedReviewer2} chấm chéo độc lập (PENDING_SECOND_REVIEW)!` 
+      : 'Second opinion requested from Lecturer 2!');
+    setActiveModalStage('review2');
+    setTimeout(() => setSuccessToast(''), 3500);
+  };
+
+  // BR-09 Action 3: GV 2 chấm độc lập & So sánh độ lệch (Submit Second Opinion)
+  const handleSubmitSecondOpinion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSub) return;
+
+    const s1 = Number(reviewer1Score);
+    const s2 = Number(reviewer2Score);
+    const diff = Math.abs(s1 - s2);
+
+    try {
+      const token = await getToken();
+      await fetch(`http://localhost:5000/api/grading/review/second-opinion/${selectedSub.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          reviewer_2_score: s2,
+          reviewer_2_notes: reviewer2Notes
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
+    if (diff <= 0.5) {
+      // Độ lệch nhỏ <= 0.5: Tự động chốt điểm trung bình
+      const avgScore = Number(((s1 + s2) / 2).toFixed(1));
+      setSubmissions(prev => prev.map(s => {
+        if (s.id === selectedSub.id) {
+          return {
+            ...s,
+            moderationStatus: 'FINALIZED',
+            grade: avgScore,
+            final_score: avgScore,
+            reviewer_2_score: s2,
+            reviewer_2_notes: reviewer2Notes,
+            consensus_notes: `Hai giảng viên chấm độc lập (GV1: ${s1}, GV2: ${s2}). Độ lệch ${diff.toFixed(1)} <= 0.5, tự động thống nhất điểm trung bình ${avgScore}.`
+          };
+        }
+        return s;
+      }));
+      setSuccessToast(lang === 'vi' 
+        ? `✅ Độ lệch nhỏ (${diff.toFixed(1)} ≤ 0.5) — Hệ thống tự động đồng thuận điểm chốt: ${avgScore}/10!` 
+        : `✅ Scores aligned (Diff ≤ 0.5). Auto-finalized average: ${avgScore}/10!`);
+      setSelectedSub(null);
+      setTimeout(() => setSuccessToast(''), 4000);
+    } else {
+      // Độ lệch lớn > 0.5: Chuyển sang bước thảo luận đồng thuận
+      setScoreDiffNotice(lang === 'vi' 
+        ? `⚠️ Điểm GV1 (${s1}) và GV2 (${s2}) bị lệch ${diff.toFixed(1)} điểm (> 0.5). Cần lập biên bản đồng thuận trước khi chốt!` 
+        : `⚠️ Score discrepancy: |${s1} - ${s2}| = ${diff.toFixed(1)} (> 0.5). Consensus meeting required!`);
+      setFinalScoreInput(Number(((s1 + s2) / 2).toFixed(1)));
+      setConsensusNotes(lang === 'vi' 
+        ? `Biên bản: GV1 chấm ${s1} (${reviewer1Notes}), GV2 chấm ${s2} (${reviewer2Notes}). Thống nhất dung hòa tiêu chí.` 
+        : `Meeting notes: GV1 scored ${s1}, GV2 scored ${s2}. Consensus agreement reached.`);
+      setActiveModalStage('consensus');
+      setSubmissions(prev => prev.map(s => {
+        if (s.id === selectedSub.id) {
+          return {
+            ...s,
+            reviewer_2_score: s2,
+            reviewer_2_notes: reviewer2Notes
+          };
+        }
+        return s;
+      }));
+    }
+  };
+
+  // BR-09 Action 4: Biên bản đồng thuận & Chốt điểm chính thức (Finalize Consensus)
+  const handleFinalizeConsensus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSub) return;
+
+    try {
+      const token = await getToken();
+      await fetch(`http://localhost:5000/api/grading/review/consensus/${selectedSub.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          final_score: Number(finalScoreInput),
+          consensus_notes: consensusNotes
+        })
+      }).catch(() => {});
+    } catch (e) {}
+
+    setSubmissions(prev => prev.map(s => {
+      if (s.id === selectedSub.id) {
+        return {
+          ...s,
+          moderationStatus: 'FINALIZED',
+          grade: Number(finalScoreInput),
+          final_score: Number(finalScoreInput),
+          consensus_notes: consensusNotes
+        };
+      }
+      return s;
+    }));
+
+    setSuccessToast(lang === 'vi' 
+      ? `🏆 Đã lưu biên bản đồng thuận & công bố điểm chính thức: ${finalScoreInput}/10!` 
+      : `🏆 Consensus finalized! Grade published: ${finalScoreInput}/10!`);
+    setSelectedSub(null);
+    setTimeout(() => setSuccessToast(''), 4000);
   };
 
   const handleSaveGrade = (e: React.FormEvent) => {
@@ -438,16 +679,18 @@ export default function LecturerDashboard() {
       if (s.id === selectedSub.id) {
         return {
           ...s,
-          grade: Number(editingGrade),
-          overrideNote: editingNote,
-          status: editingGrade >= 5 ? 'Passed (Graded)' : 'Failed (Graded)',
-          statusColor: editingGrade >= 5 ? 'var(--accent-success)' : 'var(--accent-error)'
+          moderationStatus: 'FIRST_REVIEWED',
+          grade: Number(reviewer1Score),
+          reviewer_1_score: Number(reviewer1Score),
+          reviewer_1_notes: reviewer1Notes,
+          status: Number(reviewer1Score) >= 5 ? 'Passed (Graded)' : 'Failed (Graded)',
+          statusColor: Number(reviewer1Score) >= 5 ? 'var(--accent-success)' : 'var(--accent-error)'
         };
       }
       return s;
     }));
 
-    setSuccessToast(lang === 'vi' ? 'Đã lưu điểm và nhận xét của giảng viên thành công!' : 'Grade override saved successfully!');
+    setSuccessToast(lang === 'vi' ? 'Đã lưu điểm và nhận xét của GV1 thành công!' : 'Grade saved successfully!');
     setSelectedSub(null);
     setTimeout(() => setSuccessToast(''), 3500);
   };
@@ -605,6 +848,7 @@ export default function LecturerDashboard() {
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Docker Sandbox' : 'Sandbox Status'}</th>
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Điểm số (Thang 10)' : 'Grade (10)'}</th>
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Xếp hạng AI' : 'AI Quality'}</th>
+                    <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Kiểm định BR-09' : 'BR-09 Workflow'}</th>
                     <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'vi' ? 'Hành động' : 'Action'}</th>
                   </tr>
                 </thead>
@@ -627,11 +871,33 @@ export default function LecturerDashboard() {
                           {row.status}
                         </div>
                       </td>
-                      <td style={{ padding: '16px', fontSize: '1.05rem', fontWeight: 700, color: row.grade >= 8 ? '#34d399' : (row.grade >= 5 ? '#f59e0b' : '#f43f5e') }}>
-                        {row.grade.toFixed(1)} / 10
+                      <td style={{ padding: '16px', fontSize: '1.05rem', fontWeight: 700, color: (row.final_score ?? row.grade) >= 8 ? '#34d399' : ((row.final_score ?? row.grade) >= 5 ? '#f59e0b' : '#f43f5e') }}>
+                        {(row.final_score ?? row.grade).toFixed(1)} / 10
                       </td>
                       <td style={{ padding: '16px' }}>
                         <span className="badge badge-info" style={{ fontWeight: 700 }}>{row.aiScore}</span>
+                      </td>
+                      <td style={{ padding: '16px' }}>
+                        {row.moderationStatus === 'FINALIZED' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 9px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
+                            <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
+                          </span>
+                        )}
+                        {row.moderationStatus === 'PENDING_SECOND_REVIEW' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 9px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
+                            <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
+                          </span>
+                        )}
+                        {row.moderationStatus === 'FIRST_REVIEWED' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 9px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600 }}>
+                            <Clock size={12} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
+                          </span>
+                        )}
+                        {(!row.moderationStatus || row.moderationStatus === 'AI_PREGRADED') && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 9px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 600 }}>
+                            <Sparkles size={12} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '16px', textAlign: 'center' }}>
                         <button 
@@ -650,7 +916,7 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* MODAL CHẤM BÀI / XEM CHI TIẾT (UC-10) */}
+        {/* MODAL CHẤM BÀI / KIỂM ĐỊNH BR-09 (DUAL-LECTURER MODERATION) */}
         {selectedSub && (
           <div style={{
             position: 'fixed',
@@ -665,8 +931,8 @@ export default function LecturerDashboard() {
           }}>
             <div className="glass-card" style={{
               width: '100%',
-              maxWidth: '750px',
-              maxHeight: '90vh',
+              maxWidth: '820px',
+              maxHeight: '92vh',
               overflowY: 'auto',
               padding: '2rem',
               borderRadius: '20px',
@@ -674,14 +940,36 @@ export default function LecturerDashboard() {
               boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
             }}>
               {/* Header Modal */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
                 <div>
-                  <span className="badge badge-info" style={{ marginBottom: '6px' }}>{selectedSub.team}</span>
-                  <h3 style={{ fontSize: '1.3rem', fontWeight: 700 }}>
-                    {lang === 'vi' ? 'Hội đồng Chấm Điểm & Phân Tích Bài Nộp' : 'Submission Evaluation & Grading'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                    <span className="badge badge-info">{selectedSub.team}</span>
+                    {selectedSub.moderationStatus === 'FINALIZED' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
+                        <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
+                      </span>
+                    )}
+                    {selectedSub.moderationStatus === 'PENDING_SECOND_REVIEW' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
+                        <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
+                      </span>
+                    )}
+                    {selectedSub.moderationStatus === 'FIRST_REVIEWED' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600 }}>
+                        <Clock size={12} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
+                      </span>
+                    )}
+                    {(!selectedSub.moderationStatus || selectedSub.moderationStatus === 'AI_PREGRADED') && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 600 }}>
+                        <Sparkles size={12} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
+                      </span>
+                    )}
+                  </div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+                    {lang === 'vi' ? 'Hội đồng Kiểm Định Bài Nộp (BR-09 Dual-Lecturer Moderation)' : 'Collaborative Dual-Lecturer Moderation (BR-09)'}
                   </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Git Commit: <code>{selectedSub.commit}</code> • {selectedSub.time}
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Git Commit: <code>{selectedSub.commit}</code> • {selectedSub.time} • Repo: <a href={selectedSub.repo} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>{selectedSub.repo.replace('https://github.com/', '')}</a>
                   </p>
                 </div>
                 <button 
@@ -692,121 +980,387 @@ export default function LecturerDashboard() {
                 </button>
               </div>
 
-              {/* Docker Sandbox Execution Output */}
+              {/* Docker Sandbox Execution Output (Thu nhỏ gọn gàng) */}
               <div style={{ marginBottom: '1.2rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', fontWeight: 600, marginBottom: '6px' }}>
-                  <Terminal size={16} color="#60a5fa" />
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: '#93c5fd' }}>
+                  <Terminal size={14} color="#60a5fa" />
                   {lang === 'vi' ? 'Nhật ký thực thi Docker Sandbox (Isolated Container):' : 'Docker Sandbox Output Logs:'}
                 </label>
                 <pre style={{
                   background: 'rgba(0, 0, 0, 0.45)',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
                   borderRadius: '10px',
-                  padding: '12px 14px',
-                  fontSize: '0.8rem',
+                  padding: '10px 12px',
+                  fontSize: '0.78rem',
                   fontFamily: 'monospace',
                   color: '#93c5fd',
                   whiteSpace: 'pre-wrap',
-                  maxHeight: '160px',
+                  maxHeight: '110px',
                   overflowY: 'auto'
                 }}>
                   {selectedSub.sandboxOutput}
                 </pre>
               </div>
 
-              {/* AI Feedback */}
-              <div style={{ marginBottom: '1.4rem', background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '12px', padding: '14px' }}>
-                <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <Sparkles size={16} /> {lang === 'vi' ? 'Đánh giá tự động từ AI (Gemini / OpenAI):' : 'AI Qualitative Review:'}
-                </span>
-                <p style={{ fontSize: '0.85rem', color: '#e2e8f0', lineHeight: 1.5 }}>
-                  {selectedSub.aiFeedback}
-                </p>
+              {/* BR-09 Stage Tabs */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={() => setActiveModalStage('review1')}
+                  className={activeModalStage === 'review1' ? 'btn-primary' : 'btn-secondary'}
+                  style={{ fontSize: '0.82rem', padding: '6px 14px', gap: '6px' }}
+                >
+                  <Sparkles size={14} /> {lang === 'vi' ? '1. AI & GV 1 Xem Xét' : '1. AI & Lecturer 1'}
+                </button>
+                <button 
+                  onClick={() => setActiveModalStage('review2')}
+                  className={activeModalStage === 'review2' ? 'btn-primary' : 'btn-secondary'}
+                  style={{ fontSize: '0.82rem', padding: '6px 14px', gap: '6px' }}
+                >
+                  <Users size={14} /> {lang === 'vi' ? '2. GV 2 Chấm Chéo (Độc Lập)' : '2. Lecturer 2 Cross-Grade'}
+                </button>
+                <button 
+                  onClick={() => setActiveModalStage('consensus')}
+                  className={activeModalStage === 'consensus' ? 'btn-primary' : 'btn-secondary'}
+                  style={{ fontSize: '0.82rem', padding: '6px 14px', gap: '6px' }}
+                >
+                  <Award size={14} /> {lang === 'vi' ? '3. Biên Bản Đồng Thuận' : '3. Consensus Settlement'}
+                </button>
               </div>
 
-              {/* Form Ghi đè điểm của Giảng viên (Manual Score Override - UC-10 ALT-1) */}
-              <form onSubmit={handleSaveGrade} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                      {lang === 'vi' ? 'Điểm số giảng viên chấm (0 - 10):' : 'Instructor Score (0 - 10):'}
-                    </label>
-                    <input 
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      max="10"
-                      value={editingGrade}
-                      onChange={e => setEditingGrade(parseFloat(e.target.value) || 0)}
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        background: 'rgba(0, 0, 0, 0.3)',
-                        border: '1px solid var(--border-color)',
-                        color: '#fff',
-                        fontSize: '1.1rem',
-                        fontWeight: 700
-                      }}
-                    />
+              {/* TAB 1: AI PRE-GRADING & REVIEWER 1 */}
+              {activeModalStage === 'review1' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  {/* Card AI Pre-grading */}
+                  <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '12px', padding: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Sparkles size={16} /> {lang === 'vi' ? 'Bước 1 (AI Pre-grading): Điểm & Nhận xét từ AI Model' : 'Step 1: AI Preliminary Score & Critique'}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#38bdf8' }}>
+                          {selectedSub.ai_score ?? selectedSub.grade} / 10
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveAI(selectedSub)}
+                          className="btn-secondary"
+                          style={{ padding: '5px 12px', fontSize: '0.8rem', borderColor: '#c084fc', color: '#c084fc', fontWeight: 600, gap: '4px' }}
+                        >
+                          ⚡ {lang === 'vi' ? 'Phê duyệt điểm AI & Chốt ngay' : 'Approve AI Score & Finalize'}
+                        </button>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.84rem', color: '#e2e8f0', lineHeight: 1.5, margin: 0 }}>
+                      {selectedSub.aiFeedback}
+                    </p>
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                      {lang === 'vi' ? 'Nhận xét ghi chú của giảng viên:' : 'Instructor Feedback / Note:'}
-                    </label>
-                    <input 
-                      type="text"
-                      placeholder={lang === 'vi' ? 'Nhập nhận xét gửi sinh viên...' : 'Enter feedback for student...'}
-                      value={editingNote}
-                      onChange={e => setEditingNote(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        background: 'rgba(0, 0, 0, 0.3)',
-                        border: '1px solid var(--border-color)',
-                        color: '#fff',
-                        fontSize: '0.9rem'
-                      }}
-                    />
-                  </div>
+                  {/* Form Giảng Viên 1 */}
+                  <form onSubmit={handleSaveGrade} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px' }}>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <UserCheck size={16} /> {lang === 'vi' ? 'Giảng Viên 1 (Reviewer 1) Đánh Giá & Điều Chỉnh' : 'Lecturer 1 Review & Challenge'}
+                    </h4>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                          {lang === 'vi' ? 'Điểm GV 1 chấm (0 - 10):' : 'Reviewer 1 Score (0 - 10):'}
+                        </label>
+                        <input 
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          value={reviewer1Score}
+                          onChange={e => setReviewer1Score(parseFloat(e.target.value) || 0)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid var(--border-color)',
+                            color: '#fff',
+                            fontSize: '1.05rem',
+                            fontWeight: 700
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                          {lang === 'vi' ? 'Nhận xét chi tiết của GV 1:' : 'Reviewer 1 Notes / Justification:'}
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder={lang === 'vi' ? 'Nhập ghi chú hoặc lý do điều chỉnh so với AI...' : 'Enter feedback or reason for deviation...'}
+                          value={reviewer1Notes}
+                          onChange={e => setReviewer1Notes(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid var(--border-color)',
+                            color: '#fff',
+                            fontSize: '0.85rem'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1.2rem', padding: '10px 12px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: '#fbbf24' }}>
+                        {lang === 'vi' ? 'Chỉ định Giảng Viên 2 chấm kiểm định độc lập (Cross-grading):' : 'Assign Lecturer 2 for Independent Cross-grading:'}
+                      </label>
+                      <select 
+                        value={assignedReviewer2}
+                        onChange={e => setAssignedReviewer2(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          background: 'rgba(20, 20, 28, 0.9)',
+                          border: '1px solid var(--border-color)',
+                          color: '#fff',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        <option value="ThS. Trần Thị Chuyên Môn">ThS. Trần Thị Chuyên Môn (Bộ môn Kỹ thuật Phần mềm)</option>
+                        <option value="TS. Lê Hoàng Nam">TS. Lê Hoàng Nam (Phản biện độc lập)</option>
+                        <option value="PGS.TS. Phạm Văn Minh">PGS.TS. Phạm Văn Minh (Trưởng hội đồng chuyên môn)</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                      <button 
+                        type="submit"
+                        className="btn-secondary"
+                        style={{ fontSize: '0.82rem', padding: '8px 14px' }}
+                      >
+                        <Check size={14} /> {lang === 'vi' ? 'Lưu điểm GV 1 (Không cần GV 2)' : 'Save Grade (Single Lecturer)'}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={handleRequestSecondOpinion}
+                        className="btn-primary"
+                        style={{ fontSize: '0.82rem', padding: '8px 16px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', gap: '6px' }}
+                      >
+                        <RotateCw size={14} /> {lang === 'vi' ? 'Chuyển GV 2 Chấm Chéo Độc Lập (BR-09)' : 'Request 2nd Lecturer Review (BR-09)'}
+                      </button>
+                    </div>
+                  </form>
                 </div>
+              )}
 
-                {/* Nút hành động */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
-                  <button 
-                    type="button"
-                    disabled={isRegrading}
-                    onClick={handleRerunGrading}
-                    className="btn-secondary"
-                    style={{ gap: '8px', fontSize: '0.85rem' }}
-                  >
-                    {isRegrading ? <Loader2 size={16} className="animate-spin" /> : <RotateCw size={16} />}
-                    <span>{lang === 'vi' ? 'Chạy lại Docker Sandbox' : 'Re-run Sandbox Grading'}</span>
-                  </button>
-
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button 
-                      type="button" 
-                      onClick={() => setSelectedSub(null)}
-                      className="btn-secondary"
-                      style={{ fontSize: '0.85rem' }}
-                    >
-                      {lang === 'vi' ? 'Đóng' : 'Cancel'}
-                    </button>
-                    <button 
-                      type="submit" 
-                      className="btn-primary"
-                      style={{ fontSize: '0.85rem', gap: '6px' }}
-                    >
-                      <Check size={16} />
-                      <span>{lang === 'vi' ? 'Lưu điểm đã chấm' : 'Save Grade'}</span>
-                    </button>
+              {/* TAB 2: REVIEWER 2 INDEPENDENT CROSS-GRADING */}
+              {activeModalStage === 'review2' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  {/* Tóm tắt điểm GV 1 */}
+                  <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: '0.82rem', color: '#93c5fd', display: 'block' }}>
+                        {lang === 'vi' ? 'Kết quả từ Giảng Viên 1:' : 'Lecturer 1 Assessment:'}
+                      </span>
+                      <strong style={{ fontSize: '1rem', color: '#fff' }}>
+                        {selectedSub.reviewer_1_name || 'TS. Nguyễn Văn Giảng'}:
+                      </strong>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                        "{reviewer1Notes || selectedSub.reviewer_1_notes || (lang === 'vi' ? 'Đã xem xét bài nộp' : 'Reviewed')}"
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38bdf8' }}>
+                      {reviewer1Score} / 10
+                    </span>
                   </div>
+
+                  {/* Form Giảng Viên 2 */}
+                  <form onSubmit={handleSubmitSecondOpinion} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px' }}>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Users size={16} /> {lang === 'vi' ? 'Giảng Viên 2 (Reviewer 2) Chấm Điểm Độc Lập' : 'Lecturer 2 Independent Evaluation'}
+                    </h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                      {lang === 'vi' ? 'Giảng viên 2 chấm điểm độc lập không bị ảnh hưởng bởi giảng viên 1. Hệ thống tự động so sánh độ lệch điểm:' : 'Independent blind review. The system compares score difference:'}
+                      {' '}<strong>{lang === 'vi' ? '≤ 0.5 điểm: Tự động chốt điểm | > 0.5 điểm: Mở họp đồng thuận' : '≤ 0.5: Auto-finalize | > 0.5: Consensus required'}</strong>.
+                    </p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1.2rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                          {lang === 'vi' ? 'Điểm GV 2 chấm (0 - 10):' : 'Reviewer 2 Score (0 - 10):'}
+                        </label>
+                        <input 
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          value={reviewer2Score}
+                          onChange={e => setReviewer2Score(parseFloat(e.target.value) || 0)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid var(--border-color)',
+                            color: '#fff',
+                            fontSize: '1.05rem',
+                            fontWeight: 700
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                          {lang === 'vi' ? 'Nhận xét độc lập của GV 2:' : 'Reviewer 2 Notes / Critique:'}
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder={lang === 'vi' ? 'Nhập đánh giá khách quan của GV 2...' : 'Enter objective assessment...'}
+                          value={reviewer2Notes}
+                          onChange={e => setReviewer2Notes(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            border: '1px solid var(--border-color)',
+                            color: '#fff',
+                            fontSize: '0.85rem'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                      <button 
+                        type="submit"
+                        className="btn-primary"
+                        style={{ fontSize: '0.85rem', padding: '9px 18px', gap: '6px' }}
+                      >
+                        <Check size={15} /> {lang === 'vi' ? 'Nộp Điểm GV 2 & So Sánh Độ Lệch' : 'Submit 2nd Review & Compare'}
+                      </button>
+                    </div>
+                  </form>
                 </div>
-              </form>
+              )}
+
+              {/* TAB 3: CONSENSUS SETTLEMENT */}
+              {activeModalStage === 'consensus' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  {scoreDiffNotice && (
+                    <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '10px', padding: '12px 14px', color: '#fbbf24', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AlertTriangle size={18} />
+                      <span>{scoreDiffNotice}</span>
+                    </div>
+                  )}
+
+                  {/* Bảng so sánh 3 nguồn điểm */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#c084fc', display: 'block', marginBottom: '4px' }}>AI Pre-grade</span>
+                      <strong style={{ fontSize: '1.2rem', color: '#fff' }}>{selectedSub.ai_score ?? 9.0}</strong>
+                    </div>
+                    <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#93c5fd', display: 'block', marginBottom: '4px' }}>Giảng Viên 1</span>
+                      <strong style={{ fontSize: '1.2rem', color: '#38bdf8' }}>{reviewer1Score}</strong>
+                    </div>
+                    <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#fbbf24', display: 'block', marginBottom: '4px' }}>Giảng Viên 2</span>
+                      <strong style={{ fontSize: '1.2rem', color: '#fbbf24' }}>{reviewer2Score}</strong>
+                    </div>
+                  </div>
+
+                  {/* Form Biên bản đồng thuận */}
+                  <form onSubmit={handleFinalizeConsensus} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px' }}>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FileText size={16} /> {lang === 'vi' ? 'Biên Bản Thống Nhất & Điểm Số Chính Thức (Consensus)' : 'Consensus Notes & Final Published Score'}
+                    </h4>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                        {lang === 'vi' ? 'Biên bản trao đổi thống nhất giữa 2 giảng viên (*):' : 'Joint Consensus Discussion Notes (*):'}
+                      </label>
+                      <textarea 
+                        rows={3}
+                        required
+                        placeholder={lang === 'vi' ? 'Ghi lại nội dung đồng thuận và căn cứ tính điểm cuối cùng...' : 'Record discussion points and score justification...'}
+                        value={consensusNotes}
+                        onChange={e => setConsensusNotes(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          border: '1px solid var(--border-color)',
+                          color: '#fff',
+                          fontSize: '0.85rem'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                          {lang === 'vi' ? 'Điểm chính thức chốt công bố (final_score):' : 'Final Published Score:'}
+                        </label>
+                        <input 
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                          value={finalScoreInput}
+                          onChange={e => setFinalScoreInput(parseFloat(e.target.value) || 0)}
+                          required
+                          style={{
+                            width: '100px',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid #10b981',
+                            color: '#34d399',
+                            fontSize: '1.2rem',
+                            fontWeight: 700,
+                            textAlign: 'center'
+                          }}
+                        />
+                      </div>
+
+                      <button 
+                        type="submit"
+                        className="btn-primary"
+                        style={{ fontSize: '0.85rem', padding: '10px 20px', background: 'linear-gradient(135deg, #10b981, #059669)', gap: '6px' }}
+                      >
+                        <Award size={16} /> {lang === 'vi' ? 'Chốt Điểm & Công Bố Cho Sinh Viên' : 'Publish Consensus Grade'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Footer Modal */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                <button 
+                  type="button"
+                  disabled={isRegrading}
+                  onClick={handleRerunGrading}
+                  className="btn-secondary"
+                  style={{ gap: '6px', fontSize: '0.82rem' }}
+                >
+                  {isRegrading ? <Loader2 size={15} className="animate-spin" /> : <RotateCw size={15} />}
+                  <span>{lang === 'vi' ? 'Chạy lại Docker Sandbox' : 'Re-run Sandbox Grading'}</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => setSelectedSub(null)}
+                  className="btn-secondary"
+                  style={{ fontSize: '0.82rem', padding: '6px 16px' }}
+                >
+                  {lang === 'vi' ? 'Đóng' : 'Close'}
+                </button>
+              </div>
             </div>
           </div>
         )}
