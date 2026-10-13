@@ -24,10 +24,10 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 | Vai Trò | Trọng Tâm Nhiệm Vụ | Module Backend Phụ Trách | Bảng DB Phụ Trách | Business Rules |
 | :--- | :--- | :--- | :--- | :--- |
 | **Role 1: Software Architect & Core Auth** | Kiến trúc hệ thống, JWT Auth RBAC, Quản lý môn học, ghi danh & nhóm, Docker Compose | `auth`, `courses`, `teams` | `users`, `courses`, `course_enrollments`, `teams`, `team_members` | BR-01 |
-| **Role 2: Docker Sandbox & Autograding** | Docker Sandbox Container cô lập, BullMQ Queue, Chấm bài tự động, Rubric Test Case | `assignments`, `submissions`, `grading` | `assignments`, `rubric_rules`, `submissions`, `grading_jobs`, `grading_results` | BR-03, BR-06 |
-| **Role 3: AI Engine & Key Rotation** | Gemini AI Tutor Socratic, Chat Sessions, Key Pool AES-256, Prompt Versioning, Rotation | `ai-tutor` | `ai_api_keys`, `prompt_templates`, `tutor_chat_sessions`, `tutor_chat_messages` | BR-02, BR-04, BR-05 |
+| **Role 2: Docker Sandbox & Autograding** | Docker Sandbox Container cô lập, BullMQ Queue, Chấm bài tự động, Rubric Test Case, Dual-Lecturer Workflow | `assignments`, `submissions`, `grading` | `assignments`, `rubric_rules`, `submissions`, `grading_jobs`, `grading_results` | BR-03, BR-06, BR-09 |
+| **Role 3: AI Engine & Key Rotation** | Gemini AI Tutor Socratic, Chat Sessions, Key Pool AES-256, Prompt Versioning, Rotation, AI Pre-grading | `ai-tutor` | `ai_api_keys`, `prompt_templates`, `tutor_chat_sessions`, `tutor_chat_messages` | BR-02, BR-04, BR-05, BR-09 |
 | **Role 4: Git Analytics & Peer Audit** | Octokit GitHub API, LOC Parser, Free-Rider Detection, Đánh giá chéo nội bộ nhóm | `git-analytics`, `peer-audits` | `git_commits`, `peer_audits` | BR-07, BR-08 |
-| **Role 5: Frontend Lead & UI/UX & QA** | Toàn bộ Next.js 14 UI — Dashboard Student/Lecturer/Admin, Glassmorphic Design, Testing | `client/` toàn bộ | Tích hợp tất cả API | Phụ trợ BR-01→BR-08 |
+| **Role 5: Frontend Lead & UI/UX & QA** | Toàn bộ Next.js 14 UI — Dashboard Student/Lecturer/Admin, Glassmorphic Design, Testing, Review Modal | `client/` toàn bộ | Tích hợp tất cả API | Phụ trợ BR-01→BR-09 |
 
 ---
 
@@ -83,6 +83,13 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
   - Luồng xử lý: Kéo code từ `artifact_url` → Spin up Docker Container (`sandbox_container_id`) → Chạy từng Rubric Rule → So sánh `actual_output` với `expected_output` → Lưu `grading_results` (ứng với từng `rubric_rule_id`) → Cập nhật `status = 'COMPLETED'`.
   - Xử lý lỗi: Nếu container timeout hoặc crash → Cập nhật `status = 'FAILED'`, lưu log lỗi và tăng `retry_count`.
   - API `GET /api/grading/:jobId/results`: Lấy kết quả chi tiết từng test case và nhận xét AI feedback.
+  - **Quy trình Chấm Điểm Đa Tầng — Dual-Lecturer Moderation (`BR-09` — Bổ sung theo góp ý Milestone 2):**
+    - **Bước 1 (AI Pre-grading):** AI chấm điểm sơ bộ và sinh feedback (`ai_score`, `ai_feedback`) nhằm tiết kiệm thời gian đọc bài.
+    - **Bước 2 (Giảng viên 1 đánh giá & chấm lại):** Giảng viên 1 kiểm tra kết quả AI. Nếu thấy AI chấm chuẩn xác $\rightarrow$ phê duyệt chốt điểm (`POST /api/grading/review/approve-ai/:id`). Nếu nhận thấy điểm AI chưa phù hợp $\rightarrow$ **Giảng viên 1 tự xem lại bài và chấm điểm của mình (`reviewer_1_score`)**, kèm ghi chú nhận xét, rồi gửi yêu cầu chỉ định Giảng viên 2 chấm chéo độc lập (`POST /api/grading/review/request-second-opinion/:id`).
+    - **Bước 3 (Giảng viên 2 chấm chéo & so sánh độ lệch):** Giảng viên 2 vào xem bài nộp và chấm điểm độc lập (`reviewer_2_score`) qua `POST /api/grading/review/second-opinion/:id`. Hệ thống tự động so sánh xem điểm của Giảng viên 1 và Giảng viên 2 có bị lệch hay không:
+      - Nếu độ lệch nhỏ ($\le 0.5$ điểm) $\rightarrow$ Hai giảng viên đồng thuận, hệ thống tự động chốt điểm trung bình (`FINALIZED`).
+      - Nếu có sự khác biệt / bị lệch đáng kể ($> 0.5$ điểm) $\rightarrow$ Chuyển sang Bước 4 để hai giảng viên cùng trao đổi.
+    - **Bước 4 (Thảo luận & Thống nhất):** Nếu có sự khác biệt điểm số đáng kể, cả 2 giảng viên thảo luận và ghi biên bản thống nhất chốt điểm cuối cùng (`POST /api/grading/review/consensus/:id`).
 
 ---
 
@@ -235,6 +242,10 @@ gantt
 | **TV2** | POST | `/api/assignments/:id/rubrics` | Thêm tiêu chí Rubric / test case ẩn/hiện |
 | **TV2** | POST | `/api/submissions` | Nộp bài (`artifact_url`, `commit_hash`) → BullMQ Queue |
 | **TV2** | GET | `/api/grading/:jobId/results` | Lấy kết quả chấm chi tiết từng tiêu chí Rubric |
+| **TV2** | POST | `/api/grading/review/approve-ai/:id` | Giảng viên 1 duyệt điểm AI sơ bộ (`BR-09`) |
+| **TV2** | POST | `/api/grading/review/request-second-opinion/:id` | Giảng viên 1 yêu cầu Giảng viên 2 chấm chéo (`BR-09`) |
+| **TV2** | POST | `/api/grading/review/second-opinion/:id` | Giảng viên 2 nộp điểm đánh giá độc lập (`BR-09`) |
+| **TV2** | POST | `/api/grading/review/consensus/:id` | Hai giảng viên lập biên bản thống nhất điểm cuối (`BR-09`) |
 | **TV3** | POST | `/api/ai-tutor/sessions` | Khởi tạo phiên chat với Trợ giảng AI |
 | **TV3** | GET | `/api/ai-tutor/sessions/:id/messages` | Lấy lịch sử chat theo từng phiên |
 | **TV3** | POST | `/api/ai-tutor/sessions/:id/chat` | Gửi câu hỏi và nhận gợi ý Socratic từ Gemini AI |

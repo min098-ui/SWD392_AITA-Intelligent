@@ -54,10 +54,10 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 | Vai Trò | Trọng Tâm Nhiệm Vụ | Module Backend Phụ Trách | Bảng DB Phụ Trách | Business Rules |
 | :--- | :--- | :--- | :--- | :--- |
 | **Role 1: Software Architect & Core Auth** | Kiến trúc hệ thống, JWT Auth RBAC, Quản lý môn học, ghi danh & nhóm, Docker Compose | `auth`, `courses`, `teams` | `users`, `courses`, `course_enrollments`, `teams`, `team_members` | BR-01 |
-| **Role 2: Docker Sandbox & Autograding** | Docker Sandbox Container cô lập, BullMQ Queue, Chấm bài tự động, Rubric Test Case | `assignments`, `submissions`, `grading` | `assignments`, `rubric_rules`, `submissions`, `grading_jobs`, `grading_results` | BR-03, BR-06 |
-| **Role 3: AI Engine & Key Rotation** | Gemini AI Tutor Socratic, Chat Sessions, Key Pool AES-256, Prompt Versioning, Rotation | `ai-tutor` | `ai_api_keys`, `prompt_templates`, `tutor_chat_sessions`, `tutor_chat_messages` | BR-02, BR-04, BR-05 |
+| **Role 2: Docker Sandbox & Autograding** | Docker Sandbox Container cô lập, BullMQ Queue, Chấm bài tự động, Rubric Test Case, Dual-Lecturer Workflow | `assignments`, `submissions`, `grading` | `assignments`, `rubric_rules`, `submissions`, `grading_jobs`, `grading_results` | BR-03, BR-06, BR-09 |
+| **Role 3: AI Engine & Key Rotation** | Gemini AI Tutor Socratic, Chat Sessions, Key Pool AES-256, Prompt Versioning, Rotation, AI Pre-grading | `ai-tutor` | `ai_api_keys`, `prompt_templates`, `tutor_chat_sessions`, `tutor_chat_messages` | BR-02, BR-04, BR-05, BR-09 |
 | **Role 4: Git Analytics & Peer Audit** | Octokit GitHub API, LOC Parser, Free-Rider Detection, Đánh giá chéo nội bộ nhóm | `git-analytics`, `peer-audits` | `git_commits`, `peer_audits` | BR-07, BR-08 |
-| **Role 5: Frontend Lead & UI/UX & QA** | Toàn bộ Next.js 14 UI — Dashboard Student/Lecturer/Admin, Glassmorphic Design, Testing | `client/` toàn bộ | Tích hợp tất cả API | Phụ trợ BR-01→BR-08 |
+| **Role 5: Frontend Lead & UI/UX & QA** | Toàn bộ Next.js 14 UI — Dashboard Student/Lecturer/Admin, Glassmorphic Design, Testing, Review Modal | `client/` toàn bộ | Tích hợp tất cả API | Phụ trợ BR-01→BR-09 |
 
 ---
 
@@ -111,6 +111,11 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
   - Luồng xử lý: Kéo code từ `artifact_url` → Spin up Docker Container (`sandbox_container_id`) → Chạy từng Rubric Rule → So sánh `actual_output` với `expected_output` → Lưu `grading_results` (ứng với từng `rubric_rule_id`) → Cập nhật `status = 'COMPLETED'`.
   - Xử lý lỗi: Nếu container timeout hoặc crash → Cập nhật `status = 'FAILED'`, lưu log lỗi và tăng `retry_count`.
   - API `GET /api/grading/:jobId/results` — Lấy kết quả chi tiết từng test case và AI feedback.
+  - **Quy trình Chấm Điểm Đa Tầng — Dual-Lecturer Moderation (`BR-09` — Bổ sung theo góp ý Milestone 2):**
+    - Bước 1 (AI Pre-grading): AI chấm điểm sơ bộ và sinh nhận xét (`ai_score`, `ai_feedback`).
+    - Bước 2 (Giảng viên 1 đánh giá & tự chấm lại): Giảng viên 1 duyệt điểm AI (`POST /api/grading/review/approve-ai/:id`). Nếu thấy chưa đúng, GV 1 tự xem lại và chấm điểm (`reviewer_1_score`), sau đó chỉ định Giảng viên 2 chấm chéo (`POST /api/grading/review/request-second-opinion/:id`).
+    - Bước 3 (Giảng viên 2 chấm chéo độc lập): Giảng viên 2 chấm điểm độc lập (`reviewer_2_score`). Nếu độ lệch $\le 0.5$, hệ thống tự chốt điểm trung bình. Nếu độ lệch $> 0.5$, chuyển sang bước hội ý.
+    - Bước 4 (Thảo luận & Thống nhất): Hai giảng viên trao đổi lý do, lập biên bản thống nhất (`consensus_notes`) và chốt điểm cuối cùng (`final_score`).
 
 #### 👤 Thành Viên 3: AI Engine & Key Rotation Engineer
 *Nhiệm vụ: Tích hợp Gemini AI làm trợ giảng Socratic, quản lý Key Pool mã hóa và Prompt Template versioning.*
@@ -355,6 +360,7 @@ npm run dev
 | **BR-06** | Test case ẩn (`is_hidden = true`): sinh viên chỉ thấy Đạt/Không đạt, không xem được input/output |
 | **BR-07** | Tự động phân tích `lines_added`, `lines_deleted` từ GitHub để phát hiện free-rider |
 | **BR-08** | Peer audit: ràng buộc DB cấm sinh viên tự đánh giá chính mình (`reviewer_id <> reviewee_id`) |
+| **BR-09** | Chấm điểm đa tầng (Dual-Lecturer Moderation): AI hỗ trợ sơ bộ, Giảng viên 1 duyệt & chấm lại, Giảng viên 2 chấm chéo độc lập, hội ý chốt điểm cuối cùng |
 
 ---
 
