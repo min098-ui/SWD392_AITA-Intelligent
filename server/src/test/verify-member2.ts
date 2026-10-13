@@ -1,3 +1,4 @@
+process.env.NODE_ENV = 'test';
 import jwt from 'jsonwebtoken';
 import http from 'http';
 import app from '../index';

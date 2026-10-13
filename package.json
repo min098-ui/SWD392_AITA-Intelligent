@@ -1,0 +1,12 @@
+{
+  "name": "aita-intelligent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AITA-INTELLIGENT Root Workspace Scripts",
+  "scripts": {
+    "test:member1": "npm --prefix server run test:member1",
+    "test:member2": "npm --prefix server run test:member2",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev"
+  }
+}
