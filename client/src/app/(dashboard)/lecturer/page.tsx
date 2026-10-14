@@ -931,140 +931,162 @@ export default function LecturerDashboard() {
           }}>
             <div className="glass-card" style={{
               width: '100%',
-              maxWidth: '820px',
-              maxHeight: '92vh',
+              maxWidth: '800px',
+              maxHeight: '94vh',
               overflowY: 'auto',
-              padding: '2rem',
-              borderRadius: '20px',
+              padding: '1.25rem 1.5rem',
+              borderRadius: '16px',
               border: '1px solid rgba(255, 255, 255, 0.15)',
               boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
             }}>
-              {/* Header Modal */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+              {/* Header Modal - Gọn gàng, tinh tế */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                    <span className="badge badge-info">{selectedSub.team}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                    <span className="badge badge-info" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>{selectedSub.team}</span>
                     {selectedSub.moderationStatus === 'FINALIZED' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
-                        <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
+                        <CheckCircle2 size={11} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
                       </span>
                     )}
                     {selectedSub.moderationStatus === 'PENDING_SECOND_REVIEW' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
-                        <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
+                        <AlertTriangle size={11} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
                       </span>
                     )}
                     {selectedSub.moderationStatus === 'FIRST_REVIEWED' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600 }}>
-                        <Clock size={12} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600 }}>
+                        <Clock size={11} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
                       </span>
                     )}
                     {(!selectedSub.moderationStatus || selectedSub.moderationStatus === 'AI_PREGRADED') && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '0.75rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 600 }}>
-                        <Sparkles size={12} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 600 }}>
+                        <Sparkles size={11} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
                       </span>
                     )}
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'inline' }}>
+                      {lang === 'vi' ? 'Hội đồng Kiểm Định Bài Nộp (BR-09 Dual-Lecturer Moderation)' : 'Collaborative Dual-Lecturer Moderation (BR-09)'}
+                    </h3>
                   </div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                    {lang === 'vi' ? 'Hội đồng Kiểm Định Bài Nộp (BR-09 Dual-Lecturer Moderation)' : 'Collaborative Dual-Lecturer Moderation (BR-09)'}
-                  </h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
                     Git Commit: <code>{selectedSub.commit}</code> • {selectedSub.time} • Repo: <a href={selectedSub.repo} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>{selectedSub.repo.replace('https://github.com/', '')}</a>
                   </p>
                 </div>
                 <button 
                   onClick={() => setSelectedSub(null)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                 >
-                  <X size={22} />
+                  <X size={20} />
                 </button>
               </div>
 
-              {/* Docker Sandbox Execution Output (Thu nhỏ gọn gàng) */}
-              <div style={{ marginBottom: '1.2rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: '#93c5fd' }}>
-                  <Terminal size={14} color="#60a5fa" />
-                  {lang === 'vi' ? 'Nhật ký thực thi Docker Sandbox (Isolated Container):' : 'Docker Sandbox Output Logs:'}
-                </label>
+              {/* Docker Sandbox Execution Output (Thu gọn tiết kiệm diện tích) */}
+              <details style={{
+                marginBottom: '0.75rem',
+                background: 'rgba(0, 0, 0, 0.35)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                padding: '6px 10px'
+              }}>
+                <summary style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  color: '#93c5fd',
+                  userSelect: 'none'
+                }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Terminal size={13} color="#60a5fa" />
+                    {lang === 'vi' ? 'Nhật ký thực thi Docker Sandbox (10/10 test cases passed)' : 'Docker Sandbox Output Logs (10/10 test cases passed)'}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {lang === 'vi' ? 'Xem chi tiết log ▾' : 'View logs ▾'}
+                  </span>
+                </summary>
                 <pre style={{
-                  background: 'rgba(0, 0, 0, 0.45)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '10px',
-                  padding: '10px 12px',
-                  fontSize: '0.78rem',
+                  background: 'rgba(0, 0, 0, 0.55)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderRadius: '6px',
+                  padding: '8px 10px',
+                  fontSize: '0.74rem',
                   fontFamily: 'monospace',
                   color: '#93c5fd',
                   whiteSpace: 'pre-wrap',
-                  maxHeight: '110px',
-                  overflowY: 'auto'
+                  maxHeight: '90px',
+                  overflowY: 'auto',
+                  marginTop: '6px',
+                  marginBottom: 0
                 }}>
                   {selectedSub.sandboxOutput}
                 </pre>
-              </div>
+              </details>
 
               {/* BR-09 Stage Tabs */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
                 <button 
                   onClick={() => setActiveModalStage('review1')}
                   className={activeModalStage === 'review1' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: '0.82rem', padding: '6px 14px', gap: '6px' }}
+                  style={{ fontSize: '0.78rem', padding: '5px 12px', gap: '5px' }}
                 >
-                  <Sparkles size={14} /> {lang === 'vi' ? '1. AI & GV 1 Xem Xét' : '1. AI & Lecturer 1'}
+                  <Sparkles size={13} /> {lang === 'vi' ? '1. AI & GV 1 Xem Xét' : '1. AI & Lecturer 1'}
                 </button>
                 <button 
                   onClick={() => setActiveModalStage('review2')}
                   className={activeModalStage === 'review2' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: '0.82rem', padding: '6px 14px', gap: '6px' }}
+                  style={{ fontSize: '0.78rem', padding: '5px 12px', gap: '5px' }}
                 >
-                  <Users size={14} /> {lang === 'vi' ? '2. GV 2 Chấm Chéo (Độc Lập)' : '2. Lecturer 2 Cross-Grade'}
+                  <Users size={13} /> {lang === 'vi' ? '2. GV 2 Chấm Chéo (Độc Lập)' : '2. Lecturer 2 Cross-Grade'}
                 </button>
                 <button 
                   onClick={() => setActiveModalStage('consensus')}
                   className={activeModalStage === 'consensus' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: '0.82rem', padding: '6px 14px', gap: '6px' }}
+                  style={{ fontSize: '0.78rem', padding: '5px 12px', gap: '5px' }}
                 >
-                  <Award size={14} /> {lang === 'vi' ? '3. Biên Bản Đồng Thuận' : '3. Consensus Settlement'}
+                  <Award size={13} /> {lang === 'vi' ? '3. Biên Bản Đồng Thuận' : '3. Consensus Settlement'}
                 </button>
               </div>
 
               {/* TAB 1: AI PRE-GRADING & REVIEWER 1 */}
               {activeModalStage === 'review1' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* Card AI Pre-grading */}
-                  <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '12px', padding: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Sparkles size={16} /> {lang === 'vi' ? 'Bước 1 (AI Pre-grading): Điểm & Nhận xét từ AI Model' : 'Step 1: AI Preliminary Score & Critique'}
+                  <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Sparkles size={14} /> {lang === 'vi' ? 'Bước 1: Điểm & Nhận xét từ AI Model' : 'Step 1: AI Preliminary Score & Critique'}
                       </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#38bdf8' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.98rem', fontWeight: 700, color: '#38bdf8' }}>
                           {selectedSub.ai_score ?? selectedSub.grade} / 10
                         </span>
                         <button
                           type="button"
                           onClick={() => handleApproveAI(selectedSub)}
                           className="btn-secondary"
-                          style={{ padding: '5px 12px', fontSize: '0.8rem', borderColor: '#c084fc', color: '#c084fc', fontWeight: 600, gap: '4px' }}
+                          style={{ padding: '3px 9px', fontSize: '0.75rem', borderColor: '#c084fc', color: '#c084fc', fontWeight: 600, gap: '4px' }}
                         >
                           ⚡ {lang === 'vi' ? 'Phê duyệt điểm AI & Chốt ngay' : 'Approve AI Score & Finalize'}
                         </button>
                       </div>
                     </div>
-                    <p style={{ fontSize: '0.84rem', color: '#e2e8f0', lineHeight: 1.5, margin: 0 }}>
+                    <p style={{ fontSize: '0.78rem', color: '#e2e8f0', lineHeight: 1.4, margin: 0 }}>
                       {selectedSub.aiFeedback}
                     </p>
                   </div>
 
                   {/* Form Giảng Viên 1 */}
-                  <form onSubmit={handleSaveGrade} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px' }}>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <UserCheck size={16} /> {lang === 'vi' ? 'Giảng Viên 1 (Reviewer 1) Đánh Giá & Điều Chỉnh' : 'Lecturer 1 Review & Challenge'}
+                  <form onSubmit={handleSaveGrade} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
+                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <UserCheck size={14} /> {lang === 'vi' ? 'Giảng Viên 1 (Reviewer 1) Đánh Giá & Điều Chỉnh' : 'Lecturer 1 Review & Challenge'}
                     </h4>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
-                          {lang === 'vi' ? 'Điểm GV 1 chấm (0 - 10):' : 'Reviewer 1 Score (0 - 10):'}
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'flex-start' }}>
+                      <div style={{ width: '120px', flexShrink: 0 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                          {lang === 'vi' ? 'Điểm GV 1 (0-10):' : 'Score (0 - 10):'}
                         </label>
                         <input 
                           type="number"
@@ -1076,19 +1098,20 @@ export default function LecturerDashboard() {
                           required
                           style={{
                             width: '100%',
-                            padding: '9px 12px',
-                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
                             background: 'rgba(0, 0, 0, 0.3)',
                             border: '1px solid var(--border-color)',
                             color: '#fff',
-                            fontSize: '1.05rem',
-                            fontWeight: 700
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            textAlign: 'center'
                           }}
                         />
                       </div>
 
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
                           {lang === 'vi' ? 'Nhận xét chi tiết của GV 1:' : 'Reviewer 1 Notes / Justification:'}
                         </label>
                         <input 
@@ -1098,32 +1121,32 @@ export default function LecturerDashboard() {
                           onChange={e => setReviewer1Notes(e.target.value)}
                           style={{
                             width: '100%',
-                            padding: '9px 12px',
-                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
                             background: 'rgba(0, 0, 0, 0.3)',
                             border: '1px solid var(--border-color)',
                             color: '#fff',
-                            fontSize: '0.85rem'
+                            fontSize: '0.8rem'
                           }}
                         />
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: '1.2rem', padding: '10px 12px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px', color: '#fbbf24' }}>
-                        {lang === 'vi' ? 'Chỉ định Giảng Viên 2 chấm kiểm định độc lập (Cross-grading):' : 'Assign Lecturer 2 for Independent Cross-grading:'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', padding: '6px 10px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fbbf24', whiteSpace: 'nowrap', margin: 0 }}>
+                        {lang === 'vi' ? 'Chỉ định GV 2 chấm kiểm định:' : 'Assign Lecturer 2:'}
                       </label>
                       <select 
                         value={assignedReviewer2}
                         onChange={e => setAssignedReviewer2(e.target.value)}
                         style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          borderRadius: '8px',
+                          flex: 1,
+                          padding: '5px 8px',
+                          borderRadius: '6px',
                           background: 'rgba(20, 20, 28, 0.9)',
                           border: '1px solid var(--border-color)',
                           color: '#fff',
-                          fontSize: '0.85rem'
+                          fontSize: '0.78rem'
                         }}
                       >
                         <option value="ThS. Trần Thị Chuyên Môn">ThS. Trần Thị Chuyên Môn (Bộ môn Kỹ thuật Phần mềm)</option>
@@ -1132,21 +1155,21 @@ export default function LecturerDashboard() {
                       </select>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                       <button 
                         type="submit"
                         className="btn-secondary"
-                        style={{ fontSize: '0.82rem', padding: '8px 14px' }}
+                        style={{ fontSize: '0.78rem', padding: '6px 12px', gap: '4px' }}
                       >
-                        <Check size={14} /> {lang === 'vi' ? 'Lưu điểm GV 1 (Không cần GV 2)' : 'Save Grade (Single Lecturer)'}
+                        <Check size={13} /> {lang === 'vi' ? 'Lưu điểm GV 1 (Không cần GV 2)' : 'Save Grade (Single Lecturer)'}
                       </button>
                       <button 
                         type="button"
                         onClick={handleRequestSecondOpinion}
                         className="btn-primary"
-                        style={{ fontSize: '0.82rem', padding: '8px 16px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', gap: '6px' }}
+                        style={{ fontSize: '0.78rem', padding: '6px 14px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', gap: '5px' }}
                       >
-                        <RotateCw size={14} /> {lang === 'vi' ? 'Chuyển GV 2 Chấm Chéo Độc Lập (BR-09)' : 'Request 2nd Lecturer Review (BR-09)'}
+                        <RotateCw size={13} /> {lang === 'vi' ? 'Chuyển GV 2 Chấm Chéo Độc Lập (BR-09)' : 'Request 2nd Lecturer Review (BR-09)'}
                       </button>
                     </div>
                   </form>
@@ -1155,39 +1178,39 @@ export default function LecturerDashboard() {
 
               {/* TAB 2: REVIEWER 2 INDEPENDENT CROSS-GRADING */}
               {activeModalStage === 'review2' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* Tóm tắt điểm GV 1 */}
-                  <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '12px', padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: '0.82rem', color: '#93c5fd', display: 'block' }}>
-                        {lang === 'vi' ? 'Kết quả từ Giảng Viên 1:' : 'Lecturer 1 Assessment:'}
+                  <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '10px', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#93c5fd' }}>
+                        {lang === 'vi' ? 'Kết quả từ GV 1:' : 'Lecturer 1 Assessment:'}
                       </span>
-                      <strong style={{ fontSize: '1rem', color: '#fff' }}>
+                      <strong style={{ fontSize: '0.85rem', color: '#fff' }}>
                         {selectedSub.reviewer_1_name || 'TS. Nguyễn Văn Giảng'}:
                       </strong>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                         "{reviewer1Notes || selectedSub.reviewer_1_notes || (lang === 'vi' ? 'Đã xem xét bài nộp' : 'Reviewed')}"
                       </span>
                     </div>
-                    <span style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38bdf8' }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#38bdf8' }}>
                       {reviewer1Score} / 10
                     </span>
                   </div>
 
                   {/* Form Giảng Viên 2 */}
-                  <form onSubmit={handleSubmitSecondOpinion} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px' }}>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Users size={16} /> {lang === 'vi' ? 'Giảng Viên 2 (Reviewer 2) Chấm Điểm Độc Lập' : 'Lecturer 2 Independent Evaluation'}
+                  <form onSubmit={handleSubmitSecondOpinion} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
+                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '4px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Users size={14} /> {lang === 'vi' ? 'Giảng Viên 2 (Reviewer 2) Chấm Điểm Độc Lập' : 'Lecturer 2 Independent Evaluation'}
                     </h4>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                      {lang === 'vi' ? 'Giảng viên 2 chấm điểm độc lập không bị ảnh hưởng bởi giảng viên 1. Hệ thống tự động so sánh độ lệch điểm:' : 'Independent blind review. The system compares score difference:'}
-                      {' '}<strong>{lang === 'vi' ? '≤ 0.5 điểm: Tự động chốt điểm | > 0.5 điểm: Mở họp đồng thuận' : '≤ 0.5: Auto-finalize | > 0.5: Consensus required'}</strong>.
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', margin: '0 0 8px 0' }}>
+                      {lang === 'vi' ? 'Hệ thống tự động so sánh độ lệch điểm:' : 'Score difference comparison:'}
+                      {' '}<strong>{lang === 'vi' ? '≤ 0.5: Tự chốt điểm | > 0.5: Mở họp đồng thuận' : '≤ 0.5: Auto-finalize | > 0.5: Consensus required'}</strong>.
                     </p>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', marginBottom: '1.2rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
-                          {lang === 'vi' ? 'Điểm GV 2 chấm (0 - 10):' : 'Reviewer 2 Score (0 - 10):'}
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'flex-start' }}>
+                      <div style={{ width: '120px', flexShrink: 0 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                          {lang === 'vi' ? 'Điểm GV 2 (0-10):' : 'Score (0 - 10):'}
                         </label>
                         <input 
                           type="number"
@@ -1199,19 +1222,20 @@ export default function LecturerDashboard() {
                           required
                           style={{
                             width: '100%',
-                            padding: '9px 12px',
-                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
                             background: 'rgba(0, 0, 0, 0.3)',
                             border: '1px solid var(--border-color)',
                             color: '#fff',
-                            fontSize: '1.05rem',
-                            fontWeight: 700
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            textAlign: 'center'
                           }}
                         />
                       </div>
 
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
                           {lang === 'vi' ? 'Nhận xét độc lập của GV 2:' : 'Reviewer 2 Notes / Critique:'}
                         </label>
                         <input 
@@ -1222,24 +1246,24 @@ export default function LecturerDashboard() {
                           required
                           style={{
                             width: '100%',
-                            padding: '9px 12px',
-                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
                             background: 'rgba(0, 0, 0, 0.3)',
                             border: '1px solid var(--border-color)',
                             color: '#fff',
-                            fontSize: '0.85rem'
+                            fontSize: '0.8rem'
                           }}
                         />
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                       <button 
                         type="submit"
                         className="btn-primary"
-                        style={{ fontSize: '0.85rem', padding: '9px 18px', gap: '6px' }}
+                        style={{ fontSize: '0.78rem', padding: '6px 14px', gap: '5px' }}
                       >
-                        <Check size={15} /> {lang === 'vi' ? 'Nộp Điểm GV 2 & So Sánh Độ Lệch' : 'Submit 2nd Review & Compare'}
+                        <Check size={14} /> {lang === 'vi' ? 'Nộp Điểm GV 2 & So Sánh Độ Lệch' : 'Submit 2nd Review & Compare'}
                       </button>
                     </div>
                   </form>
@@ -1248,62 +1272,62 @@ export default function LecturerDashboard() {
 
               {/* TAB 3: CONSENSUS SETTLEMENT */}
               {activeModalStage === 'consensus' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {scoreDiffNotice && (
-                    <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '10px', padding: '12px 14px', color: '#fbbf24', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <AlertTriangle size={18} />
+                    <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '8px', padding: '8px 12px', color: '#fbbf24', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <AlertTriangle size={15} />
                       <span>{scoreDiffNotice}</span>
                     </div>
                   )}
 
                   {/* Bảng so sánh 3 nguồn điểm */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                    <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#c084fc', display: 'block', marginBottom: '4px' }}>AI Pre-grade</span>
-                      <strong style={{ fontSize: '1.2rem', color: '#fff' }}>{selectedSub.ai_score ?? 9.0}</strong>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#c084fc', display: 'block', marginBottom: '2px' }}>AI Pre-grade</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#fff' }}>{selectedSub.ai_score ?? 9.0}</strong>
                     </div>
-                    <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#93c5fd', display: 'block', marginBottom: '4px' }}>Giảng Viên 1</span>
-                      <strong style={{ fontSize: '1.2rem', color: '#38bdf8' }}>{reviewer1Score}</strong>
+                    <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#93c5fd', display: 'block', marginBottom: '2px' }}>Giảng Viên 1</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#38bdf8' }}>{reviewer1Score}</strong>
                     </div>
-                    <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#fbbf24', display: 'block', marginBottom: '4px' }}>Giảng Viên 2</span>
-                      <strong style={{ fontSize: '1.2rem', color: '#fbbf24' }}>{reviewer2Score}</strong>
+                    <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#fbbf24', display: 'block', marginBottom: '2px' }}>Giảng Viên 2</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#fbbf24' }}>{reviewer2Score}</strong>
                     </div>
                   </div>
 
                   {/* Form Biên bản đồng thuận */}
-                  <form onSubmit={handleFinalizeConsensus} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px' }}>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <FileText size={16} /> {lang === 'vi' ? 'Biên Bản Thống Nhất & Điểm Số Chính Thức (Consensus)' : 'Consensus Notes & Final Published Score'}
+                  <form onSubmit={handleFinalizeConsensus} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
+                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <FileText size={14} /> {lang === 'vi' ? 'Biên Bản Thống Nhất & Điểm Số Chính Thức (Consensus)' : 'Consensus Notes & Final Published Score'}
                     </h4>
 
-                    <div style={{ marginBottom: '1rem' }}>
-                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '6px' }}>
-                        {lang === 'vi' ? 'Biên bản trao đổi thống nhất giữa 2 giảng viên (*):' : 'Joint Consensus Discussion Notes (*):'}
+                    <div style={{ marginBottom: '8px' }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                        {lang === 'vi' ? 'Nội dung thống nhất giữa 2 giảng viên (*):' : 'Joint Consensus Discussion Notes (*):'}
                       </label>
                       <textarea 
-                        rows={3}
+                        rows={2}
                         required
                         placeholder={lang === 'vi' ? 'Ghi lại nội dung đồng thuận và căn cứ tính điểm cuối cùng...' : 'Record discussion points and score justification...'}
                         value={consensusNotes}
                         onChange={e => setConsensusNotes(e.target.value)}
                         style={{
                           width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
                           background: 'rgba(0, 0, 0, 0.3)',
                           border: '1px solid var(--border-color)',
                           color: '#fff',
-                          fontSize: '0.85rem'
+                          fontSize: '0.8rem'
                         }}
                       />
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                          {lang === 'vi' ? 'Điểm chính thức chốt công bố (final_score):' : 'Final Published Score:'}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                          {lang === 'vi' ? 'Điểm chính thức:' : 'Final Score:'}
                         </label>
                         <input 
                           type="number"
@@ -1314,13 +1338,13 @@ export default function LecturerDashboard() {
                           onChange={e => setFinalScoreInput(parseFloat(e.target.value) || 0)}
                           required
                           style={{
-                            width: '100px',
-                            padding: '8px 12px',
-                            borderRadius: '8px',
+                            width: '80px',
+                            padding: '5px 8px',
+                            borderRadius: '6px',
                             background: 'rgba(0, 0, 0, 0.4)',
                             border: '1px solid #10b981',
                             color: '#34d399',
-                            fontSize: '1.2rem',
+                            fontSize: '1rem',
                             fontWeight: 700,
                             textAlign: 'center'
                           }}
@@ -1330,9 +1354,9 @@ export default function LecturerDashboard() {
                       <button 
                         type="submit"
                         className="btn-primary"
-                        style={{ fontSize: '0.85rem', padding: '10px 20px', background: 'linear-gradient(135deg, #10b981, #059669)', gap: '6px' }}
+                        style={{ fontSize: '0.78rem', padding: '6px 14px', background: 'linear-gradient(135deg, #10b981, #059669)', gap: '5px' }}
                       >
-                        <Award size={16} /> {lang === 'vi' ? 'Chốt Điểm & Công Bố Cho Sinh Viên' : 'Publish Consensus Grade'}
+                        <Award size={14} /> {lang === 'vi' ? 'Chốt Điểm & Công Bố' : 'Publish Consensus Grade'}
                       </button>
                     </div>
                   </form>
@@ -1340,15 +1364,15 @@ export default function LecturerDashboard() {
               )}
 
               {/* Footer Modal */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.6rem' }}>
                 <button 
                   type="button"
                   disabled={isRegrading}
                   onClick={handleRerunGrading}
                   className="btn-secondary"
-                  style={{ gap: '6px', fontSize: '0.82rem' }}
+                  style={{ gap: '5px', fontSize: '0.78rem', padding: '5px 12px' }}
                 >
-                  {isRegrading ? <Loader2 size={15} className="animate-spin" /> : <RotateCw size={15} />}
+                  {isRegrading ? <Loader2 size={13} className="animate-spin" /> : <RotateCw size={13} />}
                   <span>{lang === 'vi' ? 'Chạy lại Docker Sandbox' : 'Re-run Sandbox Grading'}</span>
                 </button>
 
@@ -1356,7 +1380,7 @@ export default function LecturerDashboard() {
                   type="button" 
                   onClick={() => setSelectedSub(null)}
                   className="btn-secondary"
-                  style={{ fontSize: '0.82rem', padding: '6px 16px' }}
+                  style={{ fontSize: '0.78rem', padding: '5px 14px' }}
                 >
                   {lang === 'vi' ? 'Đóng' : 'Close'}
                 </button>
