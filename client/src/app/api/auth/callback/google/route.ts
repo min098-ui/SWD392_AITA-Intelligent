@@ -11,14 +11,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const clientId = (process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '').trim();
-    const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
     const redirectUri = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/callback/google';
-
-    if (!clientId || !clientSecret) {
-      console.error('Google OAuth credentials not configured in environment variables');
-      return NextResponse.redirect(new URL('/login?error=oauth_config_missing', request.url));
-    }
 
     // 1. Trao đổi authorization code lấy access_token từ Google
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -41,12 +36,7 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('Failed to get token from Google:', tokenData);
-      const fallbackUrl = new URL('/login', request.url);
-      fallbackUrl.searchParams.set('error', 'google_token_failed');
-      fallbackUrl.searchParams.set('google_fallback', 'true');
-      fallbackUrl.searchParams.set('state', requestedRole);
-      fallbackUrl.searchParams.set('message', 'Google Cloud trả về lỗi xác thực token (unauthorized_client). Hãy chọn hoặc xác nhận email Google của bạn bên dưới để tiếp tục luồng đăng nhập:');
-      return NextResponse.redirect(fallbackUrl);
+      return NextResponse.redirect(new URL('/login?error=google_token_failed', request.url));
     }
 
     // 2. Lấy thông tin tài khoản người dùng từ Google UserInfo API
