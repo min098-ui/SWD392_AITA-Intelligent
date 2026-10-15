@@ -27,7 +27,7 @@ interface UserItem {
   name: string;
   email: string;
   role: 'ADMIN' | 'LECTURER' | 'STUDENT';
-  status: string;
+  status: 'ACTIVE' | 'PENDING' | 'LOCKED' | 'REJECTED';
 }
 
 interface CourseItem {
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
             name: u.full_name,
             email: u.email,
             role: u.role,
-            status: 'Active'
+            status: u.status || 'ACTIVE'
           }));
           setUsers(mappedUsers);
           if (mappedUsers.length > 0 && !newLecturerId) {
@@ -225,6 +225,33 @@ export default function AdminDashboard() {
       } else {
         const data = await res.json();
         triggerToast(data.message || 'Lỗi khi cập nhật vai trò.');
+      }
+    } catch (err) {
+      console.error(err);
+      triggerToast('Không thể kết nối đến máy chủ.');
+    }
+  const handleUpdateStatus = async (userId: number, newStatus: 'ACTIVE' | 'PENDING' | 'LOCKED' | 'REJECTED') => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/auth/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+        triggerToast(
+          newStatus === 'ACTIVE'
+            ? (lang === 'vi' ? 'Đã phê duyệt và kích hoạt tài khoản thành công!' : 'Account approved and activated!')
+            : (lang === 'vi' ? `Đã cập nhật trạng thái tài khoản thành ${newStatus}!` : `Account status updated to ${newStatus}!`)
+        );
+        fetchAdminData();
+      } else {
+        triggerToast(data.message || 'Lỗi khi cập nhật trạng thái.');
       }
     } catch (err) {
       console.error(err);
@@ -830,14 +857,45 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
+              {/* Cảnh báo Giảng viên chờ duyệt */}
+              {users.filter(u => u.role === 'LECTURER' && u.status === 'PENDING').length > 0 && (
+                <div style={{
+                  marginBottom: '1.5rem',
+                  padding: '16px 20px',
+                  borderRadius: '14px',
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <AlertTriangle size={24} color="#f59e0b" />
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#fef3c7', fontSize: '0.95rem' }}>
+                        {lang === 'vi' 
+                          ? `Có ${users.filter(u => u.role === 'LECTURER' && u.status === 'PENDING').length} tài khoản Giảng viên đang chờ duyệt`
+                          : `${users.filter(u => u.role === 'LECTURER' && u.status === 'PENDING').length} pending lecturer account(s) waiting for approval`}
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: '#fde68a' }}>
+                        {lang === 'vi' ? 'Giảng viên đăng nhập lần đầu cần được Quản trị viên duyệt trước khi có thể truy cập hệ thống.' : 'New lecturers require Admin approval before accessing the dashboard.'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left' }}>
                       <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Họ và tên' : 'Full Name'}</th>
                       <th style={{ padding: '12px 16px' }}>Email</th>
-                      <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Vai trò hiện tại' : 'Current Role'}</th>
-                      <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Chuyển đổi vai trò' : 'Change Role'}</th>
+                      <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Vai trò' : 'Role'}</th>
+                      <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Trạng thái' : 'Status'}</th>
+                      <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Phê duyệt / Thao tác' : 'Approval & Actions'}</th>
+                      <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Đổi vai trò' : 'Change Role'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -851,8 +909,107 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td style={{ padding: '16px' }}>
+                          {u.status === 'PENDING' && (
+                            <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(245, 158, 11, 0.4)' }}>
+                              {lang === 'vi' ? 'Chờ duyệt' : 'Pending'}
+                            </span>
+                          )}
+                          {u.status === 'ACTIVE' && (
+                            <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(16, 185, 129, 0.4)' }}>
+                              {lang === 'vi' ? 'Đã kích hoạt' : 'Active'}
+                            </span>
+                          )}
+                          {u.status === 'LOCKED' && (
+                            <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(239, 68, 68, 0.4)' }}>
+                              {lang === 'vi' ? 'Đã khóa' : 'Locked'}
+                            </span>
+                          )}
+                          {u.status === 'REJECTED' && (
+                            <span style={{ background: 'rgba(107, 114, 128, 0.2)', color: '#9ca3af', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(107, 114, 128, 0.4)' }}>
+                              {lang === 'vi' ? 'Từ chối' : 'Rejected'}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px' }}>
+                          {u.email === 'lenguyenanhmai05@gmail.com' ? (
+                            <span style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>Admin Cố Định</span>
+                          ) : u.status === 'PENDING' ? (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => handleUpdateStatus(u.id, 'ACTIVE')}
+                                style={{
+                                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  padding: '5px 12px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Check size={14} /> {lang === 'vi' ? 'Duyệt Giảng Viên' : 'Approve'}
+                              </button>
+                              <button
+                                onClick={() => handleUpdateStatus(u.id, 'REJECTED')}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  color: '#f87171',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  borderRadius: '6px',
+                                  padding: '5px 10px',
+                                  fontSize: '0.8rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {lang === 'vi' ? 'Từ chối' : 'Reject'}
+                              </button>
+                            </div>
+                          ) : u.status === 'ACTIVE' ? (
+                            <button
+                              onClick={() => handleUpdateStatus(u.id, 'LOCKED')}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#f87171',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                borderRadius: '6px',
+                                padding: '5px 10px',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <Lock size={13} /> {lang === 'vi' ? 'Khóa tài khoản' : 'Lock'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleUpdateStatus(u.id, 'ACTIVE')}
+                              style={{
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                color: '#34d399',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '6px',
+                                padding: '5px 10px',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <Check size={13} /> {lang === 'vi' ? 'Mở khóa' : 'Unlock'}
+                            </button>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px' }}>
                           <select 
                             value={u.role}
+                            disabled={u.email === 'lenguyenanhmai05@gmail.com'}
                             onChange={e => handleChangeRole(u.id, e.target.value as any)}
                             style={{
                               background: 'rgba(0, 0, 0, 0.3)',
