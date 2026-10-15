@@ -76,7 +76,12 @@ export async function GET(request: NextRequest) {
     const backendData = await backendRes.json();
     if (!backendRes.ok || !backendData.token) {
       console.error('Backend Google auth failed:', backendData);
-      return NextResponse.redirect(new URL('/login?error=backend_auth_failed', request.url));
+      const errorCode = backendData.code || 'backend_auth_failed';
+      const errorMessage = backendData.message || 'Đăng nhập không thành công';
+      const errorUrl = new URL('/login', request.url);
+      errorUrl.searchParams.set('error', errorCode);
+      errorUrl.searchParams.set('message', errorMessage);
+      return NextResponse.redirect(errorUrl);
     }
 
     // 4. Chuyển hướng về trang callback client để lưu token vào localStorage
