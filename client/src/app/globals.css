@@ -29,6 +29,94 @@
   --radius-sm: 6px;
 }
 
+/* Light Theme Mode */
+html[data-theme="light"],
+body[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-glass: rgba(0, 0, 0, 0.035);
+  --border-color: rgba(0, 0, 0, 0.12);
+  --border-glow: rgba(59, 130, 246, 0.3);
+
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  
+  --shadow-subtle: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme="light"] body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.06) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.06) 0px, transparent 50%);
+}
+
+html[data-theme="light"] header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-theme="light"] .glass-card {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-theme="light"] .btn-secondary {
+  background: rgba(0, 0, 0, 0.04);
+  color: #1e293b;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+html[data-theme="light"] .btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Light Mode: Headings guarantee */
+html[data-theme="light"] h1:not(.btn-primary *),
+html[data-theme="light"] h2:not(.btn-primary *),
+html[data-theme="light"] h3:not(.btn-primary *),
+html[data-theme="light"] h4:not(.btn-primary *),
+html[data-theme="light"] h5:not(.btn-primary *),
+html[data-theme="light"] h6:not(.btn-primary *) {
+  color: #0f172a !important;
+}
+
+/* Light Mode: Form inputs, selects & textareas */
+html[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not(.btn-primary),
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+}
+
+html[data-theme="light"] select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Light Mode: Code block */
+html[data-theme="light"] .code-box,
+html[data-theme="light"] pre {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] code {
+  color: #0f172a !important;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
