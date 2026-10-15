@@ -3,13 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bot, Code2, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
+import UserProfileMenu from './UserProfileMenu';
 import { useLanguage } from '../context/LanguageContext';
 
-export default function Navigation({ initialIsLoggedIn = false }: { initialIsLoggedIn?: boolean }) {
+export default function Navigation({ 
+  initialIsLoggedIn = false,
+  centerContent
+}: { 
+  initialIsLoggedIn?: boolean;
+  centerContent?: React.ReactNode;
+}) {
   const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn);
   const [userRole, setUserRole] = useState('');
+  const [user, setUser] = useState<{ fullName?: string; full_name?: string; email?: string; role?: string } | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { lang } = useLanguage();
@@ -22,12 +30,14 @@ export default function Navigation({ initialIsLoggedIn = false }: { initialIsLog
       setIsLoggedIn(true);
       if (userStr) {
         try {
-          const user = JSON.parse(userStr);
-          setUserRole(user.role);
+          const parsedUser = JSON.parse(userStr);
+          setUser(parsedUser);
+          setUserRole(parsedUser.role || '');
         } catch (e) {}
       }
     } else {
       setIsLoggedIn(false);
+      setUser(null);
       setUserRole('');
     }
   }, [pathname]);
@@ -37,95 +47,87 @@ export default function Navigation({ initialIsLoggedIn = false }: { initialIsLog
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setIsLoggedIn(false);
+    setUser(null);
     setUserRole('');
     router.push('/login');
   };
 
+  const getDashboardHref = () => {
+    if (!isLoggedIn) return '/';
+    if (userRole === 'ADMIN') return '/admin';
+    if (userRole === 'LECTURER') return '/lecturer';
+    return '/student';
+  };
+
   return (
     <header style={{
-      borderBottom: '1px solid var(--border-color)',
-      background: 'rgba(10, 14, 23, 0.85)',
-      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+      background: 'rgba(10, 14, 23, 0.88)',
+      backdropFilter: 'blur(16px)',
       position: 'sticky',
       top: 0,
       zIndex: 50,
-      padding: '0 2rem'
+      padding: '0 1.5rem',
+      width: '100%'
     }}>
       <div style={{
-        maxWidth: '1300px',
-        margin: '0 auto',
-        height: '70px',
+        width: '100%',
+        height: '66px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        gap: '1.25rem'
       }}>
-        {/* Logo */}
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            background: 'var(--accent-gradient)',
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: 'var(--shadow-neon)'
-          }}>
-            <Bot size={24} color="#fff" />
-          </div>
-          <div>
-            <span style={{ fontWeight: 800, fontSize: '1.2rem', letterSpacing: '-0.02em' }}>
-              AITA<span style={{ color: 'var(--accent-cyan)' }}>.INTELLIGENT</span>
-            </span>
-            <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-              SWD392 • GROUP 4
-            </span>
-          </div>
-        </Link>
-
-        {/* Dynamic Role-based Tabs */}
-        {isLoggedIn && (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {userRole === 'STUDENT' && (
-              <Link href="/student" style={{ padding: '6px 12px', fontSize: '0.85rem', color: pathname.startsWith('/student') ? 'var(--text-main)' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', background: pathname.startsWith('/student') ? 'rgba(255,255,255,0.05)' : 'transparent', borderRadius: '6px' }}>
-                <GraduationCap size={16} /> {lang === 'vi' ? 'Bảng Điều Khiển SV' : 'Student Dashboard'}
-              </Link>
-            )}
-            {userRole === 'LECTURER' && (
-              <Link href="/lecturer" style={{ padding: '6px 12px', fontSize: '0.85rem', color: pathname.startsWith('/lecturer') ? 'var(--text-main)' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', background: pathname.startsWith('/lecturer') ? 'rgba(255,255,255,0.05)' : 'transparent', borderRadius: '6px' }}>
-                <Code2 size={16} /> {lang === 'vi' ? 'Bảng Điều Khiển GV' : 'Lecturer Dashboard'}
-              </Link>
-            )}
-            {userRole === 'ADMIN' && (
-              <Link href="/admin" style={{ padding: '6px 12px', fontSize: '0.85rem', color: pathname.startsWith('/admin') ? 'var(--text-main)' : 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px', background: pathname.startsWith('/admin') ? 'rgba(255,255,255,0.05)' : 'transparent', borderRadius: '6px' }}>
-                <ShieldCheck size={16} /> {lang === 'vi' ? 'Quản Trị Hệ Thống' : 'Admin Dashboard'}
-              </Link>
-            )}
-          </div>
-        )}
-
-        {/* Right Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          {/* Nút chuyển đổi ngôn ngữ Toàn hệ thống */}
-          <LanguageSwitcher />
-
-          {isLoggedIn && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: '9999px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-              {lang === 'vi' ? 'Sandbox: Sẵn sàng' : 'Sandbox: Ready'}
+        {/* Phần Hình 1: Logo sát mép trái */}
+        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <Link href={getDashboardHref()} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+            <div style={{
+              background: 'var(--accent-gradient)',
+              width: '38px',
+              height: '38px',
+              borderRadius: '11px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: 'var(--shadow-neon)'
+            }}>
+              <Bot size={22} color="#fff" />
             </div>
-          )}
-          
-          {!isLoggedIn && (
-            <Link href="/login" className="btn-primary" style={{ padding: '8px 20px', fontSize: '0.9rem', borderRadius: '10px' }}>
-              {lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}
-            </Link>
-          )}
-          
-          {isLoggedIn && (
-            <button onClick={handleLogout} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.9rem', outline: 'none' }}>
-              {lang === 'vi' ? 'Đăng Xuất' : 'Sign Out'}
-            </button>
+            <div>
+              <span style={{ fontWeight: 800, fontSize: '1.18rem', letterSpacing: '-0.02em', color: 'var(--text-main)', lineHeight: 1.15, display: 'block' }}>
+                AITA<span style={{ color: 'var(--accent-cyan)' }}>.INTELLIGENT</span>
+              </span>
+              <span style={{ display: 'block', fontSize: '0.66rem', color: 'var(--text-muted)', lineHeight: 1, marginTop: '2px', fontWeight: 600, letterSpacing: '0.04em' }}>
+                SWD392 • GROUP 4
+              </span>
+            </div>
+          </Link>
+        </div>
+
+        {/* Phần Hình 2: Tabs navigation ở giữa navbar */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: 1,
+          minWidth: 0,
+          overflowX: 'auto',
+          scrollbarWidth: 'none'
+        }}>
+          {centerContent}
+        </div>
+
+        {/* Phần Hình 3: Profile Avatar Dropdown (nếu đăng nhập) hoặc LanguageSwitcher & Đăng Nhập (nếu chưa) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+          {isLoggedIn ? (
+            <UserProfileMenu user={user} onLogout={handleLogout} />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <LanguageSwitcher />
+              <Link href="/login" className="btn-primary" style={{ padding: '7px 18px', fontSize: '0.88rem', borderRadius: '8px' }}>
+                {lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}
+              </Link>
+            </div>
           )}
         </div>
       </div>
