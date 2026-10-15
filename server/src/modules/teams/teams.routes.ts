@@ -56,7 +56,7 @@ router.post('/', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: 
 // POST /api/teams/:teamId/members - Thêm sinh viên vào nhóm với assigned_module
 router.post('/:teamId/members', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
   const teamId = parseInt(req.params.teamId, 10);
-  const { user_id, assigned_module } = req.body;
+  const { user_id, assigned_module, role } = req.body;
 
   if (isNaN(teamId)) {
     return res.status(400).json({ message: 'teamId không hợp lệ.' });
@@ -72,6 +72,8 @@ router.post('/:teamId/members', authenticateJWT, requireRole('ADMIN', 'LECTURER'
   if (isNaN(userIdNum)) {
     return res.status(400).json({ message: 'user_id không hợp lệ.' });
   }
+
+  const memberRole = role === 'LEADER' ? 'LEADER' : 'MEMBER';
 
   try {
     // 1. Kiểm tra nhóm có tồn tại
@@ -119,10 +121,10 @@ router.post('/:teamId/members', authenticateJWT, requireRole('ADMIN', 'LECTURER'
 
     // 4. Thêm thành viên vào nhóm
     const insertRes = await pool.query(
-      `INSERT INTO team_members (team_id, user_id, assigned_module) 
-       VALUES ($1, $2, $3) 
+      `INSERT INTO team_members (team_id, user_id, assigned_module, role) 
+       VALUES ($1, $2, $3, $4) 
        RETURNING *`,
-      [teamId, userIdNum, assigned_module.trim()]
+      [teamId, userIdNum, assigned_module.trim(), memberRole]
     );
 
     const newMember = insertRes.rows[0];
@@ -136,6 +138,7 @@ router.post('/:teamId/members', authenticateJWT, requireRole('ADMIN', 'LECTURER'
         full_name: targetUser.full_name,
         email: targetUser.email,
         assigned_module: newMember.assigned_module,
+        role: newMember.role,
       },
     });
   } catch (error: any) {
@@ -174,7 +177,8 @@ router.get('/:teamId', authenticateJWT, async (req: Request, res: Response) => {
               'user_id', u.user_id,
               'full_name', u.full_name,
               'email', u.email,
-              'assigned_module', tm.assigned_module
+              'assigned_module', tm.assigned_module,
+              'role', tm.role
             )
           ) FILTER (WHERE tm.team_member_id IS NOT NULL), '[]'::json
         ) as members
@@ -223,7 +227,8 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
               'user_id', u.user_id,
               'full_name', u.full_name,
               'email', u.email,
-              'assigned_module', tm.assigned_module
+              'assigned_module', tm.assigned_module,
+              'role', tm.role
             )
           ) FILTER (WHERE tm.team_member_id IS NOT NULL), '[]'::json
         ) as members

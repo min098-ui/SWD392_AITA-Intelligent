@@ -138,6 +138,7 @@ async function runTests() {
   // Schema checks
   assert(schemaContent.includes('CREATE TABLE IF NOT EXISTS users'), 'schema.sql defines users table');
   assert(schemaContent.includes('CREATE TABLE IF NOT EXISTS courses'), 'schema.sql defines courses table');
+  assert(schemaContent.includes('CREATE TABLE IF NOT EXISTS course_enrollments'), 'schema.sql defines course_enrollments table');
   assert(schemaContent.includes('CREATE TABLE IF NOT EXISTS teams'), 'schema.sql defines teams table');
   assert(schemaContent.includes('CREATE TABLE IF NOT EXISTS team_members'), 'schema.sql defines team_members table');
   assert(schemaContent.includes('uq_team_user UNIQUE (team_id, user_id)'), 'schema.sql defines unique constraint on team_members');
@@ -151,6 +152,7 @@ async function runTests() {
   assert(seedContent.includes('student2@fpt.edu.vn'), 'seed.sql contains Student 2');
   assert(seedContent.includes('student3@fpt.edu.vn'), 'seed.sql contains Student 3');
   assert(seedContent.includes('SWD392'), 'seed.sql contains SWD392 course');
+  assert(seedContent.includes('INSERT INTO course_enrollments'), 'seed.sql contains course_enrollments records');
   assert(seedContent.includes('Group 4 - AITA Project'), 'seed.sql contains Group 4 team');
 
   // ---------------------------------------------------------------------------
@@ -171,6 +173,17 @@ async function runTests() {
   assert(hasAuthRoute, 'Express app mounts /api/auth route');
   assert(hasCoursesRoute, 'Express app mounts /api/courses route');
   assert(hasTeamsRoute, 'Express app mounts /api/teams route');
+
+  // Course routes endpoint check
+  const coursesRoutesPath = path.resolve(__dirname, '../../src/modules/courses/courses.routes.ts');
+  const coursesRoutesContent = fs.readFileSync(coursesRoutesPath, 'utf-8');
+  assert(coursesRoutesContent.includes("router.post('/:id/enroll'"), 'courses.routes.ts defines POST /:id/enroll endpoint');
+  assert(coursesRoutesContent.includes("router.get('/:id/students'"), 'courses.routes.ts defines GET /:id/students endpoint');
+
+  // Team routes endpoint check
+  const teamsRoutesPath = path.resolve(__dirname, '../../src/modules/teams/teams.routes.ts');
+  const teamsRoutesContent = fs.readFileSync(teamsRoutesPath, 'utf-8');
+  assert(teamsRoutesContent.includes("memberRole = role === 'LEADER' ? 'LEADER' : 'MEMBER'"), 'teams.routes.ts handles LEADER/MEMBER role assignment');
 
   // ---------------------------------------------------------------------------
   // SUMMARY
