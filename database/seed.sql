@@ -3,18 +3,20 @@
 -- Course: SWD392 - Group 4
 -- =============================================================================
 
--- 1. Insert Users (5 sample accounts: 1 Admin, 1 Lecturer, 3 Students; Password is 'Password@123')
-INSERT INTO users (user_id, full_name, email, password_hash, role) VALUES
-(1, 'System Administrator', 'admin@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN'),
-(2, 'Dr. Nguyen Van Giang', 'giangnv@fe.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER'),
-(3, 'Sinh Viên 1 (Auth & Architecture)', 'student1@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT'),
-(4, 'Sinh Viên 2 (Docker Sandbox)', 'student2@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT'),
-(5, 'Sinh Viên 3 (AI Tutor & Prompts)', 'student3@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT')
+-- 1. Insert Users (Sample accounts: Permanent Admin, Lecturer, Students; Password is 'Password@123')
+INSERT INTO users (user_id, full_name, email, password_hash, role, status) VALUES
+(1, 'System Administrator', 'admin@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
+(2, 'Dr. Nguyen Van Giang', 'giangnv@fe.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER', 'ACTIVE'),
+(3, 'Sinh Viên 1 (Auth & Architecture)', 'student1@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+(4, 'Sinh Viên 2 (Docker Sandbox)', 'student2@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+(5, 'Sinh Viên 3 (AI Tutor & Prompts)', 'student3@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+(6, 'AMai Administrator', 'lenguyenanhmai05@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE')
 ON CONFLICT (user_id) DO UPDATE SET
   full_name = EXCLUDED.full_name,
   email = EXCLUDED.email,
   password_hash = EXCLUDED.password_hash,
-  role = EXCLUDED.role;
+  role = EXCLUDED.role,
+  status = EXCLUDED.status;
 
 SELECT setval('users_user_id_seq', (SELECT MAX(user_id) FROM users));
 
