@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, Loader2, GraduationCap, School, AlertCircle, ShieldCheck, Mail, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Bot, Loader2, GraduationCap, School, AlertCircle, Clock, ShieldAlert, CheckCircle } from 'lucide-react';
 import Navigation from '../../components/Navigation';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -40,17 +40,12 @@ const GitHubIcon = () => (
 );
 
 function LoginContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { lang } = useLanguage();
   const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'LECTURER'>('STUDENT');
-  const [loginMethod, setLoginMethod] = useState<'oauth' | 'password'>('password');
-  const [emailInput, setEmailInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
   const [redirectingProvider, setRedirectingProvider] = useState<'google' | 'github' | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [errorType, setErrorType] = useState<'pending' | 'role_conflict' | 'locked' | 'general' | null>(null);
+  const [alertMessage, setAlertMessage] = useState('');
 
   // Từ điển ngôn ngữ
   const t = {
@@ -58,14 +53,15 @@ function LoginContent() {
       title: 'Đăng nhập vào AITA',
       studentRole: 'Sinh viên',
       lecturerRole: 'Giảng viên',
-      studentSub: 'Cổng sinh viên: Nộp bài đồ án, xem điểm & AI chấm code',
-      lecturerSub: 'Cổng giảng viên: Chấm bài nộp, cấu hình Rubric & quản lý lớp',
+      studentSub: 'Cổng Sinh viên: Nộp bài đồ án, xem kết quả chấm & phân tích AI',
+      lecturerSub: 'Cổng Giảng viên: Chấm bài nộp, cấu hình Rubric & quản lý nhóm',
       continueGoogle: 'Tiếp tục với Google Workspace',
       continueGithub: 'Tiếp tục với GitHub',
       redirecting: 'Đang chuyển hướng xác thực...',
+      footerNotice: 'Hệ thống sử dụng Google Workspace SSO. Giảng viên đăng nhập lần đầu sẽ được gửi vào hệ thống để Quản trị viên (Admin) xét duyệt.',
       errorGoogleDenied: 'Bạn đã hủy đăng nhập bằng tài khoản Google.',
       errorGithubDenied: 'Bạn đã hủy đăng nhập bằng tài khoản GitHub.',
-      errorGeneral: 'Đăng nhập không thành công. Vui lòng thử lại.'
+      errorGeneral: 'Đăng nhập không thành công. Vui lòng thử lại sau.'
     },
     en: {
       title: 'Sign in to AITA',
@@ -76,6 +72,7 @@ function LoginContent() {
       continueGoogle: 'Continue with Google Workspace',
       continueGithub: 'Continue with GitHub',
       redirecting: 'Redirecting to sign in...',
+      footerNotice: 'Sign in with Google Workspace SSO. First-time lecturer logins require Administrator approval before access.',
       errorGoogleDenied: 'Google sign in was cancelled.',
       errorGithubDenied: 'GitHub sign in was cancelled.',
       errorGeneral: 'Sign in failed. Please try again.'
@@ -87,90 +84,46 @@ function LoginContent() {
   useEffect(() => {
     const err = searchParams.get('error');
     const msg = searchParams.get('message');
-    if (msg) {
-      setErrorMessage(msg);
-    } else if (err === 'ROLE_CONFLICT_LECTURER_AS_STUDENT') {
-      setErrorMessage('Email này đã được đăng ký cho Giảng viên, không được đăng nhập với vai trò Sinh viên!');
-    } else if (err === 'ROLE_CONFLICT_STUDENT_AS_LECTURER') {
-      setErrorMessage('Email này đã được đăng ký cho Sinh viên, không được đăng nhập với vai trò Giảng viên!');
-    } else if (err === 'LECTURER_PENDING_APPROVAL') {
-      setErrorMessage('Tài khoản Giảng viên của bạn đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin để được cấp quyền truy cập.');
+
+    if (err === 'LECTURER_PENDING_APPROVAL' || msg?.includes('chờ Quản trị viên') || msg?.includes('phê duyệt')) {
+      setErrorType('pending');
+      setAlertMessage(msg || 'Tài khoản Giảng viên của bạn đã được gửi vào hệ thống và đang chờ Quản trị viên (Admin) phê duyệt. Vui lòng liên hệ Admin để được cấp quyền truy cập.');
+    } else if (err === 'ROLE_CONFLICT_LECTURER_AS_STUDENT' || msg?.includes('không được đăng nhập cho Sinh viên')) {
+      setErrorType('role_conflict');
+      setAlertMessage('Email này đã đăng nhập cho Giảng viên, không được đăng nhập cho Sinh viên!');
+    } else if (err === 'ROLE_CONFLICT_STUDENT_AS_LECTURER' || msg?.includes('không được đăng nhập cho Giảng viên')) {
+      setErrorType('role_conflict');
+      setAlertMessage('Email này đã đăng nhập cho Sinh viên, không được đăng nhập cho Giảng viên!');
     } else if (err === 'ACCOUNT_LOCKED') {
-      setErrorMessage('Tài khoản của bạn đã bị khóa hoặc từ chối phê duyệt bởi Quản trị viên.');
+      setErrorType('locked');
+      setAlertMessage('Tài khoản của bạn đã bị khóa hoặc từ chối phê duyệt bởi Quản trị viên.');
+    } else if (msg) {
+      setErrorType('general');
+      setAlertMessage(msg);
     } else if (err === 'google_denied') {
-      setErrorMessage(currentT.errorGoogleDenied);
+      setErrorType('general');
+      setAlertMessage(currentT.errorGoogleDenied);
     } else if (err === 'github_denied') {
-      setErrorMessage(currentT.errorGithubDenied);
+      setErrorType('general');
+      setAlertMessage(currentT.errorGithubDenied);
     } else if (err) {
-      setErrorMessage(currentT.errorGeneral);
+      setErrorType('general');
+      setAlertMessage(currentT.errorGeneral);
     }
   }, [searchParams, currentT]);
 
-  // Điều hướng sau khi đăng nhập thành công
-  const handleAuthSuccess = (userData: any, token: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
-    }
-    setSuccessMessage(`Đăng nhập thành công! Chào mừng ${userData.fullName} (${userData.role})`);
-    setTimeout(() => {
-      if (userData.role === 'ADMIN') {
-        router.push('/admin');
-      } else if (userData.role === 'LECTURER') {
-        router.push('/lecturer');
-      } else {
-        router.push('/student');
-      }
-    }, 800);
-  };
-
-  // Đăng nhập trực tiếp bằng Email & Mật khẩu
-  const handleEmailSubmit = async (e?: React.FormEvent, customEmail?: string, customPass?: string, customRole?: 'STUDENT' | 'LECTURER') => {
-    if (e) e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    const email = (customEmail || emailInput).trim();
-    const password = customPass || passwordInput || 'Password@123';
-    const role = customRole || selectedRole;
-
-    if (!email) {
-      setErrorMessage('Vui lòng nhập địa chỉ email.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMessage(data.message || 'Đăng nhập không thành công.');
-      } else {
-        handleAuthSuccess(data.user, data.token);
-      }
-    } catch (err: any) {
-      console.error('Login request failed:', err);
-      setErrorMessage('Không thể kết nối đến máy chủ Backend (http://localhost:5000). Vui lòng thử lại.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Chuyển hướng Google OAuth 2.0
+  // Chuyển hướng trực tiếp tới Google OAuth 2.0 chính thức kèm state là vai trò đã chọn
   const handleGoogleLogin = () => {
     setRedirectingProvider('google');
-    setErrorMessage('');
+    setErrorType(null);
+    setAlertMessage('');
     if (typeof window !== 'undefined') {
       localStorage.setItem('intended_role', selectedRole);
     }
     const clientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '').trim();
     if (!clientId) {
-      setErrorMessage(lang === 'vi' ? 'Chưa cấu hình Google Client ID trong file môi trường (.env.local)' : 'Google Client ID not configured in .env.local');
+      setErrorType('general');
+      setAlertMessage(lang === 'vi' ? 'Chưa cấu hình Google Client ID trong file môi trường (.env.local)' : 'Google Client ID not configured in .env.local');
       setRedirectingProvider(null);
       return;
     }
@@ -181,16 +134,18 @@ function LoginContent() {
     window.location.href = googleAuthUrl;
   };
 
-  // Chuyển hướng GitHub OAuth
+  // Chuyển hướng trực tiếp tới GitHub OAuth
   const handleGitHubLogin = () => {
     setRedirectingProvider('github');
-    setErrorMessage('');
+    setErrorType(null);
+    setAlertMessage('');
     if (typeof window !== 'undefined') {
       localStorage.setItem('intended_role', selectedRole);
     }
     const clientId = (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || '').trim();
     if (!clientId) {
-      setErrorMessage(lang === 'vi' ? 'Chưa cấu hình GitHub Client ID trong file môi trường (.env.local)' : 'GitHub Client ID not configured in .env.local');
+      setErrorType('general');
+      setAlertMessage(lang === 'vi' ? 'Chưa cấu hình GitHub Client ID trong file môi trường (.env.local)' : 'GitHub Client ID not configured in .env.local');
       setRedirectingProvider(null);
       return;
     }
@@ -212,10 +167,10 @@ function LoginContent() {
         padding: '2rem 1rem',
         position: 'relative'
       }}>
-        {/* Ambient subtle glow */}
+        {/* Subtle Ambient Glow */}
         <div style={{
           position: 'absolute',
-          top: '20%',
+          top: '25%',
           width: '380px',
           height: '380px',
           background: 'var(--accent-primary)',
@@ -225,11 +180,11 @@ function LoginContent() {
           pointerEvents: 'none'
         }} />
 
-        {/* Login Card */}
+        {/* Card Đăng Nhập */}
         <div className="glass-card" style={{
           width: '100%',
-          maxWidth: '460px',
-          padding: '2.2rem 2rem',
+          maxWidth: '440px',
+          padding: '2.6rem 2.2rem',
           position: 'relative',
           borderRadius: '24px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -239,29 +194,29 @@ function LoginContent() {
           {/* Logo icon */}
           <div style={{
             background: 'var(--accent-gradient)',
-            width: '54px',
-            height: '54px',
+            width: '56px',
+            height: '56px',
             borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 8px 24px -4px rgba(59, 130, 246, 0.45)',
-            margin: '0 auto 1rem'
+            margin: '0 auto 1.2rem'
           }}>
-            <Bot size={28} color="#fff" />
+            <Bot size={30} color="#fff" />
           </div>
 
           {/* Heading */}
           <h1 style={{ 
-            fontSize: '1.6rem', 
+            fontSize: '1.65rem', 
             fontWeight: 800, 
-            marginBottom: '0.3rem', 
+            marginBottom: '0.4rem', 
             letterSpacing: '-0.02em', 
             color: 'var(--text-main)' 
           }}>
             {currentT.title}
           </h1>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
+          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.45 }}>
             {selectedRole === 'STUDENT' ? currentT.studentSub : currentT.lecturerSub}
           </p>
 
@@ -273,19 +228,19 @@ function LoginContent() {
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: '14px',
             padding: '4px',
-            marginBottom: '1.2rem',
+            marginBottom: '1.5rem',
             gap: '4px'
           }}>
             <button
               type="button"
               id="role-btn-student"
-              onClick={() => { setSelectedRole('STUDENT'); setErrorMessage(''); }}
+              onClick={() => { setSelectedRole('STUDENT'); setErrorType(null); setAlertMessage(''); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                padding: '9px 12px',
+                padding: '10px 14px',
                 borderRadius: '10px',
                 border: 'none',
                 background: selectedRole === 'STUDENT' ? 'rgba(59, 130, 246, 0.22)' : 'transparent',
@@ -294,27 +249,27 @@ function LoginContent() {
                 borderWidth: '1px',
                 borderStyle: 'solid',
                 borderColor: selectedRole === 'STUDENT' ? 'rgba(59, 130, 246, 0.5)' : 'transparent',
-                fontSize: '0.88rem',
+                fontSize: '0.9rem',
                 fontWeight: selectedRole === 'STUDENT' ? 600 : 500,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 outline: 'none'
               }}
             >
-              <GraduationCap size={17} color={selectedRole === 'STUDENT' ? '#60a5fa' : 'currentColor'} />
+              <GraduationCap size={18} color={selectedRole === 'STUDENT' ? '#60a5fa' : 'currentColor'} />
               <span>{currentT.studentRole}</span>
             </button>
 
             <button
               type="button"
               id="role-btn-lecturer"
-              onClick={() => { setSelectedRole('LECTURER'); setErrorMessage(''); }}
+              onClick={() => { setSelectedRole('LECTURER'); setErrorType(null); setAlertMessage(''); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                padding: '9px 12px',
+                padding: '10px 14px',
                 borderRadius: '10px',
                 border: 'none',
                 background: selectedRole === 'LECTURER' ? 'rgba(16, 185, 129, 0.22)' : 'transparent',
@@ -323,47 +278,101 @@ function LoginContent() {
                 borderWidth: '1px',
                 borderStyle: 'solid',
                 borderColor: selectedRole === 'LECTURER' ? 'rgba(16, 185, 129, 0.5)' : 'transparent',
-                fontSize: '0.88rem',
+                fontSize: '0.9rem',
                 fontWeight: selectedRole === 'LECTURER' ? 600 : 500,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 outline: 'none'
               }}
             >
-              <School size={17} color={selectedRole === 'LECTURER' ? '#34d399' : 'currentColor'} />
+              <School size={18} color={selectedRole === 'LECTURER' ? '#34d399' : 'currentColor'} />
               <span>{currentT.lecturerRole}</span>
             </button>
           </div>
 
-          {/* Success Banner */}
-          {successMessage && (
+          {/* Alert Banners */}
+          {errorType === 'pending' && (
             <div style={{
-              marginBottom: '1.2rem',
-              padding: '12px 14px',
-              borderRadius: '12px',
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.4)',
-              color: '#34d399',
-              fontSize: '0.86rem',
+              marginBottom: '1.4rem',
+              padding: '14px 16px',
+              borderRadius: '14px',
+              background: 'rgba(245, 158, 11, 0.14)',
+              border: '1px solid rgba(245, 158, 11, 0.45)',
+              color: '#fef3c7',
+              fontSize: '0.87rem',
               textAlign: 'left',
               display: 'flex',
               alignItems: 'flex-start',
-              gap: '10px',
+              gap: '12px',
               lineHeight: 1.45,
             }}>
-              <CheckCircle2 size={20} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>{successMessage}</div>
+              <Clock size={22} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <div style={{ fontWeight: 700, color: '#fcd34d', marginBottom: '2px' }}>
+                  Tài khoản Giảng viên đang chờ duyệt
+                </div>
+                <div>{alertMessage}</div>
+              </div>
             </div>
           )}
 
-          {/* Error Banner with prominent alert styling */}
-          {errorMessage && (
+          {errorType === 'role_conflict' && (
             <div style={{
-              marginBottom: '1.2rem',
+              marginBottom: '1.4rem',
+              padding: '14px 16px',
+              borderRadius: '14px',
+              background: 'rgba(239, 68, 68, 0.14)',
+              border: '1px solid rgba(239, 68, 68, 0.45)',
+              color: '#fee2e2',
+              fontSize: '0.87rem',
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              lineHeight: 1.45,
+            }}>
+              <AlertCircle size={22} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <div style={{ fontWeight: 700, color: '#fca5a5', marginBottom: '2px' }}>
+                  Xung đột vai trò tài khoản
+                </div>
+                <div>{alertMessage}</div>
+              </div>
+            </div>
+          )}
+
+          {errorType === 'locked' && (
+            <div style={{
+              marginBottom: '1.4rem',
+              padding: '14px 16px',
+              borderRadius: '14px',
+              background: 'rgba(239, 68, 68, 0.14)',
+              border: '1px solid rgba(239, 68, 68, 0.45)',
+              color: '#fee2e2',
+              fontSize: '0.87rem',
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              lineHeight: 1.45,
+            }}>
+              <ShieldAlert size={22} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <div style={{ fontWeight: 700, color: '#fca5a5', marginBottom: '2px' }}>
+                  Tài khoản bị khóa
+                </div>
+                <div>{alertMessage}</div>
+              </div>
+            </div>
+          )}
+
+          {errorType === 'general' && alertMessage && (
+            <div style={{
+              marginBottom: '1.4rem',
               padding: '12px 14px',
               borderRadius: '12px',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.45)',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
               color: '#fca5a5',
               fontSize: '0.86rem',
               textAlign: 'left',
@@ -373,383 +382,131 @@ function LoginContent() {
               lineHeight: 1.45,
             }}>
               <AlertCircle size={20} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>{errorMessage}</div>
+              <div>{alertMessage}</div>
             </div>
           )}
 
-          {/* Toggle Tab: Email/Mật khẩu vs Google/GitHub SSO */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '12px',
-            marginBottom: '1.2rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            paddingBottom: '8px'
-          }}>
+          {/* Nút Đăng Nhập Google Workspace Chính Thức */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <button
               type="button"
-              onClick={() => setLoginMethod('password')}
+              id="google-login-btn"
+              disabled={redirectingProvider !== null}
+              onClick={handleGoogleLogin}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: loginMethod === 'password' ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                fontWeight: loginMethod === 'password' ? 700 : 500,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                borderBottom: loginMethod === 'password' ? '2px solid var(--accent-cyan)' : '2px solid transparent'
+                width: '100%',
+                height: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                borderRadius: '14px',
+                background: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#1f2937',
+                fontSize: '0.96rem',
+                fontWeight: 600,
+                cursor: redirectingProvider !== null ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                outline: 'none',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.18)',
+                opacity: redirectingProvider === 'google' ? 0.75 : 1
+              }}
+              onMouseEnter={(e) => {
+                if (!redirectingProvider) {
+                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 6px 18px rgba(0, 0, 0, 0.28)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!redirectingProvider) {
+                  e.currentTarget.style.background = '#ffffff';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.18)';
+                }
               }}
             >
-              Email & Mật khẩu
+              {redirectingProvider === 'google' ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" color="#1f2937" />
+                  <span>{currentT.redirecting}</span>
+                </>
+              ) : (
+                <>
+                  <GoogleIcon />
+                  <span>{currentT.continueGoogle}</span>
+                </>
+              )}
             </button>
+
+            {/* Nút Đăng Nhập GitHub Phụ */}
             <button
               type="button"
-              onClick={() => setLoginMethod('oauth')}
+              id="github-login-btn"
+              disabled={redirectingProvider !== null}
+              onClick={handleGitHubLogin}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: loginMethod === 'oauth' ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                fontWeight: loginMethod === 'oauth' ? 700 : 500,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                padding: '4px 8px',
-                borderBottom: loginMethod === 'oauth' ? '2px solid var(--accent-cyan)' : '2px solid transparent'
+                width: '100%',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.07)',
+                border: '1px solid rgba(255, 255, 255, 0.14)',
+                color: '#ffffff',
+                fontSize: '0.94rem',
+                fontWeight: 600,
+                cursor: redirectingProvider !== null ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                outline: 'none',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                opacity: redirectingProvider === 'github' ? 0.75 : 1
+              }}
+              onMouseEnter={(e) => {
+                if (!redirectingProvider) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.28)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.35)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!redirectingProvider) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)';
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.14)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+                }
               }}
             >
-              Google / GitHub SSO
+              {redirectingProvider === 'github' ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" color="#ffffff" />
+                  <span>{currentT.redirecting}</span>
+                </>
+              ) : (
+                <>
+                  <GitHubIcon />
+                  <span>{currentT.continueGithub}</span>
+                </>
+              )}
             </button>
           </div>
 
-          {loginMethod === 'password' ? (
-            <form onSubmit={(e) => handleEmailSubmit(e)} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>
-                  Địa chỉ Email
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '12px',
-                  padding: '0 12px'
-                }}>
-                  <Mail size={16} color="var(--text-dim)" style={{ marginRight: '8px' }} />
-                  <input
-                    type="email"
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                    placeholder="vd: lenguyenanhmai05@gmail.com"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '44px',
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.9rem'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ textAlign: 'left' }}>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>
-                  Mật khẩu
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '12px',
-                  padding: '0 12px'
-                }}>
-                  <Lock size={16} color="var(--text-dim)" style={{ marginRight: '8px' }} />
-                  <input
-                    type="password"
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="Mặc định: Password@123"
-                    style={{
-                      width: '100%',
-                      height: '44px',
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#fff',
-                      outline: 'none',
-                      fontSize: '0.9rem'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                style={{
-                  width: '100%',
-                  height: '46px',
-                  borderRadius: '12px',
-                  background: 'var(--accent-gradient)',
-                  color: '#fff',
-                  border: 'none',
-                  fontSize: '0.95rem',
-                  fontWeight: 700,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                  boxShadow: 'var(--shadow-neon)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  marginTop: '6px'
-                }}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Đang xác thực...</span>
-                  </>
-                ) : (
-                  <span>Đăng nhập hệ thống</span>
-                )}
-              </button>
-            </form>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Nút Google Workspace */}
-              <button
-                type="button"
-                disabled={redirectingProvider !== null}
-                onClick={handleGoogleLogin}
-                style={{
-                  width: '100%',
-                  height: '48px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  borderRadius: '12px',
-                  background: '#ffffff',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#1f2937',
-                  fontSize: '0.92rem',
-                  fontWeight: 600,
-                  cursor: redirectingProvider !== null ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  outline: 'none',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                  opacity: redirectingProvider === 'google' ? 0.75 : 1
-                }}
-              >
-                {redirectingProvider === 'google' ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" color="#1f2937" />
-                    <span>{currentT.redirecting}</span>
-                  </>
-                ) : (
-                  <>
-                    <GoogleIcon />
-                    <span>{currentT.continueGoogle}</span>
-                  </>
-                )}
-              </button>
-
-              {/* Nút GitHub */}
-              <button
-                type="button"
-                disabled={redirectingProvider !== null}
-                onClick={handleGitHubLogin}
-                style={{
-                  width: '100%',
-                  height: '48px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  borderRadius: '12px',
-                  background: 'rgba(255, 255, 255, 0.07)',
-                  border: '1px solid rgba(255, 255, 255, 0.14)',
-                  color: '#ffffff',
-                  fontSize: '0.92rem',
-                  fontWeight: 600,
-                  cursor: redirectingProvider !== null ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  outline: 'none',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-                  opacity: redirectingProvider === 'github' ? 0.75 : 1
-                }}
-              >
-                {redirectingProvider === 'github' ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" color="#ffffff" />
-                    <span>{currentT.redirecting}</span>
-                  </>
-                ) : (
-                  <>
-                    <GitHubIcon />
-                    <span>{currentT.continueGithub}</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Quick Access Testing Accounts (Phục vụ kiểm thử trực tiếp các ràng buộc) */}
-          <div style={{
+          {/* Dòng ghi chú chân trang */}
+          <p style={{
             marginTop: '1.6rem',
-            paddingTop: '1.2rem',
-            borderTop: '1px dashed rgba(255, 255, 255, 0.12)',
-            textAlign: 'left'
+            fontSize: '0.78rem',
+            color: 'var(--text-muted)',
+            lineHeight: 1.5,
+            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            paddingTop: '1.2rem'
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '10px'
-            }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Sparkles size={14} color="#f59e0b" /> Kiểm thử nhanh các ràng buộc:
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
-              {/* 1. Admin cố định */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEmailInput('lenguyenanhmai05@gmail.com');
-                  setPasswordInput('Password@123');
-                  handleEmailSubmit(undefined, 'lenguyenanhmai05@gmail.com', 'Password@123', selectedRole);
-                }}
-                style={{
-                  background: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  borderRadius: '8px',
-                  padding: '7px 10px',
-                  color: '#fca5a5',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  textAlign: 'left'
-                }}
-              >
-                <span>👑 <strong>Admin Cố Định:</strong> lenguyenanhmai05@gmail.com</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.2)', padding: '2px 6px', borderRadius: '4px' }}>Vào Admin</span>
-              </button>
-
-              {/* 2. Giảng viên đã được duyệt */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEmailInput('giangnv@fe.edu.vn');
-                  setPasswordInput('Password@123');
-                  setSelectedRole('LECTURER');
-                  handleEmailSubmit(undefined, 'giangnv@fe.edu.vn', 'Password@123', 'LECTURER');
-                }}
-                style={{
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  borderRadius: '8px',
-                  padding: '7px 10px',
-                  color: '#6ee7b7',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  textAlign: 'left'
-                }}
-              >
-                <span>👨‍🏫 <strong>Giảng viên đã duyệt:</strong> giangnv@fe.edu.vn</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.2)', padding: '2px 6px', borderRadius: '4px' }}>Vào Giảng viên</span>
-              </button>
-
-              {/* 3. Giảng viên chờ duyệt */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEmailInput('pending_lec@fe.edu.vn');
-                  setPasswordInput('Password@123');
-                  setSelectedRole('LECTURER');
-                  handleEmailSubmit(undefined, 'pending_lec@fe.edu.vn', 'Password@123', 'LECTURER');
-                }}
-                style={{
-                  background: 'rgba(245, 158, 11, 0.08)',
-                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                  borderRadius: '8px',
-                  padding: '7px 10px',
-                  color: '#fcd34d',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  textAlign: 'left'
-                }}
-              >
-                <span>⏳ <strong>Giảng viên chờ duyệt:</strong> pending_lec@fe.edu.vn</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(245, 158, 11, 0.2)', padding: '2px 6px', borderRadius: '4px' }}>Xem cảnh báo</span>
-              </button>
-
-              {/* 4. Thử xung đột vai trò: Giảng viên cố đăng nhập Sinh viên */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEmailInput('giangnv@fe.edu.vn');
-                  setPasswordInput('Password@123');
-                  setSelectedRole('STUDENT');
-                  handleEmailSubmit(undefined, 'giangnv@fe.edu.vn', 'Password@123', 'STUDENT');
-                }}
-                style={{
-                  background: 'rgba(139, 92, 246, 0.08)',
-                  border: '1px solid rgba(139, 92, 246, 0.3)',
-                  borderRadius: '8px',
-                  padding: '7px 10px',
-                  color: '#c4b5fd',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  textAlign: 'left'
-                }}
-              >
-                <span>⚠️ <strong>Test khóa:</strong> Mail Giảng viên login Sinh viên</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(139, 92, 246, 0.2)', padding: '2px 6px', borderRadius: '4px' }}>Bị khóa</span>
-              </button>
-
-              {/* 5. Sinh viên đăng nhập */}
-              <button
-                type="button"
-                onClick={() => {
-                  setEmailInput('student1@fpt.edu.vn');
-                  setPasswordInput('Password@123');
-                  setSelectedRole('STUDENT');
-                  handleEmailSubmit(undefined, 'student1@fpt.edu.vn', 'Password@123', 'STUDENT');
-                }}
-                style={{
-                  background: 'rgba(59, 130, 246, 0.08)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  borderRadius: '8px',
-                  padding: '7px 10px',
-                  color: '#93c5fd',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  textAlign: 'left'
-                }}
-              >
-                <span>🎓 <strong>Sinh viên:</strong> student1@fpt.edu.vn</span>
-                <span style={{ fontSize: '0.72rem', background: 'rgba(59, 130, 246, 0.2)', padding: '2px 6px', borderRadius: '4px' }}>Vào Sinh viên</span>
-              </button>
-            </div>
-          </div>
+            {currentT.footerNotice}
+          </p>
         </div>
       </main>
     </>
