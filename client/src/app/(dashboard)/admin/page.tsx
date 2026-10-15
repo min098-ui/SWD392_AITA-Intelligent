@@ -9,7 +9,7 @@ import {
   ShieldCheck, Key, MessageSquareText, Activity, 
   Server, Database, Plus, RefreshCw, Edit2, Trash2,
   Users, BookOpen, Check, X, Lock, CheckCircle2, AlertTriangle, Cpu,
-  Bot, LogOut, ChevronRight, ExternalLink, Sparkles, Terminal
+  Bot, LogOut, ChevronRight, Sparkles, Terminal
 } from 'lucide-react';
 
 interface AIKeyItem {
@@ -230,6 +230,8 @@ export default function AdminDashboard() {
       console.error(err);
       triggerToast('Không thể kết nối đến máy chủ.');
     }
+  };
+
   const handleUpdateStatus = async (userId: number, newStatus: 'ACTIVE' | 'PENDING' | 'LOCKED' | 'REJECTED') => {
     try {
       const token = await getToken();
@@ -372,7 +374,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontWeight: 800, fontSize: '1.15rem', letterSpacing: '-0.02em', color: '#fff' }}>
+              <span style={{ fontWeight: 800, fontSize: '1.15rem', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
                 AITA<span style={{ color: '#ef4444' }}>.ADMIN</span>
               </span>
               <span style={{ 
@@ -571,52 +573,6 @@ export default function AdminDashboard() {
             </div>
             {activeTab === 'database' && <ChevronRight size={15} color="#38bdf8" />}
           </button>
-
-          {/* Shortcuts section */}
-          <div style={{ marginTop: '1.5rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
-            <span style={{
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              color: 'var(--text-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              padding: '0 12px',
-              display: 'block',
-              marginBottom: '8px'
-            }}>
-              {lang === 'vi' ? 'Xem các cổng người dùng' : 'View Portals'}
-            </span>
-
-            <Link href="/lecturer" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '9px 14px',
-              borderRadius: '8px',
-              color: 'var(--text-muted)',
-              fontSize: '0.84rem',
-              textDecoration: 'none',
-              transition: 'all 0.15s'
-            }}>
-              <ExternalLink size={15} />
-              <span>{lang === 'vi' ? 'Cổng Giảng viên' : 'Lecturer Portal'}</span>
-            </Link>
-
-            <Link href="/student" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '9px 14px',
-              borderRadius: '8px',
-              color: 'var(--text-muted)',
-              fontSize: '0.84rem',
-              textDecoration: 'none',
-              transition: 'all 0.15s'
-            }}>
-              <ExternalLink size={15} />
-              <span>{lang === 'vi' ? 'Cổng Sinh viên' : 'Student Portal'}</span>
-            </Link>
-          </div>
         </div>
 
         {/* Profile Card Bottom of Sidebar */}
@@ -645,7 +601,7 @@ export default function AdminDashboard() {
               AM
             </div>
             <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                 {currentUser?.fullName || 'AMai'}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
@@ -702,7 +658,7 @@ export default function AdminDashboard() {
               <span>/</span>
               <span>Admin Control</span>
               <span>/</span>
-              <span style={{ color: '#fff', fontWeight: 600 }}>
+              <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>
                 {activeTab === 'keys' && (lang === 'vi' ? 'Kho Khóa AI' : 'AI Key Pool')}
                 {activeTab === 'prompts' && (lang === 'vi' ? 'Mẫu Prompt' : 'Prompt Templates')}
                 {activeTab === 'users' && (lang === 'vi' ? 'Quản lý Tài khoản' : 'User Accounts')}
@@ -714,21 +670,6 @@ export default function AdminDashboard() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <LanguageSwitcher />
-
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.82rem',
-              color: '#34d399',
-              background: 'rgba(16, 185, 129, 0.1)',
-              padding: '6px 12px',
-              borderRadius: '9999px',
-              border: '1px solid rgba(16, 185, 129, 0.25)'
-            }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399' }} />
-              {lang === 'vi' ? 'Sandbox: Sẵn sàng' : 'Sandbox: Ready'}
-            </div>
           </div>
         </header>
 
@@ -1060,7 +1001,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1rem' }}>
-                      <p>{lang === 'vi' ? 'Học kỳ:' : 'Semester:'} <strong style={{ color: '#fff' }}>{c.semester}</strong></p>
+                      <p>{lang === 'vi' ? 'Học kỳ:' : 'Semester:'} <strong style={{ color: 'var(--text-main)' }}>{c.semester}</strong></p>
                       <p>{lang === 'vi' ? 'Giảng viên phụ trách:' : 'Lecturer:'} <strong style={{ color: '#34d399' }}>{c.lecturer}</strong></p>
                       <p>{lang === 'vi' ? 'Số nhóm đồ án:' : 'Active Teams:'} <strong style={{ color: '#60a5fa' }}>{c.teamsCount} Teams</strong></p>
                     </div>
@@ -1170,7 +1111,7 @@ export default function AdminDashboard() {
                       localhost:5432 / aita_db
                     </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      User: <strong style={{ color: '#fff' }}>aita_user</strong> • Container: <strong style={{ color: '#34d399' }}>aita_postgres</strong>
+                      User: <strong style={{ color: 'var(--text-main)' }}>aita_user</strong> • Container: <strong style={{ color: '#34d399' }}>aita_postgres</strong>
                     </div>
                   </div>
 
@@ -1355,9 +1296,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'rgba(0, 0, 0, 0.3)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
-                    color: '#fff',
+                    color: 'var(--text-main)',
                     fontSize: '0.9rem'
                   }}
                 />
@@ -1377,9 +1318,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'rgba(0, 0, 0, 0.3)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
-                    color: '#fff',
+                    color: 'var(--text-main)',
                     fontSize: '0.9rem'
                   }}
                 />
@@ -1399,9 +1340,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'rgba(0, 0, 0, 0.3)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
-                    color: '#fff',
+                    color: 'var(--text-main)',
                     fontSize: '0.9rem'
                   }}
                 />
@@ -1418,9 +1359,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'rgba(15, 23, 42, 0.9)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
-                    color: '#fff',
+                    color: 'var(--text-main)',
                     fontSize: '0.9rem'
                   }}
                 >
