@@ -6,7 +6,8 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { 
   Send, Bot, CheckCircle2, Clock, GitBranch, MessageSquare, 
   Terminal, AlertCircle, FileCode, Users, ExternalLink, Sparkles, BookOpen,
-  Loader2, Check, ArrowRight, X, RefreshCw, Database, Star, AlertTriangle
+  Loader2, Check, ArrowRight, X, RefreshCw, Database, Star, AlertTriangle,
+  Mail, Crown, ChevronDown, ChevronUp, CheckSquare
 } from 'lucide-react';
 
 interface TeamMember {
@@ -15,6 +16,7 @@ interface TeamMember {
   full_name: string;
   email: string;
   assigned_module: string;
+  role?: string;
 }
 
 interface TeamInfo {
@@ -57,11 +59,13 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState<'courses' | 'submit' | 'results' | 'chat' | 'peer' | 'analytics'>('courses');
   
   // Live DB data
+  const [myTeams, setMyTeams] = useState<TeamInfo[]>([]);
   const [myTeam, setMyTeam] = useState<TeamInfo | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [mySubmissions, setMySubmissions] = useState<SubmissionResult[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<number | string>('');
+  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
 
   // Submission form state
   const [repoUrl, setRepoUrl] = useState('');
@@ -136,10 +140,12 @@ export default function StudentDashboard() {
 
       // 1. Get current user info to find their team
       let userId: number | null = null;
+      let userEmail: string | null = null;
       try {
         const u = localStorage.getItem('user');
         const userObj = u ? JSON.parse(u) : null;
         userId = userObj?.userId || userObj?.user_id || null;
+        userEmail = (userObj?.email || '').toLowerCase().trim();
       } catch (e) {}
 
       // 2. Fetch all teams to find student's team
@@ -150,20 +156,24 @@ export default function StudentDashboard() {
       if (teamRes.ok) {
         const tData = await teamRes.json();
         if (tData.teams && tData.teams.length > 0) {
-          // Find team this student belongs to
-          let myT = userId ? tData.teams.find((t: TeamInfo) =>
-            t.members && t.members.some((m: TeamMember) => m.user_id === userId)
-          ) : null;
-          // Fallback to first available team if not found
-          if (!myT) {
-            myT = tData.teams[0];
-          }
-          currentTeam = myT;
-          setMyTeam(myT);
+          // Find all teams this student belongs to by user_id OR email
+          const matchedTeams = (userId || userEmail) ? tData.teams.filter((t: TeamInfo) =>
+            t.members && t.members.some((m: TeamMember) => 
+              (userId && m.user_id === userId) ||
+              (userEmail && m.email && m.email.toLowerCase().trim() === userEmail)
+            )
+          ) : [];
+
+          setMyTeams(matchedTeams);
+          currentTeam = matchedTeams.length > 0 ? matchedTeams[0] : null;
+          setMyTeam(currentTeam);
           // Pre-fill repo URL from team
-          if (myT.repo_url) {
-            setRepoUrl(prev => prev || myT.repo_url);
+          if (currentTeam?.repo_url) {
+            setRepoUrl(prev => prev || currentTeam!.repo_url);
           }
+        } else {
+          setMyTeams([]);
+          setMyTeam(null);
         }
       }
 
@@ -346,10 +356,33 @@ export default function StudentDashboard() {
   // Non-self teammates
   const teammates = myTeam?.members?.filter(m => m.user_id !== currentUser?.userId) || [];
 
+  const studentTabs = (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
+      {[
+        { key: 'courses', icon: <BookOpen size={14} />, label: lang === 'vi' ? 'Học phần' : 'My Courses' },
+        { key: 'submit', icon: <FileCode size={14} />, label: lang === 'vi' ? 'Nộp bài' : 'New Submission' },
+        { key: 'results', icon: <CheckCircle2 size={14} />, label: lang === 'vi' ? 'Kết quả & AI' : 'Results & AI' },
+        { key: 'chat', icon: <Bot size={14} />, label: lang === 'vi' ? 'AI Tutor' : 'AI Tutor Chat' },
+        { key: 'analytics', icon: <GitBranch size={14} />, label: lang === 'vi' ? 'Đóng góp Git' : 'Git Analytics' },
+        { key: 'peer', icon: <Users size={14} />, label: lang === 'vi' ? 'Peer Audit' : 'Peer Audit' },
+      ].map(tab => (
+        <button
+          key={tab.key}
+          type="button"
+          onClick={() => setActiveTab(tab.key as any)}
+          className={activeTab === tab.key ? 'btn-primary' : 'btn-secondary'}
+          style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+        >
+          {tab.icon} {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <>
-      <Navigation />
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '2rem 1.5rem', width: '100%', flex: 1 }}>
+      <Navigation centerContent={studentTabs} />
+      <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem 1.5rem', width: '100%', flex: 1 }}>
         {/* Toast */}
         {successToast && (
           <div style={{
@@ -364,28 +397,54 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* Header Profile Bar */}
-        <div className="glass-card" style={{ padding: '1.5rem 2rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <span className="badge badge-info">{lang === 'vi' ? 'Sinh viên' : 'Student'}</span>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                {currentUser?.fullName || 'Le Nguyen Anh Mai'}
-              </h2>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                ({currentUser?.email || 'student1@fpt.edu.vn'})
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              {lang === 'vi' ? 'Học phần:' : 'Course:'} <strong style={{ color: '#fff' }}>{myTeam ? `${myTeam.course_code} - ${myTeam.course_name}` : 'SWD392 - Software Architecture & Design'}</strong>
-              {' • '}
-              {lang === 'vi' ? 'Nhóm:' : 'Team:'} <strong style={{ color: '#fff' }}>{myTeam?.team_name || 'Group 4 (AITA Project)'}</strong>
-            </p>
+        {/* Course & Team Status Bar */}
+        <div className="glass-card" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.9rem' }}>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Học phần:' : 'Course:'}</span>
+            {myTeams.length > 1 ? (
+              <select
+                value={myTeam?.team_id || ''}
+                onChange={e => {
+                  const found = myTeams.find(t => t.team_id === Number(e.target.value));
+                  if (found) {
+                    setMyTeam(found);
+                    if (found.repo_url) setRepoUrl(found.repo_url);
+                  }
+                }}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--accent-primary)',
+                  padding: '4px 8px',
+                  fontSize: '0.88rem',
+                  fontWeight: 600
+                }}
+              >
+                {myTeams.map(t => (
+                  <option key={t.team_id} value={t.team_id}>
+                    {t.course_code} - {t.course_name} ({t.team_name})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <strong style={{ color: 'var(--text-main)' }}>{myTeam ? `${myTeam.course_code} - ${myTeam.course_name}` : (lang === 'vi' ? 'Chưa được phân nhóm' : 'No team assigned')}</strong>
+            )}
+            {myTeam && (
+              <>
+                <span style={{ color: 'rgba(255, 255, 255, 0.2)', margin: '0 4px' }}>•</span>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Nhóm:' : 'Team:'}</span>
+                <strong style={{ color: '#38bdf8' }}>{myTeam.team_name}</strong>
+              </>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             {myTeam && (() => {
-              const myMember = myTeam.members?.find(m => m.user_id === currentUser?.userId);
+              const myMember = myTeam.members?.find(m => 
+                (currentUser?.userId && m.user_id === currentUser.userId) ||
+                (currentUser?.email && m.email && m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim())
+              );
               return myMember ? (
                 <div style={{
                   background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.25)',
@@ -410,26 +469,7 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', flexWrap: 'wrap' }}>
-          {[
-            { key: 'courses', icon: <BookOpen size={16} />, label: lang === 'vi' ? 'Học phần & Hạn nộp' : 'My Courses' },
-            { key: 'submit', icon: <FileCode size={16} />, label: lang === 'vi' ? 'Nộp bài (Docker Sandbox)' : 'New Submission' },
-            { key: 'results', icon: <CheckCircle2 size={16} />, label: lang === 'vi' ? 'Kết quả & AI Phản hồi' : 'Results & AI Feedback' },
-            { key: 'chat', icon: <Bot size={16} />, label: lang === 'vi' ? 'AI Tutor (Socratic)' : 'AI Tutor Chat' },
-            { key: 'analytics', icon: <GitBranch size={16} />, label: lang === 'vi' ? 'Đóng góp Git' : 'Git Analytics' },
-            { key: 'peer', icon: <Users size={16} />, label: lang === 'vi' ? 'Peer Audit' : 'Peer Audit' },
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={activeTab === tab.key ? 'btn-primary' : 'btn-secondary'}
-              style={{ fontSize: '0.9rem', padding: '8px 16px' }}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
-        </div>
+
 
         {/* ───── TAB: COURSES ───── */}
         {activeTab === 'courses' && (
@@ -441,102 +481,333 @@ export default function StudentDashboard() {
             {loadingData && (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                 <Loader2 size={30} className="animate-spin" style={{ marginBottom: '10px' }} />
-                <p>{lang === 'vi' ? 'Đang tải dữ liệu từ PostgreSQL...' : 'Loading from PostgreSQL...'}</p>
+                <p>{lang === 'vi' ? 'Đang tải dữ liệu...' : 'Loading...'}</p>
               </div>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.5rem' }}>
-              {myTeam ? (
-                <div className="glass-card" style={{ padding: '1.5rem', borderTop: '4px solid #38bdf8' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
-                    <div>
-                      <span className="badge badge-info" style={{ marginBottom: '8px' }}>{myTeam.course_code}</span>
-                      <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{myTeam.course_name}</h4>
-                    </div>
-                    <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                      {myTeam.semester}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                    {lang === 'vi' ? 'Giảng viên:' : 'Lecturer:'} <strong style={{ color: '#e2e8f0' }}>{myTeam.lecturer_name}</strong>
-                  </p>
-                  <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Users size={14} /> {lang === 'vi' ? 'Nhóm của bạn:' : 'Your team:'} <strong style={{ color: '#e2e8f0' }}>{myTeam.team_name}</strong> ({myTeam.members?.length || 0} {lang === 'vi' ? 'thành viên' : 'members'})
-                  </p>
-
-                  {/* Assignments */}
-                  {assignments.length > 0 ? assignments.map(a => {
-                    const daysLeft = getDaysUntil(a.deadline);
-                    const isUrgent = daysLeft <= 3;
-                    const isPast = daysLeft < 0;
-                    return (
-                      <div key={a.assignment_id} style={{
-                        background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '10px',
-                        border: `1px solid ${isPast ? 'rgba(244,63,94,0.3)' : isUrgent ? 'rgba(245,158,11,0.3)' : 'rgba(56,189,248,0.2)'}`,
-                        marginBottom: '10px'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <h5 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{a.title}</h5>
+              {myTeams.length > 0 ? (
+                myTeams.map((team) => (
+                  <div
+                    key={team.team_id}
+                    className="glass-card"
+                    style={{
+                      padding: '1.5rem',
+                      borderRadius: '14px',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderTop: '3px solid #38bdf8',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1.2rem'
+                    }}
+                  >
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
                           <span style={{
-                            fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: '6px',
-                            background: isPast ? 'rgba(244,63,94,0.2)' : isUrgent ? 'rgba(245,158,11,0.2)' : 'rgba(16,185,129,0.15)',
-                            color: isPast ? '#f43f5e' : isUrgent ? '#f59e0b' : '#34d399',
-                            display: 'flex', alignItems: 'center', gap: '4px'
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            background: 'rgba(56, 189, 248, 0.12)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.25)',
+                            letterSpacing: '0.04em'
                           }}>
-                            <Clock size={12} />
-                            {isPast ? (lang === 'vi' ? 'Đã hết hạn' : 'Expired') :
-                              isUrgent ? `${daysLeft} ${lang === 'vi' ? 'ngày' : 'days'}` :
-                              `${daysLeft} ${lang === 'vi' ? 'ngày còn lại' : 'days left'}`}
+                            {team.course_code}
+                          </span>
+                          <span style={{
+                            fontSize: '0.72rem',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            background: 'rgba(16, 185, 129, 0.12)',
+                            color: '#34d399',
+                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                            fontWeight: 600
+                          }}>
+                            {team.semester}
                           </span>
                         </div>
-                        {a.description && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>{a.description}</p>}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.8rem', color: '#a78bfa' }}>
-                            {lang === 'vi' ? 'Điểm tối đa:' : 'Max score:'} <strong>{a.max_score}</strong>
-                          </span>
-                          {!isPast && (
-                            <button
-                              onClick={() => { setSelectedAssignment(a.assignment_id); setActiveTab('submit'); }}
-                              className="btn-primary"
-                              style={{ padding: '6px 14px', fontSize: '0.82rem', gap: '6px' }}
-                            >
-                              <ArrowRight size={14} /> {lang === 'vi' ? 'Nộp bài' : 'Submit'}
-                            </button>
-                          )}
+                        <h4 style={{ fontSize: '1.2rem', fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text-main)' }}>
+                          {team.course_name}
+                        </h4>
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span>GV: <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>{team.lecturer_name}</strong></span>
+                          <span>•</span>
+                          <span>Nhóm: <strong style={{ color: '#38bdf8', fontWeight: 600 }}>{team.team_name}</strong> ({team.members?.length || 0} {lang === 'vi' ? 'thành viên' : 'members'})</span>
                         </div>
                       </div>
-                    );
-                  }) : (
-                    <div style={{ textAlign: 'center', padding: '1.2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                      {lang === 'vi' ? 'Không có bài tập sắp tới hạn' : 'No upcoming assignments'}
+
+                      {team.repo_url && (
+                        <a
+                          href={team.repo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            fontSize: '0.78rem',
+                            color: '#93c5fd',
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: '1px solid rgba(59, 130, 246, 0.25)',
+                            padding: '5px 10px',
+                            borderRadius: '7px',
+                            textDecoration: 'none',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <ExternalLink size={12} /> GitHub Repo
+                        </a>
+                      )}
                     </div>
-                  )}
-                </div>
-              ) : !loadingData && (
-                <div className="glass-card" style={{ padding: '1.5rem', borderTop: '4px solid #38bdf8' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                    <Database size={18} color="#38bdf8" />
-                    <strong>{lang === 'vi' ? 'Chưa được xếp nhóm' : 'Not yet in a team'}</strong>
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
+
+                    {/* Team Members List */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {lang === 'vi' ? 'Thành viên cùng nhóm' : 'Team Members'}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {team.members?.length || 0} {lang === 'vi' ? 'người' : 'members'}
+                        </span>
+                      </div>
+
+                      {team.members && team.members.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {team.members.map((m) => {
+                            const isMe = (currentUser?.userId && m.user_id === currentUser.userId) || 
+                                         (currentUser?.email && m.email && m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim());
+                            const initial = (m.full_name || 'U').trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'U';
+                            const memberKey = m.team_member_id || m.user_id;
+                            const isExpanded = selectedMemberId === memberKey;
+
+                            return (
+                              <div
+                                key={memberKey}
+                                style={{
+                                  borderRadius: '8px',
+                                  background: isExpanded ? 'rgba(56, 189, 248, 0.05)' : isMe ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                                  border: isExpanded ? '1px solid rgba(56, 189, 248, 0.35)' : isMe ? '1px solid rgba(59, 130, 246, 0.22)' : '1px solid rgba(255, 255, 255, 0.04)',
+                                  transition: 'all 0.15s ease',
+                                  overflow: 'hidden'
+                                }}
+                              >
+                                <div
+                                  onClick={() => setSelectedMemberId(prev => prev === memberKey ? null : memberKey)}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '8px 12px',
+                                    gap: '10px',
+                                    cursor: 'pointer',
+                                    userSelect: 'none'
+                                  }}
+                                  title={lang === 'vi' ? 'Bấm để xem phân hệ / task của thành viên' : 'Click to view member task'}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, flex: 1 }}>
+                                    <div style={{
+                                      width: '26px',
+                                      height: '26px',
+                                      borderRadius: '50%',
+                                      background: isMe ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'var(--bg-glass)',
+                                      color: isMe ? '#fff' : 'var(--text-main)',
+                                      border: isMe ? 'none' : '1px solid var(--border-color)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.72rem',
+                                      fontWeight: 700,
+                                      flexShrink: 0
+                                    }}>
+                                      {initial}
+                                    </div>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <span style={{
+                                          fontSize: '0.84rem',
+                                          fontWeight: 600,
+                                          color: isExpanded ? '#0284c7' : isMe ? 'var(--accent-primary)' : 'var(--text-main)',
+                                          transition: 'color 0.15s'
+                                        }}>
+                                          {m.full_name}
+                                        </span>
+                                        {isMe && (
+                                          <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '4px', background: '#3b82f6', color: '#fff', fontWeight: 700 }}>
+                                            {lang === 'vi' ? 'Bạn' : 'You'}
+                                          </span>
+                                        )}
+                                        {m.role === 'LEADER' && (
+                                          <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: 600 }}>
+                                            <Crown size={9} /> {lang === 'vi' ? 'Trưởng nhóm' : 'Leader'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {m.email}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Right side interactive button */}
+                                  <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontSize: '0.72rem',
+                                    color: isExpanded ? '#0284c7' : 'var(--text-muted)',
+                                    background: isExpanded ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-glass)',
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
+                                    border: isExpanded ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid var(--border-color)',
+                                    transition: 'all 0.15s'
+                                  }}>
+                                    <span>{isExpanded ? (lang === 'vi' ? 'Ẩn task' : 'Hide task') : (lang === 'vi' ? 'Xem task' : 'View task')}</span>
+                                    {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                  </div>
+                                </div>
+
+                                {/* Expanded Task Details */}
+                                {isExpanded && (
+                                  <div style={{
+                                    padding: '8px 12px 10px 12px',
+                                    background: 'var(--bg-glass)',
+                                    borderTop: '1px solid var(--border-color)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '10px',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <CheckSquare size={13} color="#38bdf8" />
+                                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                        {lang === 'vi' ? 'Phân hệ / Task phụ trách:' : 'Assigned Task / Module:'}
+                                      </span>
+                                      <strong style={{ fontSize: '0.82rem', color: '#38bdf8' }}>
+                                        {m.assigned_module || (lang === 'vi' ? 'Chưa phân công' : 'Unassigned')}
+                                      </strong>
+                                    </div>
+                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                      {m.role === 'LEADER' ? (lang === 'vi' ? 'Trưởng nhóm' : 'Leader') : (lang === 'vi' ? 'Thành viên' : 'Member')}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>
+                          {lang === 'vi' ? 'Chưa có thành viên nào khác trong nhóm.' : 'No other members in this team yet.'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)' }} />
+
+                    {/* Assignments */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {lang === 'vi' ? 'Bài tập cần nộp' : 'Assignments'}
+                        </span>
+                      </div>
+
+                      {assignments.filter(a => !a.course_id || a.course_id === team.course_id).length > 0 ? (
+                        assignments.filter(a => !a.course_id || a.course_id === team.course_id).map(a => {
+                          const daysLeft = getDaysUntil(a.deadline);
+                          const isUrgent = daysLeft <= 3;
+                          const isPast = daysLeft < 0;
+                          return (
+                            <div key={a.assignment_id} style={{
+                              background: 'rgba(255, 255, 255, 0.02)', padding: '10px 14px', borderRadius: '8px',
+                              border: `1px solid ${isPast ? 'rgba(244,63,94,0.25)' : isUrgent ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                              marginBottom: '8px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <h5 style={{ fontSize: '0.88rem', fontWeight: 600, margin: 0, color: '#f1f5f9' }}>{a.title}</h5>
+                                <span style={{
+                                  fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: '4px',
+                                  background: isPast ? 'rgba(244,63,94,0.15)' : isUrgent ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.12)',
+                                  color: isPast ? '#f43f5e' : isUrgent ? '#f59e0b' : '#34d399',
+                                  display: 'flex', alignItems: 'center', gap: '3px'
+                                }}>
+                                  <Clock size={11} />
+                                  {isPast ? (lang === 'vi' ? 'Hết hạn' : 'Expired') :
+                                    isUrgent ? `${daysLeft} ${lang === 'vi' ? 'ngày' : 'days'}` :
+                                    `${daysLeft} ${lang === 'vi' ? 'ngày còn lại' : 'days left'}`}
+                                </span>
+                              </div>
+                              {a.description && <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 8px 0', lineHeight: 1.4 }}>{a.description}</p>}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                  {lang === 'vi' ? 'Điểm tối đa:' : 'Max score:'} <strong style={{ color: '#a78bfa' }}>{a.max_score}</strong>
+                                </span>
+                                {!isPast && (
+                                  <button
+                                    onClick={() => { setMyTeam(team); setSelectedAssignment(a.assignment_id); setActiveTab('submit'); }}
+                                    className="btn-primary"
+                                    style={{ padding: '4px 12px', fontSize: '0.78rem', gap: '4px', height: '28px' }}
+                                  >
+                                    <ArrowRight size={13} /> {lang === 'vi' ? 'Nộp bài' : 'Submit'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px dashed rgba(255, 255, 255, 0.08)',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.82rem'
+                        }}>
+                          <CheckCircle2 size={14} color="#34d399" />
+                          <span>{lang === 'vi' ? 'Không có bài tập sắp tới hạn' : 'No upcoming assignments'}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                ))
+              ) : !loadingData && (
+                <div className="glass-card" style={{ padding: '2rem', borderTop: '4px solid #f59e0b', maxWidth: '640px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                    <div style={{ padding: '10px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>
+                      <Users size={24} />
+                    </div>
+                    <div>
+                      <h4 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
+                        {lang === 'vi' ? 'Chưa được phân công vào nhóm' : 'Not assigned to a team yet'}
+                      </h4>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {currentUser?.email ? `Email: ${currentUser.email}` : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.2rem' }}>
                     {lang === 'vi'
-                      ? 'Bạn chưa được giảng viên xếp vào nhóm nào. Vui lòng liên hệ giảng viên để được phân công nhóm và module phụ trách.'
-                      : 'You have not been assigned to a team yet. Please contact your lecturer to be assigned a team and module.'}
+                      ? 'Giảng viên chưa gán email của bạn vào nhóm đồ án nào. Khi giảng viên thêm email của bạn vào nhóm, toàn bộ thông tin học phần, nhóm và danh sách các bạn cùng nhóm sẽ tự động xuất hiện tại đây!'
+                      : 'Your email has not been assigned to a project team yet. Once your lecturer adds your email, your course, team, and member roster will automatically appear here!'}
                   </p>
+                  <button onClick={fetchData} className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem', gap: '6px' }}>
+                    <RefreshCw size={14} /> {lang === 'vi' ? 'Kiểm tra & Làm mới' : 'Check & Refresh'}
+                  </button>
                 </div>
               )}
-
-              {/* Static: additional course card */}
-              <div className="glass-card" style={{ padding: '1.5rem', borderTop: '4px solid #a78bfa', opacity: 0.85 }}>
-                <span className="badge" style={{ marginBottom: '8px', background: 'rgba(167, 139, 250, 0.2)', color: '#c4b5fd', border: '1px solid rgba(167, 139, 250, 0.4)' }}>PRJ301</span>
-                <h4 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px' }}>Java Web Application Development</h4>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-                  {lang === 'vi' ? 'Giảng viên:' : 'Lecturer:'} Dr. Tran Thi B
-                </p>
-                <div style={{ textAlign: 'center', padding: '1.2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {lang === 'vi' ? 'Không có bài tập sắp tới hạn' : 'No upcoming deadlines'}
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -564,7 +835,7 @@ export default function StudentDashboard() {
                   value={selectedAssignment}
                   onChange={e => setSelectedAssignment(e.target.value)}
                   required
-                  style={{ width: '100%', padding: '12px 14px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }}
+                  style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem' }}
                 >
                   {assignments.length > 0 ? assignments.map(a => (
                     <option key={a.assignment_id} value={a.assignment_id}>{a.title}</option>
@@ -584,7 +855,7 @@ export default function StudentDashboard() {
                   onChange={e => setRepoUrl(e.target.value)}
                   required
                   placeholder="https://github.com/username/repo.git"
-                  style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }} 
+                  style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem' }} 
                 />
               </div>
 
@@ -598,7 +869,7 @@ export default function StudentDashboard() {
                   onChange={e => setCommitHash(e.target.value)}
                   required
                   placeholder="e.g.: 7a9f4c28e9b11029c0d3817f"
-                  style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }} 
+                  style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem' }} 
                 />
               </div>
 
@@ -812,7 +1083,7 @@ export default function StudentDashboard() {
                 placeholder={lang === 'vi' ? 'Đặt câu hỏi về kết quả kiểm thử, lỗi logic hoặc cách tối ưu thuật toán...' : 'Ask about test failures, bugs, or optimization...'}
                 value={inputMsg}
                 onChange={e => setInputMsg(e.target.value)}
-                style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 14px', color: '#fff', fontFamily: 'var(--font-main)', fontSize: '0.9rem', outline: 'none' }}
+                style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text-main)', fontFamily: 'var(--font-main)', fontSize: '0.9rem', outline: 'none' }}
               />
               <button type="submit" className="btn-primary">
                 <Send size={16} /> {lang === 'vi' ? 'Gửi' : 'Send'}
@@ -863,7 +1134,7 @@ export default function StudentDashboard() {
                         <div style={{ width: `${(loc / 1300) * 100}%`, background: colors[idx % colors.length], height: '100%', borderRadius: '6px' }} />
                       </div>
                       <div style={{ width: '80px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'right' }}>{loc.toLocaleString()} LOC</div>
-                      {isAlert && <span className="badge badge-error" style={{ fontSize: '0.7rem' }}>{lang === 'vi' ? 'Cảnh báo Free-Rider' : 'Free-Rider Warning'}</span>}
+                      {isAlert && <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>{lang === 'vi' ? 'Đóng góp thấp' : 'Low Activity'}</span>}
                     </div>
                   );
                 })}
@@ -894,7 +1165,7 @@ export default function StudentDashboard() {
                   value={peerMember}
                   onChange={e => setPeerMember(e.target.value)}
                   required
-                  style={{ width: '100%', padding: '12px 14px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }}
+                  style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem' }}
                 >
                   <option value="">-- {lang === 'vi' ? 'Chọn thành viên' : 'Choose a teammate'} --</option>
                   {teammates.length > 0 ? teammates.map(m => (
@@ -918,7 +1189,7 @@ export default function StudentDashboard() {
                   type="number" min="1" max="10" value={peerScore}
                   onChange={e => setPeerScore(e.target.value)}
                   placeholder="e.g. 9" required 
-                  style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }} 
+                  style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem' }} 
                 />
               </div>
 
@@ -930,7 +1201,7 @@ export default function StudentDashboard() {
                   rows={4} value={peerComment} onChange={e => setPeerComment(e.target.value)}
                   placeholder={lang === 'vi' ? 'Nêu rõ điểm mạnh, tinh thần trách nhiệm và phần việc bạn ấy đã đóng góp...' : 'Describe their strengths and areas for improvement...'} 
                   required 
-                  style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem', resize: 'vertical' }}
+                  style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem', resize: 'vertical' }}
                 />
               </div>
 
