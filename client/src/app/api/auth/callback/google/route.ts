@@ -62,8 +62,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=google_userinfo_failed', request.url));
     }
 
-    const state = searchParams.get('state');
-    const requestedRole = state === 'LECTURER' ? 'LECTURER' : 'STUDENT';
     const ADMIN_EMAILS = ['lenguyenanhmai05@gmail.com', 'admin@fpt.edu.vn'];
     const isAdmin = ADMIN_EMAILS.includes((googleUser.email || '').toLowerCase().trim());
     const finalRole = isAdmin ? 'ADMIN' : requestedRole;
