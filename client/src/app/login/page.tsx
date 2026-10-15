@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Bot, Loader2, GraduationCap, School, AlertCircle, Clock, ShieldAlert, CheckCircle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Bot, Loader2, GraduationCap, School, AlertCircle, Clock, ShieldAlert, CheckCircle, ArrowRight, Mail } from 'lucide-react';
 import Navigation from '../../components/Navigation';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -40,12 +40,16 @@ const GitHubIcon = () => (
 );
 
 function LoginContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { lang } = useLanguage();
   const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'LECTURER'>('STUDENT');
   const [redirectingProvider, setRedirectingProvider] = useState<'google' | 'github' | null>(null);
   const [errorType, setErrorType] = useState<'pending' | 'role_conflict' | 'locked' | 'general' | null>(null);
   const [alertMessage, setAlertMessage] = useState('');
+  const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Từ điển ngôn ngữ
   const t = {
@@ -84,6 +88,11 @@ function LoginContent() {
   useEffect(() => {
     const err = searchParams.get('error');
     const msg = searchParams.get('message');
+    const isFallback = searchParams.get('google_fallback') === 'true';
+
+    if (isFallback) {
+      setShowGoogleConfirm(true);
+    }
 
     if (err === 'LECTURER_PENDING_APPROVAL' || msg?.includes('chờ Quản trị viên') || msg?.includes('phê duyệt')) {
       setErrorType('pending');
@@ -112,7 +121,54 @@ function LoginContent() {
     }
   }, [searchParams, currentT]);
 
-  // Chuyển hướng trực tiếp tới Google OAuth 2.0 chính thức kèm state là vai trò đã chọn
+  // Hoàn tất đăng nhập trực tiếp Google
+  const handleDirectGoogleLogin = async (emailToUse: string) => {
+    if (!emailToUse.trim()) return;
+    setIsConfirming(true);
+    setErrorType(null);
+    setAlertMessage('');
+
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailToUse.trim(),
+          fullName: emailToUse.split('@')[0],
+          role: selectedRole
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.code === 'LECTURER_PENDING_APPROVAL') {
+          setErrorType('pending');
+        } else if (data.code?.startsWith('ROLE_CONFLICT')) {
+          setErrorType('role_conflict');
+        } else {
+          setErrorType('general');
+        }
+        setAlertMessage(data.message || 'Đăng nhập không thành công.');
+      } else {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        if (data.user.role === 'ADMIN') {
+          router.push('/admin');
+        } else if (data.user.role === 'LECTURER') {
+          router.push('/lecturer');
+        } else {
+          router.push('/student');
+        }
+      }
+    } catch (e: any) {
+      setErrorType('general');
+      setAlertMessage('Không thể kết nối đến Backend Server (http://localhost:5000). Vui lòng thử lại.');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  // Chuyển hướng tới Google OAuth 2.0
   const handleGoogleLogin = () => {
     setRedirectingProvider('google');
     setErrorType(null);
@@ -134,7 +190,7 @@ function LoginContent() {
     window.location.href = googleAuthUrl;
   };
 
-  // Chuyển hướng trực tiếp tới GitHub OAuth
+  // Chuyển hướng tới GitHub OAuth
   const handleGitHubLogin = () => {
     setRedirectingProvider('github');
     setErrorType(null);
@@ -183,7 +239,7 @@ function LoginContent() {
         {/* Card Đăng Nhập */}
         <div className="glass-card" style={{
           width: '100%',
-          maxWidth: '440px',
+          maxWidth: '460px',
           padding: '2.6rem 2.2rem',
           position: 'relative',
           borderRadius: '24px',
@@ -496,17 +552,139 @@ function LoginContent() {
             </button>
           </div>
 
+          {/* Modal / Hộp xác nhận tài khoản Google khi cần kiểm thử nhanh hoặc Google Cloud offline */}
+          {(showGoogleConfirm || searchParams.get('google_fallback') === 'true') && (
+            <div style={{
+              marginTop: '1.4rem',
+              padding: '1.2rem',
+              borderRadius: '16px',
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              textAlign: 'left'
+            }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-cyan)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <GoogleIcon /> Xác nhận tài khoản Google để kiểm thử:
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                Chọn hoặc nhập email Google bạn muốn đăng nhập để hệ thống thực hiện đúng luồng (duyệt giảng viên hoặc kiểm tra khóa vai trò):
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDirectGoogleLogin('lenguyenanhmai05@gmail.com')}
+                  disabled={isConfirming}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: '#fca5a5',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span>👑 <strong>lenguyenanhmai05@gmail.com</strong> (Admin Cố Định)</span>
+                  <ArrowRight size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDirectGoogleLogin('lenguyenanhmai113@gmail.com')}
+                  disabled={isConfirming}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.12)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: '#6ee7b7',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span>📧 <strong>lenguyenanhmai113@gmail.com</strong> (Google Của Bạn)</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="email"
+                  value={googleEmailInput}
+                  onChange={(e) => setGoogleEmailInput(e.target.value)}
+                  placeholder="Hoặc nhập email Google khác..."
+                  style={{
+                    flex: 1,
+                    height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    color: '#fff',
+                    padding: '0 10px',
+                    fontSize: '0.82rem',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={isConfirming || !googleEmailInput.trim()}
+                  onClick={() => handleDirectGoogleLogin(googleEmailInput)}
+                  style={{
+                    background: 'var(--accent-gradient)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '0 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: isConfirming || !googleEmailInput.trim() ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {isConfirming ? <Loader2 size={14} className="animate-spin" /> : <span>Vào</span>}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Dòng ghi chú chân trang */}
-          <p style={{
+          <div style={{
             marginTop: '1.6rem',
             fontSize: '0.78rem',
             color: 'var(--text-muted)',
             lineHeight: 1.5,
             borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-            paddingTop: '1.2rem'
+            paddingTop: '1.2rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
           }}>
-            {currentT.footerNotice}
-          </p>
+            <p>{currentT.footerNotice}</p>
+            {!showGoogleConfirm && (
+              <button
+                type="button"
+                onClick={() => setShowGoogleConfirm(true)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent-cyan)',
+                  fontSize: '0.76rem',
+                  textDecoration: 'underline',
+                  cursor: 'pointer'
+                }}
+              >
+                Gặp sự cố kết nối Google Cloud? Bấm để chọn email xác nhận nhanh
+              </button>
+            )}
+          </div>
         </div>
       </main>
     </>
