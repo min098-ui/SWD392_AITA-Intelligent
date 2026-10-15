@@ -141,14 +141,112 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
     `;
     const teamsResult = await pool.query(teamsQuery, [courseId]);
 
+    // Lấy danh sách sinh viên đã ghi danh vào môn học này (course_enrollments)
+    const studentsQuery = `
+      SELECT ce.enrollment_id, ce.course_id, ce.enrolled_at,
+             u.user_id, u.full_name, u.email, u.role
+      FROM course_enrollments ce
+      JOIN users u ON ce.user_id = u.user_id
+      WHERE ce.course_id = $1
+      ORDER BY ce.enrolled_at ASC, u.full_name ASC
+    `;
+    const studentsResult = await pool.query(studentsQuery, [courseId]);
+
     return res.json({
       course: {
         ...course,
         teams: teamsResult.rows,
+        students: studentsResult.rows,
       },
     });
   } catch (error) {
     console.error('Error fetching course detail:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// POST /api/courses/:id/enroll - Ghi danh sinh viên vào khóa học (course_enrollments)
+router.post('/:id/enroll', authenticateJWT, async (req: Request, res: Response) => {
+  const courseId = parseInt(req.params.id, 10);
+  if (isNaN(courseId)) {
+    return res.status(400).json({ message: 'Mã môn học không hợp lệ.' });
+  }
+
+  // Nếu là LECTURER hoặc ADMIN thì có thể chỉ định user_id trong req.body
+  // Nếu là STUDENT thì tự ghi danh chính mình (req.user!.userId)
+  let targetUserId = req.user!.userId;
+  if (['ADMIN', 'LECTURER'].includes(req.user!.role)) {
+    if (req.body.user_id) {
+      targetUserId = parseInt(req.body.user_id, 10);
+    }
+  }
+
+  try {
+    // 1. Kiểm tra môn học có tồn tại không
+    const courseCheck = await pool.query('SELECT course_id, course_code, course_name, lecturer_id FROM courses WHERE course_id = $1', [courseId]);
+    if (courseCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy môn học tương ứng.' });
+    }
+
+    // Giảng viên chỉ được ghi danh cho môn do mình phụ trách
+    if (req.user!.role === 'LECTURER' && courseCheck.rows[0].lecturer_id !== req.user!.userId) {
+      return res.status(403).json({ message: 'Bạn chỉ có quyền quản lý ghi danh cho môn do mình giảng dạy.' });
+    }
+
+    // 2. Kiểm tra sinh viên có tồn tại và đúng vai trò STUDENT không
+    const userCheck = await pool.query('SELECT user_id, full_name, email, role FROM users WHERE user_id = $1', [targetUserId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin sinh viên.' });
+    }
+    if (userCheck.rows[0].role !== 'STUDENT') {
+      return res.status(400).json({ message: 'Chỉ có thể ghi danh tài khoản có vai trò STUDENT vào môn học.' });
+    }
+
+    // 3. Thực hiện ghi danh vào bảng course_enrollments
+    const insertRes = await pool.query(
+      `INSERT INTO course_enrollments (course_id, user_id) 
+       VALUES ($1, $2) 
+       RETURNING *`,
+      [courseId, targetUserId]
+    );
+
+    return res.status(201).json({
+      message: 'Ghi danh sinh viên vào môn học thành công',
+      enrollment: {
+        ...insertRes.rows[0],
+        student: userCheck.rows[0],
+        course: courseCheck.rows[0],
+      },
+    });
+  } catch (error: any) {
+    if (error.code === '23505') { // Unique constraint violation (uq_course_enrollment)
+      return res.status(409).json({ message: 'Sinh viên đã được ghi danh vào môn học này từ trước.' });
+    }
+    console.error('Error enrolling student:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// GET /api/courses/:id/students - Lấy danh sách sinh viên đã ghi danh vào môn học
+router.get('/:id/students', authenticateJWT, async (req: Request, res: Response) => {
+  const courseId = parseInt(req.params.id, 10);
+  if (isNaN(courseId)) {
+    return res.status(400).json({ message: 'Mã môn học không hợp lệ.' });
+  }
+
+  try {
+    const query = `
+      SELECT ce.enrollment_id, ce.course_id, ce.enrolled_at,
+             u.user_id, u.full_name, u.email, u.role
+      FROM course_enrollments ce
+      JOIN users u ON ce.user_id = u.user_id
+      WHERE ce.course_id = $1
+      ORDER BY ce.enrolled_at ASC, u.full_name ASC
+    `;
+    const result = await pool.query(query, [courseId]);
+    return res.json({ students: result.rows });
+  } catch (error) {
+    console.error('Error fetching enrolled students:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -190,4 +288,5 @@ router.get('/:id/teams', authenticateJWT, async (req: Request, res: Response) =>
 });
 
 export default router;
+
 

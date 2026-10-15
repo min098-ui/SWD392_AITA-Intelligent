@@ -25,20 +25,30 @@ ON CONFLICT (course_id) DO NOTHING;
 
 SELECT setval('courses_course_id_seq', (SELECT MAX(course_id) FROM courses));
 
--- 3. Insert Team
+-- 3. Insert Course Enrollments (Students 3, 4, 5 enrolled in Course 1)
+INSERT INTO course_enrollments (course_id, user_id) VALUES
+(1, 3),
+(1, 4),
+(1, 5)
+ON CONFLICT ON CONSTRAINT uq_course_enrollment DO NOTHING;
+
+SELECT setval('course_enrollments_enrollment_id_seq', (SELECT COALESCE(MAX(enrollment_id), 1) FROM course_enrollments));
+
+-- 4. Insert Team
 INSERT INTO teams (team_id, team_name, course_id, repo_url) VALUES
 (1, 'Group 4 - AITA Project', 1, 'https://github.com/aita-project/aita-intelligent.git')
 ON CONFLICT (team_id) DO NOTHING;
 
 SELECT setval('teams_team_id_seq', (SELECT MAX(team_id) FROM teams));
 
--- 4. Insert Team Members & Assigned Modules
-INSERT INTO team_members (team_id, user_id, assigned_module) VALUES
-(1, 3, 'Software Architecture, Auth & Course Core'),
-(1, 4, 'Docker Sandbox Runner & Async Grading Queue'),
-(1, 5, 'AI Engine, Socratic Tutor & Key Rotation')
+-- 5. Insert Team Members & Assigned Modules & Roles
+INSERT INTO team_members (team_id, user_id, assigned_module, role) VALUES
+(1, 3, 'Software Architecture, Auth & Course Core', 'LEADER'),
+(1, 4, 'Docker Sandbox Runner & Async Grading Queue', 'MEMBER'),
+(1, 5, 'AI Engine, Socratic Tutor & Key Rotation', 'MEMBER')
 ON CONFLICT ON CONSTRAINT uq_team_user DO UPDATE SET
-  assigned_module = EXCLUDED.assigned_module;
+  assigned_module = EXCLUDED.assigned_module,
+  role = EXCLUDED.role;
 
 -- 5. Insert Prompt Templates
 INSERT INTO prompt_templates (prompt_template_id, name, purpose, template_content, version) VALUES
