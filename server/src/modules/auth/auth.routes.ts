@@ -244,18 +244,21 @@ router.post('/google', async (req: Request, res: Response) => {
           user.status = 'ACTIVE';
         }
       } else {
-        // Ràng buộc vai trò: Mail đã là LECTURER thì không được đăng nhập với vai trò STUDENT
-        if (user.role === 'LECTURER' && role === 'STUDENT') {
+        const currentRole = (user.role || '').toUpperCase().trim();
+        const incomingRole = (role || '').toUpperCase().trim();
+
+        // Ràng buộc vai trò: Mail đã là LECTURER thì tuyệt đối không được đăng nhập với vai trò STUDENT
+        if (currentRole === 'LECTURER' && incomingRole === 'STUDENT') {
           return res.status(403).json({
             code: 'ROLE_CONFLICT_LECTURER_AS_STUDENT',
-            message: 'Email này đã đăng nhập cho Giảng viên, không được đăng nhập cho Sinh viên!'
+            message: 'Email này đã đăng ký cho Giảng viên, tuyệt đối không được đăng nhập cho Sinh viên!'
           });
         }
-        // Ràng buộc vai trò: Mail đã là STUDENT thì không được đăng nhập với vai trò LECTURER
-        if (user.role === 'STUDENT' && role === 'LECTURER') {
+        // Ràng buộc vai trò: Mail đã là STUDENT thì tuyệt đối không được đăng nhập với vai trò LECTURER
+        if (currentRole === 'STUDENT' && incomingRole === 'LECTURER') {
           return res.status(403).json({
             code: 'ROLE_CONFLICT_STUDENT_AS_LECTURER',
-            message: 'Email này đã đăng nhập cho Sinh viên, không được đăng nhập cho Giảng viên!'
+            message: 'Email này đã đăng ký cho Sinh viên, tuyệt đối không được đăng nhập cho Giảng viên!'
           });
         }
 
@@ -357,18 +360,21 @@ router.post('/github', async (req: Request, res: Response) => {
           user.status = 'ACTIVE';
         }
       } else {
-        // Ràng buộc vai trò: Mail đã là LECTURER thì không được đăng nhập với vai trò STUDENT
-        if (user.role === 'LECTURER' && role === 'STUDENT') {
+        const currentRole = (user.role || '').toUpperCase().trim();
+        const incomingRole = (role || '').toUpperCase().trim();
+
+        // Ràng buộc vai trò: Mail đã là LECTURER thì tuyệt đối không được đăng nhập với vai trò STUDENT
+        if (currentRole === 'LECTURER' && incomingRole === 'STUDENT') {
           return res.status(403).json({
             code: 'ROLE_CONFLICT_LECTURER_AS_STUDENT',
-            message: 'Email này đã đăng nhập cho Giảng viên, không được đăng nhập cho Sinh viên!'
+            message: 'Email này đã đăng ký cho Giảng viên, tuyệt đối không được đăng nhập cho Sinh viên!'
           });
         }
-        // Ràng buộc vai trò: Mail đã là STUDENT thì không được đăng nhập với vai trò LECTURER
-        if (user.role === 'STUDENT' && role === 'LECTURER') {
+        // Ràng buộc vai trò: Mail đã là STUDENT thì tuyệt đối không được đăng nhập với vai trò LECTURER
+        if (currentRole === 'STUDENT' && incomingRole === 'LECTURER') {
           return res.status(403).json({
             code: 'ROLE_CONFLICT_STUDENT_AS_LECTURER',
-            message: 'Email này đã đăng nhập cho Sinh viên, không được đăng nhập cho Giảng viên!'
+            message: 'Email này đã đăng ký cho Sinh viên, tuyệt đối không được đăng nhập cho Giảng viên!'
           });
         }
 
