@@ -7,7 +7,7 @@ import {
   Users, BookOpen, GitBranch, Settings, CheckCircle2, 
   AlertTriangle, Filter, Search, ShieldCheck, Download, FolderOpen, Plus, 
   Link as LinkIcon, Edit3, RotateCw, Loader2, Sparkles, Terminal, X, Check,
-  Clock, UserCheck, FileText, Award, ArrowRight, UserPlus
+  Clock, UserCheck, FileText, Award, ArrowRight, UserPlus, Mail, Trash2, Crown
 } from 'lucide-react';
 
 interface SubmissionItem {
@@ -53,6 +53,7 @@ interface TeamMemberItem {
   full_name: string;
   email: string;
   assigned_module: string;
+  role?: string;
 }
 
 interface TeamItem {
@@ -77,7 +78,8 @@ interface StudentUser {
 export default function LecturerDashboard() {
   const { lang } = useLanguage();
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'teams' | 'overview' | 'config' | 'analytics' | 'peer'>('overview');
+  const [activeTab, setActiveTab] = useState<'courses' | 'teams' | 'overview' | 'config' | 'analytics' | 'peer'>('courses');
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
 
   // Real Database Data State
   const [courses, setCourses] = useState<CourseItem[]>([]);
@@ -102,7 +104,10 @@ export default function LecturerDashboard() {
   // Modal 3: Assign Student to Team State
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [targetTeam, setTargetTeam] = useState<TeamItem | null>(null);
+  const [assignMode, setAssignMode] = useState<'email' | 'select'>('email');
+  const [assignEmail, setAssignEmail] = useState('');
   const [assignUserId, setAssignUserId] = useState<number | string>('');
+  const [assignRole, setAssignRole] = useState<'MEMBER' | 'LEADER'>('MEMBER');
   const [assignModule, setAssignModule] = useState('');
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
@@ -261,8 +266,9 @@ export default function LecturerDashboard() {
         const cData = await courseRes.json();
         if (cData.courses) {
           setCourses(cData.courses);
-          if (cData.courses.length > 0 && !teamCourseId) {
-            setTeamCourseId(cData.courses[0].course_id);
+          if (cData.courses.length > 0) {
+            setSelectedCourseId(prev => prev || cData.courses[0].course_id);
+            setTeamCourseId(prev => prev || cData.courses[0].course_id);
           }
         }
       }
@@ -333,11 +339,17 @@ export default function LecturerDashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccessToast(lang === 'vi' ? `Tạo học phần ${courseCode.toUpperCase()} thành công!` : `Course ${courseCode.toUpperCase()} created successfully!`);
+        const createdCode = courseCode.trim().toUpperCase();
+        setSuccessToast(lang === 'vi' ? `Tạo học phần ${createdCode} thành công!` : `Course ${createdCode} created successfully!`);
         setShowCourseModal(false);
         setCourseCode('');
         setCourseName('');
         await fetchData();
+        if (data.course && data.course.course_id) {
+          setSelectedCourseId(data.course.course_id);
+          setTeamCourseId(data.course.course_id);
+        }
+        setActiveTab('courses');
         setTimeout(() => setSuccessToast(''), 3500);
       } else {
         setModalError(data.message || 'Lỗi khi tạo học phần');
@@ -396,28 +408,52 @@ export default function LecturerDashboard() {
   const handleAssignMember = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError('');
-    if (!targetTeam || !assignUserId || !assignModule.trim()) {
-      setModalError(lang === 'vi' ? 'Vui lòng chọn sinh viên và nhập phân hệ module phụ trách!' : 'Please select a student and enter module responsibility!');
+    if (!targetTeam) return;
+
+    if (assignMode === 'email') {
+      if (!assignEmail.trim()) {
+        setModalError(lang === 'vi' ? 'Vui lòng nhập email sinh viên!' : 'Please enter student email!');
+        return;
+      }
+    } else {
+      if (!assignUserId) {
+        setModalError(lang === 'vi' ? 'Vui lòng chọn sinh viên từ danh sách!' : 'Please select a student!');
+        return;
+      }
+    }
+
+    if (!assignModule.trim()) {
+      setModalError(lang === 'vi' ? 'Vui lòng nhập phân hệ module phụ trách!' : 'Please enter module responsibility!');
       return;
     }
+
     setSubmittingAssign(true);
     try {
       const token = await getToken();
+      const bodyPayload: any = {
+        assigned_module: assignModule.trim(),
+        role: assignRole,
+      };
+
+      if (assignMode === 'email') {
+        bodyPayload.email = assignEmail.trim();
+      } else {
+        bodyPayload.user_id = Number(assignUserId);
+      }
+
       const res = await fetch(`http://localhost:5000/api/teams/${targetTeam.team_id}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          user_id: Number(assignUserId),
-          assigned_module: assignModule.trim()
-        })
+        body: JSON.stringify(bodyPayload)
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccessToast(lang === 'vi' ? `Đã phân công sinh viên vào nhóm ${targetTeam.team_name}!` : `Student assigned to ${targetTeam.team_name}!`);
+        setSuccessToast(lang === 'vi' ? `Gán sinh viên vào nhóm "${targetTeam.team_name}" thành công!` : `Student assigned to "${targetTeam.team_name}"!`);
         setShowAssignModal(false);
+        setAssignEmail('');
         setAssignModule('');
         await fetchData();
         setTimeout(() => setSuccessToast(''), 3500);
@@ -429,6 +465,32 @@ export default function LecturerDashboard() {
       setModalError('Không thể kết nối đến máy chủ.');
     } finally {
       setSubmittingAssign(false);
+    }
+  };
+
+  // Handler: Xóa Sinh viên khỏi Nhóm
+  const handleRemoveMember = async (teamId: number, teamMemberId: number, memberName: string) => {
+    if (!confirm(lang === 'vi' ? `Bạn có chắc muốn xóa "${memberName}" khỏi nhóm?` : `Remove "${memberName}" from team?`)) {
+      return;
+    }
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/teams/${teamId}/members/${teamMemberId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? `Đã xóa ${memberName} khỏi nhóm!` : `Removed ${memberName} from team!`);
+        await fetchData();
+        setTimeout(() => setSuccessToast(''), 3500);
+      } else {
+        const d = await res.json();
+        alert(d.message || 'Lỗi khi xóa thành viên');
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -719,10 +781,76 @@ export default function LecturerDashboard() {
     }, 1500);
   };
 
+  const lecturerTabs = (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
+      <button 
+        type="button"
+        onClick={() => setActiveTab('courses')}
+        className={activeTab === 'courses' ? 'btn-primary' : 'btn-secondary'}
+        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+      >
+        <BookOpen size={14} /> {lang === 'vi' ? 'Học phần' : 'Courses'}
+        {courses.length > 0 && (
+          <span style={{
+            marginLeft: '4px',
+            background: 'rgba(59, 130, 246, 0.35)',
+            color: '#93c5fd',
+            padding: '1px 6px',
+            borderRadius: '10px',
+            fontSize: '0.72rem',
+            fontWeight: 700
+          }}>
+            {courses.length}
+          </span>
+        )}
+      </button>
+      <button 
+        type="button"
+        onClick={() => setActiveTab('teams')}
+        className={activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}
+        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+      >
+        <FolderOpen size={14} /> {lang === 'vi' ? 'Nhóm sinh viên' : 'Teams'}
+      </button>
+      <button 
+        type="button"
+        onClick={() => setActiveTab('overview')}
+        className={activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}
+        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+      >
+        <Users size={14} /> {lang === 'vi' ? 'Bài nộp & Điểm' : 'Submissions'}
+      </button>
+      <button 
+        type="button"
+        onClick={() => setActiveTab('config')}
+        className={activeTab === 'config' ? 'btn-primary' : 'btn-secondary'}
+        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+      >
+        <Settings size={14} /> {lang === 'vi' ? 'Rubrics & Tests' : 'Rubrics & Tests'}
+      </button>
+      <button 
+        type="button"
+        onClick={() => setActiveTab('analytics')}
+        className={activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}
+        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+      >
+        <GitBranch size={14} /> {lang === 'vi' ? 'Thống kê Git' : 'Git Analytics'}
+      </button>
+      <button 
+        type="button"
+        onClick={() => setActiveTab('peer')}
+        className={activeTab === 'peer' ? 'btn-primary' : 'btn-secondary'}
+        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+      >
+        <ShieldCheck size={14} /> {lang === 'vi' ? 'Đánh giá chéo' : 'Peer Audit'}
+      </button>
+    </div>
+  );
+
   return (
     <>
-      <Navigation />
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '2rem 1.5rem', width: '100%', flex: 1 }}>
+      <Navigation centerContent={lecturerTabs} />
+      <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem 1.5rem', width: '100%', flex: 1 }}>
         {/* Toast thông báo */}
         {successToast && (
           <div style={{
@@ -746,21 +874,43 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* Header Profile Bar */}
-        <div className="glass-card" style={{ padding: '1.5rem 2rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <span className="badge badge-success">{lang === 'vi' ? 'Giảng viên' : 'Lecturer'}</span>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>
-                {currentUser?.fullName || (lang === 'vi' ? 'TS. Nguyễn Văn Giảng Viên' : 'Dr. Nguyen Van GiaoVien')}
-              </h2>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                ({currentUser?.email || 'lecturer@fe.edu.vn'})
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              {lang === 'vi' ? 'Quản lý học phần:' : 'Managing Course:'} <strong style={{ color: '#fff' }}>SWD392 - Software Architecture &amp; Design</strong>
-            </p>
+        {/* Course Selector & Actions Toolbar */}
+        <div className="glass-card" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.86rem', fontWeight: 600 }}>
+              {lang === 'vi' ? 'Học phần đang chọn:' : 'Active Course:'}
+            </span>
+              {courses.length > 0 ? (
+                <select
+                  value={selectedCourseId || courses[0]?.course_id}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    setSelectedCourseId(id);
+                    setTeamCourseId(id);
+                  }}
+                  style={{
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '5px 12px',
+                    color: 'var(--accent-primary)',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  {courses.map(c => (
+                    <option key={c.course_id} value={c.course_id}>
+                      📚 {c.course_code} – {c.course_name} ({c.semester})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.86rem', fontStyle: 'italic' }}>
+                  {lang === 'vi' ? 'Chưa có học phần' : 'No courses yet'}
+                </span>
+              )}
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -779,44 +929,127 @@ export default function LecturerDashboard() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', flexWrap: 'wrap' }}>
-          <button 
-            onClick={() => setActiveTab('overview')}
-            className={activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
-          >
-            <Users size={16} /> {lang === 'vi' ? 'Quản lý bài nộp & Chấm điểm' : 'Submissions & Grading'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('teams')}
-            className={activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
-          >
-            <FolderOpen size={16} /> {lang === 'vi' ? 'Quản lý nhóm (Teams)' : 'Team Management'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('config')}
-            className={activeTab === 'config' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
-          >
-            <Settings size={16} /> {lang === 'vi' ? 'Cấu hình Rubric & Test Cases' : 'Rubric & Test Cases'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('analytics')}
-            className={activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
-          >
-            <GitBranch size={16} /> {lang === 'vi' ? 'Radar phát hiện Free-Rider' : 'Git Free-Rider Radar'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('peer')}
-            className={activeTab === 'peer' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.9rem', padding: '8px 16px' }}
-          >
-            <ShieldCheck size={16} /> {lang === 'vi' ? 'Tổng kết Đánh giá chéo' : 'Peer Audit Summary'}
-          </button>
-        </div>
+
+
+        {/* TAB: COURSES MANAGEMENT */}
+        {activeTab === 'courses' && (
+          <div className="glass-card" style={{ padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
+                  {lang === 'vi' ? 'Học phần của bạn' : 'Courses'}
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  {lang === 'vi' ? 'Quản lý các môn học và nhóm sinh viên đồ án.' : 'Manage courses and project teams.'}
+                </p>
+              </div>
+              <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setShowCourseModal(true)}>
+                <Plus size={16} /> {lang === 'vi' ? 'Thêm Học Phần Mới' : 'Add New Course'}
+              </button>
+            </div>
+
+            {loadingData && courses.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-muted)' }}>
+                <Loader2 size={28} className="animate-spin" style={{ margin: '0 auto 10px' }} />
+                <p>{lang === 'vi' ? 'Đang tải danh sách học phần...' : 'Loading courses...'}</p>
+              </div>
+            ) : courses.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'var(--bg-glass)', borderRadius: '14px', border: '1px dashed var(--border-color)' }}>
+                <BookOpen size={48} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px' }}>
+                  {lang === 'vi' ? 'Chưa có học phần nào' : 'No courses created yet'}
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
+                  {lang === 'vi' ? 'Tạo học phần đầu tiên để bắt đầu phân nhóm và giao đề tài đồ án.' : 'Create your first course to begin team allocation and project assignments.'}
+                </p>
+                <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.88rem' }} onClick={() => setShowCourseModal(true)}>
+                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Học Phần Ngay' : 'Create Course Now'}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
+                {courses.map((course) => {
+                  const courseTeams = teams.filter(t => t.course_id === course.course_id);
+                  const isSelected = (selectedCourseId || courses[0]?.course_id) === course.course_id;
+
+                  return (
+                    <div 
+                      key={course.course_id} 
+                      style={{
+                        background: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-glass)',
+                        border: isSelected ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid var(--border-color)',
+                        borderRadius: '16px',
+                        padding: '1.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxShadow: isSelected ? '0 4px 20px rgba(59, 130, 246, 0.15)' : 'none',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                          <span className="badge badge-info" style={{ fontSize: '0.8rem', padding: '3px 10px', fontWeight: 700 }}>
+                            {course.course_code}
+                          </span>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'var(--bg-glass)', border: '1px solid var(--border-color)', padding: '2px 8px', borderRadius: '6px' }}>
+                            Học kỳ: {course.semester}
+                          </span>
+                        </div>
+
+                        <h4 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+                          {course.course_name}
+                        </h4>
+
+                        <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                          👨‍🏫 Giảng viên: <strong>{course.lecturer_name || currentUser?.fullName || 'TS. Giảng Viên'}</strong>
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '12px', padding: '10px 12px', background: 'var(--bg-glass)', border: '1px solid var(--border-color)', borderRadius: '10px', marginBottom: '1.2rem', fontSize: '0.84rem' }}>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.74rem' }}>Số nhóm đồ án:</span>
+                            <strong style={{ color: '#60a5fa', fontSize: '1rem' }}>{courseTeams.length} nhóm</strong>
+                          </div>
+                          <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '12px' }}>
+                            <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.74rem' }}>Trạng thái:</span>
+                            <span style={{ color: '#34d399', fontWeight: 600 }}>Đang hoạt động</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCourseId(course.course_id);
+                            setTeamCourseId(course.course_id);
+                            setActiveTab('teams');
+                          }}
+                          className="btn-primary"
+                          style={{ flex: 1, padding: '7px 12px', fontSize: '0.82rem', gap: '6px' }}
+                        >
+                          <FolderOpen size={14} /> {lang === 'vi' ? 'Xem nhóm' : 'View Teams'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCourseId(course.course_id);
+                            setTeamCourseId(course.course_id);
+                            setShowTeamModal(true);
+                          }}
+                          className="btn-secondary"
+                          style={{ padding: '7px 12px', fontSize: '0.82rem', gap: '6px' }}
+                        >
+                          <Plus size={14} /> {lang === 'vi' ? '+ Nhóm' : '+ Team'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* TAB 1: OVERVIEW & CHẤM ĐIỂM (F10) */}
         {activeTab === 'overview' && (
@@ -824,16 +1057,16 @@ export default function LecturerDashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                  {lang === 'vi' ? 'Danh sách bài nộp đồ án: Milestone 1' : 'Recent Submissions: Milestone 1'}
+                  {lang === 'vi' ? 'Danh sách bài nộp' : 'Submissions'}
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {lang === 'vi' ? 'Giảng viên theo dõi trạng thái chấm tự động Docker Sandbox, AI đánh giá và có thể chấm ghi đè trực tiếp.' : 'Monitor automated sandbox execution, AI code reviews, and perform manual score overrides.'}
+                  {lang === 'vi' ? 'Theo dõi trạng thái chấm tự động và đánh giá bài nộp.' : 'Track automated grading and submission reviews.'}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <div style={{ position: 'relative' }}>
                   <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
-                  <input type="text" placeholder={lang === 'vi' ? 'Tìm nhóm hoặc sinh viên...' : 'Search team...'} style={{ padding: '8px 10px 8px 32px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.85rem' }} />
+                  <input type="text" placeholder={lang === 'vi' ? 'Tìm nhóm hoặc sinh viên...' : 'Search team...'} style={{ padding: '8px 10px 8px 32px', background: 'var(--bg-glass)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.85rem' }} />
                 </div>
                 <button className="btn-secondary" style={{ padding: '8px 12px' }}><Filter size={16} /> {lang === 'vi' ? 'Lọc' : 'Filter'}</button>
               </div>
@@ -848,13 +1081,13 @@ export default function LecturerDashboard() {
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Docker Sandbox' : 'Sandbox Status'}</th>
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Điểm số (Thang 10)' : 'Grade (10)'}</th>
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Xếp hạng AI' : 'AI Quality'}</th>
-                    <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Kiểm định BR-09' : 'BR-09 Workflow'}</th>
+                    <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Kiểm duyệt' : 'Review'}</th>
                     <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'vi' ? 'Hành động' : 'Action'}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {submissions.map((row) => (
-                    <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <tr key={row.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '16px' }}>
                         <strong>{row.team}</strong>
                         <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{row.time}</span>
@@ -1100,9 +1333,9 @@ export default function LecturerDashboard() {
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'rgba(0, 0, 0, 0.3)',
+                            background: 'var(--bg-glass)',
                             border: '1px solid var(--border-color)',
-                            color: '#fff',
+                            color: 'var(--text-main)',
                             fontSize: '0.95rem',
                             fontWeight: 700,
                             textAlign: 'center'
@@ -1123,16 +1356,16 @@ export default function LecturerDashboard() {
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'rgba(0, 0, 0, 0.3)',
+                            background: 'var(--bg-glass)',
                             border: '1px solid var(--border-color)',
-                            color: '#fff',
+                            color: 'var(--text-main)',
                             fontSize: '0.8rem'
                           }}
                         />
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', padding: '6px 10px', background: 'rgba(0, 0, 0, 0.2)', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', padding: '6px 10px', background: 'var(--bg-glass)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                       <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fbbf24', whiteSpace: 'nowrap', margin: 0 }}>
                         {lang === 'vi' ? 'Chỉ định GV 2 chấm kiểm định:' : 'Assign Lecturer 2:'}
                       </label>
@@ -1143,9 +1376,9 @@ export default function LecturerDashboard() {
                           flex: 1,
                           padding: '5px 8px',
                           borderRadius: '6px',
-                          background: 'rgba(20, 20, 28, 0.9)',
+                          background: 'var(--bg-card)',
                           border: '1px solid var(--border-color)',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           fontSize: '0.78rem'
                         }}
                       >
@@ -1185,7 +1418,7 @@ export default function LecturerDashboard() {
                       <span style={{ fontSize: '0.75rem', color: '#93c5fd' }}>
                         {lang === 'vi' ? 'Kết quả từ GV 1:' : 'Lecturer 1 Assessment:'}
                       </span>
-                      <strong style={{ fontSize: '0.85rem', color: '#fff' }}>
+                      <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
                         {selectedSub.reviewer_1_name || 'TS. Nguyễn Văn Giảng'}:
                       </strong>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -1198,7 +1431,7 @@ export default function LecturerDashboard() {
                   </div>
 
                   {/* Form Giảng Viên 2 */}
-                  <form onSubmit={handleSubmitSecondOpinion} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
+                  <form onSubmit={handleSubmitSecondOpinion} style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
                     <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '4px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <Users size={14} /> {lang === 'vi' ? 'Giảng Viên 2 (Reviewer 2) Chấm Điểm Độc Lập' : 'Lecturer 2 Independent Evaluation'}
                     </h4>
@@ -1224,9 +1457,9 @@ export default function LecturerDashboard() {
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'rgba(0, 0, 0, 0.3)',
+                            background: 'var(--bg-glass)',
                             border: '1px solid var(--border-color)',
-                            color: '#fff',
+                            color: 'var(--text-main)',
                             fontSize: '0.95rem',
                             fontWeight: 700,
                             textAlign: 'center'
@@ -1248,9 +1481,9 @@ export default function LecturerDashboard() {
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'rgba(0, 0, 0, 0.3)',
+                            background: 'var(--bg-glass)',
                             border: '1px solid var(--border-color)',
-                            color: '#fff',
+                            color: 'var(--text-main)',
                             fontSize: '0.8rem'
                           }}
                         />
@@ -1284,7 +1517,7 @@ export default function LecturerDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                     <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
                       <span style={{ fontSize: '0.72rem', color: '#c084fc', display: 'block', marginBottom: '2px' }}>AI Pre-grade</span>
-                      <strong style={{ fontSize: '1.05rem', color: '#fff' }}>{selectedSub.ai_score ?? 9.0}</strong>
+                      <strong style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{selectedSub.ai_score ?? 9.0}</strong>
                     </div>
                     <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
                       <span style={{ fontSize: '0.72rem', color: '#93c5fd', display: 'block', marginBottom: '2px' }}>Giảng Viên 1</span>
@@ -1297,7 +1530,7 @@ export default function LecturerDashboard() {
                   </div>
 
                   {/* Form Biên bản đồng thuận */}
-                  <form onSubmit={handleFinalizeConsensus} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
+                  <form onSubmit={handleFinalizeConsensus} style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
                     <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <FileText size={14} /> {lang === 'vi' ? 'Biên Bản Thống Nhất & Điểm Số Chính Thức (Consensus)' : 'Consensus Notes & Final Published Score'}
                     </h4>
@@ -1316,9 +1549,9 @@ export default function LecturerDashboard() {
                           width: '100%',
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          background: 'rgba(0, 0, 0, 0.3)',
+                          background: 'var(--bg-glass)',
                           border: '1px solid var(--border-color)',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           fontSize: '0.8rem'
                         }}
                       />
@@ -1395,10 +1628,10 @@ export default function LecturerDashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                  {lang === 'vi' ? 'Quản lý Nhóm Sinh viên & Phân công Module' : 'Teams & Module Allocation'}
+                  {lang === 'vi' ? 'Nhóm sinh viên & Phân công' : 'Teams & Allocation'}
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {lang === 'vi' ? 'Dữ liệu trực tiếp từ PostgreSQL (`teams` và `team_members`). Phân công module cụ thể cho từng sinh viên để chống Free-Rider.' : 'Live records from PostgreSQL. Assign module responsibilities to prevent free-riding.'}
+                  {lang === 'vi' ? 'Danh sách nhóm đồ án và phân công phụ trách theo thành viên.' : 'Manage project teams and module assignments.'}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -1411,27 +1644,76 @@ export default function LecturerDashboard() {
               </div>
             </div>
 
+            {/* Thanh lọc theo từng học phần */}
+            {courses.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.4rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Lọc theo học phần:' : 'Filter course:'}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCourseId(null)}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    background: selectedCourseId === null ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.05)',
+                    color: selectedCourseId === null ? '#60a5fa' : 'var(--text-muted)',
+                    border: selectedCourseId === null ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid var(--border-color)',
+                    fontWeight: selectedCourseId === null ? 700 : 500
+                  }}
+                >
+                  {lang === 'vi' ? 'Tất cả học phần' : 'All Courses'} ({teams.length})
+                </button>
+                {courses.map(c => {
+                  const cTeams = teams.filter(t => t.course_id === c.course_id);
+                  const active = selectedCourseId === c.course_id;
+                  return (
+                    <button
+                      key={c.course_id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCourseId(c.course_id);
+                        setTeamCourseId(c.course_id);
+                      }}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        background: active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+                        color: active ? '#34d399' : 'var(--text-muted)',
+                        border: active ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-color)',
+                        fontWeight: active ? 700 : 500
+                      }}
+                    >
+                      📚 {c.course_code} - {c.course_name} ({cTeams.length})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {loadingData && teams.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem 0', color: 'var(--text-muted)' }}>
                 <Loader2 size={28} className="animate-spin" style={{ margin: '0 auto 10px' }} />
-                <p>{lang === 'vi' ? 'Đang tải danh sách nhóm từ cơ sở dữ liệu...' : 'Loading teams from PostgreSQL...'}</p>
+                <p>{lang === 'vi' ? 'Đang tải danh sách nhóm...' : 'Loading teams...'}</p>
               </div>
-            ) : teams.length === 0 ? (
+            ) : (selectedCourseId ? teams.filter(t => t.course_id === selectedCourseId) : teams).length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '14px', border: '1px dashed var(--border-color)' }}>
                 <FolderOpen size={48} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '6px' }}>
-                  {lang === 'vi' ? 'Chưa có nhóm nào được tạo' : 'No teams created yet'}
+                  {lang === 'vi' ? 'Học phần này chưa có nhóm nào được tạo' : 'No teams created for this course yet'}
                 </h4>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
                   {lang === 'vi' ? 'Bắt đầu bằng cách tạo nhóm sinh viên đầu tiên cho học phần của bạn.' : 'Get started by creating the first team for your course.'}
                 </p>
-                <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.88rem' }} onClick={() => setShowTeamModal(true)}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Tạo Nhóm Ngay' : 'Create Team Now'}
+                <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.88rem' }} onClick={() => { if(selectedCourseId) setTeamCourseId(selectedCourseId); setShowTeamModal(true); }}>
+                  <Plus size={16} /> {lang === 'vi' ? 'Tạo Nhóm Cho Học Phần Này' : 'Create Team for Course'}
                 </button>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
-                {teams.map((team) => (
+                {(selectedCourseId ? teams.filter(t => t.course_id === selectedCourseId) : teams).map((team) => (
                   <div key={team.team_id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
                       <div>
@@ -1471,25 +1753,51 @@ export default function LecturerDashboard() {
 
                     <div style={{ flex: 1 }}>
                       <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                        {lang === 'vi' ? 'Thành viên & Phân hệ module phụ trách:' : 'Members & Assigned Modules:'}
+                        {lang === 'vi' ? 'Thành viên & Phân công:' : 'Members & Allocation:'}
                       </label>
                       {team.members && team.members.length > 0 ? (
                         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {team.members.map((m) => (
-                            <li key={m.team_member_id || m.user_id} style={{ fontSize: '0.88rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                              <div>
-                                <strong style={{ color: '#f8fafc' }}>{m.full_name}</strong>
-                                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{m.email}</span>
+                            <li key={m.team_member_id || m.user_id} style={{ fontSize: '0.88rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-glass)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', gap: '8px' }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <strong style={{ color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.full_name}</strong>
+                                  {m.role === 'LEADER' && (
+                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '6px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.4)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 700 }}>
+                                      <Crown size={10} /> {lang === 'vi' ? 'Trưởng nhóm' : 'Leader'}
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#93c5fd' }}>✉️ {m.email}</span>
                               </div>
-                              <span className="badge badge-info" style={{ fontSize: '0.72rem', maxWidth: '180px', textAlign: 'right', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                                {m.assigned_module}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                <span className="badge badge-info" style={{ fontSize: '0.72rem', maxWidth: '160px', textAlign: 'right', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                  {m.assigned_module}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMember(team.team_id, m.team_member_id, m.full_name)}
+                                  title={lang === 'vi' ? 'Xóa sinh viên khỏi nhóm' : 'Remove from team'}
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    color: '#f87171',
+                                    cursor: 'pointer',
+                                    padding: '4px 6px',
+                                    borderRadius: '6px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </li>
                           ))}
                         </ul>
                       ) : (
                         <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '8px 0' }}>
-                          {lang === 'vi' ? 'Chưa có sinh viên nào. Hãy gán thành viên bằng nút bên dưới.' : 'No students assigned yet. Click button below to assign.'}
+                          {lang === 'vi' ? 'Chưa có thành viên.' : 'No members yet.'}
                         </p>
                       )}
                     </div>
@@ -1503,7 +1811,7 @@ export default function LecturerDashboard() {
                       className="btn-secondary" 
                       style={{ width: '100%', marginTop: '1.2rem', justifyContent: 'center', fontSize: '0.85rem', borderStyle: 'dashed' }}
                     >
-                      <Plus size={14} /> {lang === 'vi' ? 'Gán sinh viên & Phân hệ module' : 'Assign Student & Module'}
+                      <Plus size={14} /> {lang === 'vi' ? 'Thêm thành viên' : 'Add Member'}
                     </button>
                   </div>
                 ))}
@@ -1524,13 +1832,13 @@ export default function LecturerDashboard() {
                   <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
                     {lang === 'vi' ? 'Tiêu đề bài tập (*)' : 'Assignment Title (*)'}
                   </label>
-                  <input type="text" defaultValue="Milestone 1: Backend API & Auth" style={{ width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff' }} />
+                  <input type="text" defaultValue="Milestone 1: Backend API & Auth" style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
                     {lang === 'vi' ? 'Dockerfile môi trường Sandbox chấm tự động' : 'Docker Sandbox Environment (Dockerfile)'}
                   </label>
-                  <textarea rows={4} defaultValue={'FROM node:18-alpine\nWORKDIR /app\nCOPY package.json .\nRUN npm install\nCMD ["npm", "test"]'} style={{ width: '100%', padding: '10px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontFamily: 'monospace', fontSize: '0.85rem' }} />
+                  <textarea rows={4} defaultValue={'FROM node:18-alpine\nWORKDIR /app\nCOPY package.json .\nRUN npm install\nCMD ["npm", "test"]'} style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '0.85rem' }} />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
@@ -1589,12 +1897,12 @@ export default function LecturerDashboard() {
         {activeTab === 'analytics' && (
           <div className="glass-card" style={{ padding: '2rem' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={20} color="#f43f5e" /> {lang === 'vi' ? 'Radar phát hiện Free-Rider (Anti Free-Riding Analytics)' : 'Free-Rider Detection Radar'}
+              <GitBranch size={20} color="#60a5fa" /> {lang === 'vi' ? 'Thống kê đóng góp Git' : 'Git Contribution Analytics'}
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
               {lang === 'vi' 
-                ? 'Hệ thống tự động đồng bộ Git log từ repository GitHub của các nhóm, tính toán dòng code (LOC) và số lượt Commit. Thành viên có đóng góp < 15% so với mức trung bình của nhóm sẽ được gắn cảnh báo Free-Rider.'
-                : 'The system automatically scans GitHub repositories, aggregating Lines of Code (LOC) and Commit Counts. Members with < 15% contribution relative to their team average are flagged.'}
+                ? 'Tổng hợp commit và dòng code (LOC) từ GitHub repository của các nhóm.'
+                : 'Summary of commits and lines of code (LOC) from team GitHub repositories.'}
             </p>
 
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
@@ -1613,7 +1921,7 @@ export default function LecturerDashboard() {
                   <td style={{ padding: '16px' }}>Group 4</td>
                   <td style={{ padding: '16px' }}>2</td>
                   <td style={{ padding: '16px' }}><span style={{ color: '#34d399' }}>+120</span> / <span style={{ color: '#f43f5e' }}>-10</span></td>
-                  <td style={{ padding: '16px' }}><span className="badge badge-error">⚠️ {lang === 'vi' ? 'Cảnh báo Free-Rider (<15%)' : 'Free-Rider Warning'}</span></td>
+                  <td style={{ padding: '16px' }}><span className="badge badge-warning">⚠️ {lang === 'vi' ? 'Đóng góp thấp (<15%)' : 'Low Activity (<15%)'}</span></td>
                 </tr>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <td style={{ padding: '16px' }}><strong>Nguyen B</strong> (QE180099)</td>
@@ -1638,7 +1946,7 @@ export default function LecturerDashboard() {
         {activeTab === 'peer' && (
           <div className="glass-card" style={{ padding: '2rem' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShieldCheck size={20} color="#34d399" /> {lang === 'vi' ? 'Báo cáo Đánh giá chéo sinh viên (Peer Audit Round 1)' : 'Peer Audit Summary (Round 1)'}
+              <ShieldCheck size={20} color="#34d399" /> {lang === 'vi' ? 'Báo cáo đánh giá chéo' : 'Peer Audit Report'}
             </h3>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
@@ -1694,7 +2002,7 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* MODAL 1: TẠO HỌC PHẦN MỚI (CREATE COURSE) */}
+        {/* MODAL 1: TẠO HỌC PHẦN MỚI */}
         {showCourseModal && (
           <div style={{
             position: 'fixed',
@@ -1709,105 +2017,115 @@ export default function LecturerDashboard() {
           }}>
             <div className="glass-card" style={{
               width: '100%',
-              maxWidth: '520px',
-              padding: '2rem',
-              borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
+              maxWidth: '460px',
+              padding: '1.75rem',
+              borderRadius: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa' }}>
-                    <BookOpen size={20} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#60a5fa',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <BookOpen size={16} />
                   </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-                      {lang === 'vi' ? 'Tạo Học Phần Mới' : 'Create New Course'}
-                    </h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {lang === 'vi' ? 'Thêm môn học mới vào hệ thống PostgreSQL' : 'Add course to PostgreSQL database'}
-                    </p>
-                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
+                    {lang === 'vi' ? 'Thêm học phần mới' : 'New Course'}
+                  </h3>
                 </div>
-                <button onClick={() => setShowCourseModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <X size={20} />
+                <button onClick={() => setShowCourseModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <X size={18} />
                 </button>
               </div>
 
+              {modalError && (
+                <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                  {modalError}
+                </div>
+              )}
+
               <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Mã môn học (Course Code):' : 'Course Code:'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Mã học phần' : 'Course Code'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="VD: SWD392, PRJ301, EXE201"
+                    placeholder="VD: SWD392, PRJ301..."
                     value={courseCode}
                     onChange={(e) => setCourseCode(e.target.value.toUpperCase())}
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '9px 12px',
                       borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.3)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontSize: '0.9rem'
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
                     }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Tên môn học (Course Name):' : 'Course Name:'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Tên môn học' : 'Course Name'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="VD: Software Architecture & Design Project"
+                    placeholder="VD: Software Architecture & Design"
                     value={courseName}
                     onChange={(e) => setCourseName(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '9px 12px',
                       borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.3)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontSize: '0.9rem'
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
                     }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Học kỳ (Semester):' : 'Semester:'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Học kỳ' : 'Semester'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="VD: FA26, SP26, SU26"
+                    placeholder="FA26"
                     value={courseSemester}
                     onChange={(e) => setCourseSemester(e.target.value.toUpperCase())}
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '9px 12px',
                       borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.3)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontSize: '0.9rem'
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
                     }}
                   />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
-                  <button type="button" onClick={() => setShowCourseModal(false)} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-                    {lang === 'vi' ? 'Hủy bỏ' : 'Cancel'}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                  <button type="button" onClick={() => setShowCourseModal(false)} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '7px 14px' }}>
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
                   </button>
-                  <button type="submit" disabled={submittingCourse} className="btn-primary" style={{ fontSize: '0.85rem', gap: '8px' }}>
-                    {submittingCourse ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                    <span>{lang === 'vi' ? 'Lưu Học Phần' : 'Save Course'}</span>
+                  <button type="submit" disabled={submittingCourse} className="btn-primary" style={{ fontSize: '0.82rem', padding: '7px 16px', gap: '6px' }}>
+                    {submittingCourse ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    <span>{lang === 'vi' ? 'Tạo học phần' : 'Create Course'}</span>
                   </button>
                 </div>
               </form>
@@ -1815,7 +2133,7 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* MODAL 2: TẠO NHÓM SINH VIÊN MỚI (CREATE TEAM) */}
+        {/* MODAL 2: TẠO NHÓM MỚI */}
         {showTeamModal && (
           <div style={{
             position: 'fixed',
@@ -1830,57 +2148,67 @@ export default function LecturerDashboard() {
           }}>
             <div className="glass-card" style={{
               width: '100%',
-              maxWidth: '560px',
-              padding: '2rem',
-              borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
+              maxWidth: '460px',
+              padding: '1.75rem',
+              borderRadius: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
-                    <Users size={20} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#34d399',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Users size={16} />
                   </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-                      {lang === 'vi' ? 'Tạo Nhóm Sinh Viên Mới' : 'Create New Student Team'}
-                    </h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {lang === 'vi' ? 'Khởi tạo nhóm đồ án và liên kết kho lưu trữ GitHub' : 'Register project team and link GitHub repository'}
-                    </p>
-                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
+                    {lang === 'vi' ? 'Tạo nhóm mới' : 'New Team'}
+                  </h3>
                 </div>
-                <button onClick={() => setShowTeamModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <X size={20} />
+                <button onClick={() => setShowTeamModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <X size={18} />
                 </button>
               </div>
 
+              {modalError && (
+                <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                  {modalError}
+                </div>
+              )}
+
               <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Tên nhóm đồ án:' : 'Team Name:'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Tên nhóm' : 'Team Name'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="VD: Group 4 - AITA Intelligent"
+                    placeholder="VD: Group 1, Nhóm 2..."
                     value={teamName}
                     onChange={(e) => setTeamName(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '9px 12px',
                       borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.3)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontSize: '0.9rem'
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
                     }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Chọn học phần áp dụng:' : 'Select Course:'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Học phần' : 'Course'}
                   </label>
                   <select
                     value={teamCourseId}
@@ -1888,12 +2216,12 @@ export default function LecturerDashboard() {
                     required
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '9px 12px',
                       borderRadius: '8px',
-                      background: 'rgba(15, 23, 42, 0.9)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontSize: '0.9rem'
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
                     }}
                   >
                     {courses.map((c) => (
@@ -1905,36 +2233,34 @@ export default function LecturerDashboard() {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Đường dẫn GitHub Repository URL:' : 'GitHub Repository URL:'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'GitHub Repo URL' : 'GitHub Repo URL'}
                   </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="url"
-                      required
-                      placeholder="https://github.com/organization/repo.git"
-                      value={teamRepoUrl}
-                      onChange={(e) => setTeamRepoUrl(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        background: 'rgba(0, 0, 0, 0.3)',
-                        border: '1px solid var(--border-color)',
-                        color: '#60a5fa',
-                        fontSize: '0.88rem'
-                      }}
-                    />
-                  </div>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://github.com/organization/repo.git"
+                    value={teamRepoUrl}
+                    onChange={(e) => setTeamRepoUrl(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: '#60a5fa',
+                      fontSize: '0.88rem'
+                    }}
+                  />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
-                  <button type="button" onClick={() => setShowTeamModal(false)} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-                    {lang === 'vi' ? 'Hủy bỏ' : 'Cancel'}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                  <button type="button" onClick={() => setShowTeamModal(false)} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '7px 14px' }}>
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
                   </button>
-                  <button type="submit" disabled={submittingTeam} className="btn-primary" style={{ fontSize: '0.85rem', gap: '8px' }}>
-                    {submittingTeam ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                    <span>{lang === 'vi' ? 'Tạo Nhóm' : 'Create Team'}</span>
+                  <button type="submit" disabled={submittingTeam} className="btn-primary" style={{ fontSize: '0.82rem', padding: '7px 16px', gap: '6px' }}>
+                    {submittingTeam ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    <span>{lang === 'vi' ? 'Tạo nhóm' : 'Create Team'}</span>
                   </button>
                 </div>
               </form>
@@ -1942,7 +2268,7 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* MODAL 3: GÁN SINH VIÊN & PHÂN CÔNG MODULE (ASSIGN STUDENT) */}
+        {/* MODAL 3: THÊM THÀNH VIÊN VÀO NHÓM */}
         {showAssignModal && targetTeam && (
           <div style={{
             position: 'fixed',
@@ -1957,104 +2283,293 @@ export default function LecturerDashboard() {
           }}>
             <div className="glass-card" style={{
               width: '100%',
-              maxWidth: '560px',
-              padding: '2rem',
-              borderRadius: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
+              maxWidth: '460px',
+              padding: '1.75rem',
+              borderRadius: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
-                    <Plus size={20} />
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#60a5fa',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <UserPlus size={16} />
                   </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-                      {lang === 'vi' ? `Gán Sinh Viên vào ${targetTeam.team_name}` : `Assign Student to ${targetTeam.team_name}`}
-                    </h3>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {lang === 'vi' ? 'Chỉ định phân hệ module phụ trách để hệ thống chấm điểm và chống Free-Rider' : 'Designate assigned module responsibility for anti-freerider analytics'}
-                    </p>
-                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
+                    {lang === 'vi' ? `Thêm thành viên • ${targetTeam.team_name}` : `Add Member • ${targetTeam.team_name}`}
+                  </h3>
                 </div>
-                <button onClick={() => setShowAssignModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <X size={20} />
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <X size={18} />
                 </button>
               </div>
 
+              {modalError && (
+                <div style={{
+                  padding: '8px 12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '8px',
+                  color: '#fca5a5',
+                  fontSize: '0.82rem',
+                  marginBottom: '1rem'
+                }}>
+                  {modalError}
+                </div>
+              )}
+
               <form onSubmit={handleAssignMember} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Chọn sinh viên:' : 'Select Student:'}
-                  </label>
-                  <select
-                    value={assignUserId}
-                    onChange={(e) => setAssignUserId(e.target.value)}
-                    required
+                {/* Segmented Switcher */}
+                <div style={{
+                  display: 'flex',
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  padding: '3px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.06)'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setAssignMode('email')}
                     style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      background: 'rgba(15, 23, 42, 0.9)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontSize: '0.9rem'
+                      flex: 1,
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: assignMode === 'email' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
+                      color: assignMode === 'email' ? '#93c5fd' : 'var(--text-muted)',
+                      fontWeight: assignMode === 'email' ? 600 : 400,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
                     }}
                   >
-                    {students.map((st) => (
-                      <option key={st.user_id} value={st.user_id}>
-                        {st.full_name} ({st.email})
-                      </option>
-                    ))}
-                  </select>
+                    {lang === 'vi' ? 'Nhập Email' : 'By Email'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssignMode('select')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: assignMode === 'select' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
+                      color: assignMode === 'select' ? '#93c5fd' : 'var(--text-muted)',
+                      fontWeight: assignMode === 'select' ? 600 : 400,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {lang === 'vi' ? 'Chọn từ danh sách' : 'From List'}
+                  </button>
                 </div>
 
+                {/* Email or Select */}
+                {assignMode === 'email' ? (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Email sinh viên' : 'Student Email'}
+                    </label>
+                    <input
+                      type="text"
+                      list="registered-student-emails"
+                      required={assignMode === 'email'}
+                      placeholder="student@fpt.edu.vn"
+                      value={assignEmail}
+                      onChange={(e) => setAssignEmail(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-main)',
+                        fontSize: '0.88rem'
+                      }}
+                    />
+                    <datalist id="registered-student-emails">
+                      {students.map((st) => (
+                        <option key={st.user_id} value={st.email}>
+                          {st.full_name} ({st.email})
+                        </option>
+                      ))}
+                    </datalist>
+                    {(() => {
+                      const match = students.find(s => s.email.toLowerCase().trim() === assignEmail.toLowerCase().trim());
+                      if (match) {
+                        return (
+                          <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>✓</span> {lang === 'vi' ? `Sinh viên đã đăng ký: ${match.full_name}` : `Registered student: ${match.full_name}`}
+                          </div>
+                        );
+                      }
+                      if (assignEmail.trim() && assignEmail.includes('@')) {
+                        return (
+                          <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <span>ℹ️</span> {lang === 'vi' ? 'Email mới: Sẽ tự động gán học phần khi sinh viên đăng nhập' : 'New email: Will auto-link upon student login'}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                    {students.length > 0 && !assignEmail && (
+                      <div style={{ marginTop: '8px' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                          {lang === 'vi' ? 'Gợi ý sinh viên trong hệ thống:' : 'Registered students suggestions:'}
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {students.slice(0, 6).map(st => (
+                            <button
+                              key={st.user_id}
+                              type="button"
+                              onClick={() => setAssignEmail(st.email)}
+                              style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.25)',
+                                color: '#93c5fd',
+                                borderRadius: '4px',
+                                padding: '2px 8px',
+                                fontSize: '0.72rem',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              + {st.full_name} ({st.email.split('@')[0]})
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Chọn sinh viên' : 'Select Student'}
+                    </label>
+                    <select
+                      value={assignUserId}
+                      onChange={(e) => setAssignUserId(e.target.value)}
+                      required={assignMode === 'select'}
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-main)',
+                        fontSize: '0.88rem'
+                      }}
+                    >
+                      {students.map((st) => (
+                        <option key={st.user_id} value={st.user_id}>
+                          {st.full_name} ({st.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Role Switcher */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Phân hệ / Module phân công phụ trách:' : 'Assigned Module Responsibility:'}
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Vai trò' : 'Role'}
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setAssignRole('MEMBER')}
+                      style={{
+                        flex: 1,
+                        padding: '7px 12px',
+                        borderRadius: '6px',
+                        border: assignRole === 'MEMBER' ? '1px solid #3b82f6' : '1px solid var(--border-color)',
+                        background: assignRole === 'MEMBER' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.02)',
+                        color: assignRole === 'MEMBER' ? '#93c5fd' : 'var(--text-muted)',
+                        fontWeight: assignRole === 'MEMBER' ? 600 : 400,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {lang === 'vi' ? 'Thành viên' : 'Member'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAssignRole('LEADER')}
+                      style={{
+                        flex: 1,
+                        padding: '7px 12px',
+                        borderRadius: '6px',
+                        border: assignRole === 'LEADER' ? '1px solid #f59e0b' : '1px solid var(--border-color)',
+                        background: assignRole === 'LEADER' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255,255,255,0.02)',
+                        color: assignRole === 'LEADER' ? '#fbbf24' : 'var(--text-muted)',
+                        fontWeight: assignRole === 'LEADER' ? 600 : 400,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px'
+                      }}
+                    >
+                      <Crown size={13} />
+                      {lang === 'vi' ? 'Trưởng nhóm' : 'Leader'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Module */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Phân hệ / Module phụ trách' : 'Assigned Module'}
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="VD: Software Architecture & Core Auth"
+                    placeholder={lang === 'vi' ? 'VD: Frontend, Backend API, Database...' : 'e.g. Frontend, Backend, Auth...'}
                     value={assignModule}
                     onChange={(e) => setAssignModule(e.target.value)}
                     style={{
                       width: '100%',
-                      padding: '10px 14px',
+                      padding: '9px 12px',
                       borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.3)',
+                      background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontSize: '0.9rem',
-                      marginBottom: '8px'
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
                     }}
                   />
-
-                  {/* Gợi ý phân hệ nhanh */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                      {lang === 'vi' ? 'Gợi ý nhanh:' : 'Quick tags:'}
-                    </span>
-                    {[
-                      'Software Architecture & Core Auth',
-                      'Docker Sandbox Runner',
-                      'AI Tutor & Prompt Engineering',
-                      'Git Analytics & Free-Rider Radar',
-                      'Rubric & Test Cases Engine',
-                      'Peer Audit & Review System'
-                    ].map((mod) => (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '6px' }}>
+                    {['Core Auth', 'Docker Runner', 'AI Tutor', 'Frontend & UI', 'Testing'].map((mod) => (
                       <button
                         key={mod}
                         type="button"
                         onClick={() => setAssignModule(mod)}
                         style={{
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid var(--border-color)',
-                          color: '#93c5fd',
-                          borderRadius: '6px',
-                          padding: '3px 8px',
-                          fontSize: '0.75rem',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          color: '#94a3b8',
+                          borderRadius: '4px',
+                          padding: '2px 7px',
+                          fontSize: '0.72rem',
                           cursor: 'pointer'
                         }}
                       >
@@ -2064,13 +2579,14 @@ export default function LecturerDashboard() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
-                  <button type="button" onClick={() => setShowAssignModal(false)} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-                    {lang === 'vi' ? 'Hủy bỏ' : 'Cancel'}
+                {/* Actions */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                  <button type="button" onClick={() => setShowAssignModal(false)} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '7px 14px' }}>
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
                   </button>
-                  <button type="submit" disabled={submittingAssign} className="btn-primary" style={{ fontSize: '0.85rem', gap: '8px' }}>
-                    {submittingAssign ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                    <span>{lang === 'vi' ? 'Xác Nhận Phân Công' : 'Confirm Assignment'}</span>
+                  <button type="submit" disabled={submittingAssign} className="btn-primary" style={{ fontSize: '0.82rem', padding: '7px 16px', gap: '6px' }}>
+                    {submittingAssign ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    <span>{lang === 'vi' ? 'Thêm thành viên' : 'Add Member'}</span>
                   </button>
                 </div>
               </form>
@@ -2094,17 +2610,12 @@ export default function LecturerDashboard() {
               boxShadow: '0 25px 60px rgba(0,0,0,0.8)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '4px' }}>
-                    <Plus size={20} style={{ verticalAlign: 'middle', marginRight: '8px', color: '#c084fc' }} />
-                    {lang === 'vi' ? 'Tạo Bài Tập / Đồ Án Mới' : 'Create New Assignment'}
-                  </h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {lang === 'vi' ? 'Thêm bài tập mới vào hệ thống cho sinh viên nộp bài' : 'Create an assignment that students can submit to'}
-                  </p>
-                </div>
-                <button onClick={() => setShowAssignmentModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <X size={20} />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Plus size={18} style={{ color: '#c084fc' }} />
+                  {lang === 'vi' ? 'Tạo bài tập mới' : 'Create Assignment'}
+                </h3>
+                <button onClick={() => setShowAssignmentModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <X size={18} />
                 </button>
               </div>
 
@@ -2123,7 +2634,7 @@ export default function LecturerDashboard() {
                     value={assignmentCourseId}
                     onChange={(e) => setAssignmentCourseId(e.target.value)}
                     required
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.9rem' }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
                   >
                     {courses.map(c => (
                       <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
@@ -2140,7 +2651,7 @@ export default function LecturerDashboard() {
                     placeholder={lang === 'vi' ? 'VD: Milestone 2: Docker Sandbox & Grading Queue' : 'e.g.: Milestone 2: Docker Sandbox Integration'}
                     value={assignmentTitle}
                     onChange={(e) => setAssignmentTitle(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.9rem' }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
                   />
                 </div>
 
@@ -2153,7 +2664,7 @@ export default function LecturerDashboard() {
                     placeholder={lang === 'vi' ? 'Mô tả chi tiết yêu cầu bài tập...' : 'Describe the assignment requirements...'}
                     value={assignmentDesc}
                     onChange={(e) => setAssignmentDesc(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.9rem', resize: 'vertical' }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem', resize: 'vertical' }}
                   />
                 </div>
 
@@ -2166,7 +2677,7 @@ export default function LecturerDashboard() {
                       type="datetime-local" required
                       value={assignmentDeadline}
                       onChange={(e) => setAssignmentDeadline(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.9rem' }}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
                     />
                   </div>
                   <div>
@@ -2177,7 +2688,7 @@ export default function LecturerDashboard() {
                       type="number" min="1" max="100"
                       value={assignmentMaxScore}
                       onChange={(e) => setAssignmentMaxScore(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '0.9rem' }}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
                     />
                   </div>
                 </div>
