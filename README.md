@@ -271,6 +271,47 @@ gantt
 
 ---
 
+### 6. Hướng Dẫn Trải Nghiệm Tính Năng Từng Thành Viên Trên Web (UI Demo Walkthrough)
+
+Hệ thống được thiết kế đồng bộ chặt chẽ giữa Giao diện người dùng (Frontend) và các Module nghiệp vụ (Backend), phân chia rõ rệt vai trò của từng thành viên:
+
+#### 📊 Bảng Tra Cứu Nhanh Vị Trí Tính Năng & Nút Bấm Trên Web:
+
+| Thành viên | Trọng tâm chức năng | Màn hình trên Web | Nút bấm & Form tương tác chính | Tài khoản demo khuyên dùng |
+| :---: | :--- | :--- | :--- | :--- |
+| **TV1** | Auth, RBAC, Khóa học, Nhóm | `/login`, `/register`<br>👨‍🏫 GV: Tab `Quản lý Nhóm & Môn` (`teams`) | • Nút **Đăng nhập phân quyền**<br>• Nút **`+ Tạo Khóa Học`**<br>• Nút **`+ Tạo Nhóm Mới`** & **`+ Thêm Thành Viên`** | `giangnv@fe.edu.vn`<br>`admin@fpt.edu.vn` |
+| **TV2** | Sandbox Chấm bài, Hàng đợi, Duyệt đa tầng | 🎓 SV: Tab `Nộp bài` (`submit`), `Kết quả` (`results`)<br>👨‍🏫 GV: Tab `Danh sách nộp` (`overview`), `Cấu hình` (`config`) | • Nút **`⚡ Điền nhanh dữ liệu demo`** & **`Nộp bài ngay`**<br>• Bảng điểm Rubric (Test case công khai & **Test case ẩn**)<br>• Modal **Duyệt điểm Đa tầng Dual-Lecturer** (Duyệt AI / Yêu cầu GV2 chấm chéo / Chốt điểm) | `student1@fpt.edu.vn`<br>`giangnv@fe.edu.vn` |
+| **TV3** | Trợ lý Socratic AI, Xoay Key AES-256 | 🎓 SV: Tab `Trợ lý AI` (`chat`)<br>⚙️ Admin: Tab `Kho Khóa AI` (`keys`), `Mẫu Prompt` (`prompts`) | • Khung chat **Socratic AI Tutor** (gợi mở tư duy, không giải hộ)<br>• Bảng quản lý **AI Key Pool** (xoay key tự động khi dính 429)<br>• Lịch sử các phiên bản Prompt Template | `student2@fpt.edu.vn`<br>`admin@fpt.edu.vn` |
+| **TV4** | Git Analytics, Bắt Free-Rider, Đánh giá chéo | 🎓 SV: Tab `Đánh giá chéo` (`peer`)<br>👨‍🏫 GV: Tab `Git Analytics` (`analytics`), `Đánh giá chéo` (`peer`) | • Form **Peer Audit** (chặn tự chấm chính mình `BR-08`)<br>• Badge cảnh báo **`⚠️ FREE-RIDER DETECTED`** (< 5% LOC `BR-07`)<br>• Bảng ma trận điểm trung bình `AVG(score)` chéo | `student1@fpt.edu.vn`<br>`giangnv@fe.edu.vn` |
+| **TV5** | Toàn bộ UI Next.js 14, Đa ngôn ngữ, UX | Toàn bộ các trang Web | • Nút chuyển ngôn ngữ **`VI / EN`** trên thanh Navigation<br>• Giao diện **Dark Glassmorphic** hiện đại<br>• Responsive và hiệu ứng Toast, Loading realtime | Tất cả tài khoản |
+
+#### 🔍 Chi Tiết Thao Tác Trải Nghiệm Từng Tính Năng:
+
+1. **Thành viên 1 — Nền tảng Xác thực & Quản lý Đào tạo:**
+   * Truy cập `/login`: Đăng nhập với các vai trò khác nhau để kiểm tra middleware JWT RBAC tự động điều hướng đúng Dashboard.
+   * Truy cập `/lecturer` $\rightarrow$ chọn tab **Quản lý Nhóm & Môn học**: Bấm nút `+ Tạo Khóa Học` hoặc `+ Thêm Thành Viên` để đưa sinh viên vào nhóm làm đồ án.
+   * Truy cập `/student` $\rightarrow$ chọn tab **Khóa học & Nhóm của tôi**: Sinh viên thấy thông tin nhóm, module được giao và danh sách bạn cùng nhóm.
+
+2. **Thành viên 2 — Động cơ Chấm bài Cô lập & Quy trình Phê duyệt Đa tầng:**
+   * Truy cập `/student` $\rightarrow$ chọn tab **Nộp bài tập**: Nhấn nút `⚡ Điền nhanh dữ liệu demo`, sau đó nhấn `Nộp bài ngay`. Hệ thống hiển thị thanh tiến trình 4 bước đẩy bài vào hàng đợi Redis BullMQ và Docker Sandbox.
+   * Chuyển sang tab **Kết quả bài nộp**: Quan sát kết quả chấm tự động theo Rubric, phân biệt rõ test case công khai và test case ẩn (`is_hidden = true`).
+   * Truy cập `/lecturer` $\rightarrow$ chọn tab **Danh sách Bài nộp**: Mở modal chấm bài để thử nghiệm quy trình **Dual-Lecturer Moderation (`BR-09`)**: duyệt điểm AI, yêu cầu giảng viên 2 chấm lại khi lệch điểm, hoặc ghi biên bản thống nhất điểm cuối cùng.
+
+3. **Thành viên 3 — Trí tuệ Nhân tạo & Quản trị Tài nguyên:**
+   * Truy cập `/student` $\rightarrow$ chọn tab **Trợ lý AI AITA**: Chat trực tiếp với mô hình Gemini được huấn luyện theo phương pháp Socratic để nhận gợi ý tối ưu thuật toán.
+   * Truy cập `/admin` $\rightarrow$ chọn tab **Kho Khóa AI (Key Pool)**: Xem danh sách key đã mã hóa AES-256 và cơ chế tự động xoay key khi một key bị Rate Limit (HTTP 429).
+
+4. **Thành viên 4 — Đo lường Đóng góp & Trọng tài Nội bộ:**
+   * Truy cập `/lecturer` $\rightarrow$ chọn tab **Báo cáo Git Analytics**: Xem biểu đồ tỷ lệ đóng góp (LOC%). Kiểm tra sinh viên có đóng góp < 5% bị gắn cờ cảnh báo `⚠️ FREE-RIDER DETECTED` tự động.
+   * Truy cập `/student` $\rightarrow$ chọn tab **Đánh giá Chéo Nhóm**: Điền form đánh giá thành viên cùng nhóm (hệ thống tự động loại bỏ tên chính sinh viên đang đăng nhập để tránh gian lận `BR-08`).
+   * Truy cập `/lecturer` $\rightarrow$ chọn tab **Đánh giá Chéo**: Xem ma trận tổng hợp điểm trung bình của từng sinh viên do đồng đội đánh giá.
+
+5. **Thành viên 5 — Trải nghiệm Người dùng & Giao diện Cao cấp:**
+   * Nhấn nút đổi ngôn ngữ **VI / EN** trên thanh menu để chuyển đổi giao diện tức thì.
+   * Trải nghiệm giao diện Dark Glassmorphic đồng nhất, responsive mượt mà trên cả máy tính và thiết bị di động.
+
+---
+
 ## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy
 
 ### Yêu Cầu Môi Trường

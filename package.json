@@ -6,6 +6,7 @@
   "scripts": {
     "test:member1": "npm --prefix server run test:member1",
     "test:member2": "npm --prefix server run test:member2",
+    "test:member4": "npm --prefix server run test:member4",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev"
   }

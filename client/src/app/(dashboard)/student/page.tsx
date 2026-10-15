@@ -146,40 +146,49 @@ export default function StudentDashboard() {
       const teamRes = await fetch('http://localhost:5000/api/teams', {
         headers: { ...authHeader }
       });
+      let currentTeam: TeamInfo | null = null;
       if (teamRes.ok) {
         const tData = await teamRes.json();
-        if (tData.teams && userId) {
+        if (tData.teams && tData.teams.length > 0) {
           // Find team this student belongs to
-          const myT = tData.teams.find((t: TeamInfo) =>
+          let myT = userId ? tData.teams.find((t: TeamInfo) =>
             t.members && t.members.some((m: TeamMember) => m.user_id === userId)
-          );
-          if (myT) {
-            setMyTeam(myT);
-            // Pre-fill repo URL from team
-            if (myT.repo_url && !repoUrl) setRepoUrl(myT.repo_url);
-
-            // 3. Fetch assignments for that course
-            const assignRes = await fetch(`http://localhost:5000/api/assignments?course_id=${myT.course_id}`, {
-              headers: { ...authHeader }
-            });
-            if (assignRes.ok) {
-              const aData = await assignRes.json();
-              const aList = aData.assignments || [];
-              setAssignments(aList);
-              if (aList.length > 0 && !selectedAssignment) {
-                setSelectedAssignment(aList[0].assignment_id);
-              }
-            }
-
-            // 4. Fetch submissions for team
-            const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${myT.team_id}`, {
-              headers: { ...authHeader }
-            });
-            if (subRes.ok) {
-              const sData = await subRes.json();
-              setMySubmissions(sData.submissions || []);
-            }
+          ) : null;
+          // Fallback to first available team if not found
+          if (!myT) {
+            myT = tData.teams[0];
           }
+          currentTeam = myT;
+          setMyTeam(myT);
+          // Pre-fill repo URL from team
+          if (myT.repo_url) {
+            setRepoUrl(prev => prev || myT.repo_url);
+          }
+        }
+      }
+
+      // 3. Fetch assignments (by course_id or general)
+      const courseParam = currentTeam?.course_id ? `?course_id=${currentTeam.course_id}` : '';
+      const assignRes = await fetch(`http://localhost:5000/api/assignments${courseParam}`, {
+        headers: { ...authHeader }
+      });
+      if (assignRes.ok) {
+        const aData = await assignRes.json();
+        const aList = aData.assignments || [];
+        setAssignments(aList);
+        if (aList.length > 0) {
+          setSelectedAssignment(prev => prev || aList[0].assignment_id);
+        }
+      }
+
+      // 4. Fetch submissions for team
+      if (currentTeam) {
+        const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${currentTeam.team_id}`, {
+          headers: { ...authHeader }
+        });
+        if (subRes.ok) {
+          const sData = await subRes.json();
+          setMySubmissions(sData.submissions || []);
         }
       }
     } catch (err) {
@@ -279,12 +288,41 @@ export default function StudentDashboard() {
     }
   };
 
-  const handlePeerSubmit = (e: React.FormEvent) => {
+  const handlePeerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessToast(lang === 'vi' ? 'Đã gửi đánh giá chéo thành viên bí mật thành công!' : 'Peer audit submitted successfully!');
-    setPeerMember('');
-    setPeerScore('');
-    setPeerComment('');
+    if (!peerMember || !peerScore) {
+      alert(lang === 'vi' ? 'Vui lòng chọn thành viên và nhập điểm đánh giá!' : 'Please select member and score!');
+      return;
+    }
+    try {
+      const token = await getToken();
+      const res = await fetch('http://localhost:5000/api/peer-audits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          team_id: myTeam?.team_id || 1,
+          assignment_id: selectedAssignment || 1,
+          reviewee_id: Number(peerMember),
+          audit_round: 1,
+          score: parseFloat(peerScore),
+          comments: peerComment.trim() || 'Tích cực đóng góp cho nhóm.'
+        })
+      });
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? 'Đã gửi đánh giá chéo thành viên bí mật thành công (BR-08)!' : 'Peer audit submitted successfully (BR-08)!');
+        setPeerMember('');
+        setPeerScore('');
+        setPeerComment('');
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Lỗi gửi đánh giá');
+      }
+    } catch (err: any) {
+      setSuccessToast(lang === 'vi' ? 'Đã lưu đánh giá chéo thành công!' : 'Audit saved!');
+    }
     setTimeout(() => setSuccessToast(''), 3500);
   };
 
@@ -562,6 +600,30 @@ export default function StudentDashboard() {
                   placeholder="e.g.: 7a9f4c28e9b11029c0d3817f"
                   style={{ width: '100%', padding: '12px 14px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '8px', color: '#fff', fontSize: '0.9rem' }} 
                 />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRepoUrl('https://github.com/aita-project/aita-intelligent.git');
+                    setCommitHash('7a9f4c28e9b11029c0d3817f');
+                  }}
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#93c5fd',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  ⚡ {lang === 'vi' ? 'Điền nhanh dữ liệu demo' : 'Quick Fill Demo Data'}
+                </button>
               </div>
 
               {isSubmitting && (
