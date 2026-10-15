@@ -186,21 +186,21 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 
 ```mermaid
 gantt
-    title Lộ Trình Thực Hiện AITA-INTELLIGENT (SWD392 Group 4)
-    dateFormat  YYYY-MM-DD
-    section Giai đoạn 1 — Nền Tảng
-    Kiến trúc hệ thống, Docker, DB Schema 16 bảng & Seed (TV1) :done, 2026-09-15, 3d
-    section Giai đoạn 2 — Phát Triển Song Song
-    TV1 — Auth RBAC, Courses, Enrollments & Teams API          :active, 2026-09-18, 7d
-    TV2 — Docker Sandbox, BullMQ Queue & Grading Worker        :active, 2026-09-18, 7d
-    TV3 — Gemini AI Tutor, Key Pool & Prompt Versioning        :active, 2026-09-18, 7d
-    TV4 — Git Analytics (Octokit) & Peer Audit API             :active, 2026-09-18, 7d
-    TV5 — Next.js 14 Design System & Dashboard Foundations     :active, 2026-09-18, 7d
-    section Giai đoạn 3 — Tích Hợp
-    Ghép API Backend vào Frontend UI (Tất cả)                  :2026-09-25, 5d
-    section Giai đoạn 4 — Hoàn Thiện
-    Demo kịch bản Free-Rider, Rate Limit, Sandbox — Tối ưu    :2026-09-30, 4d
-    Viết báo cáo & Chuẩn bị bảo vệ đồ án                      :2026-10-04, 3d
+    title Lộ Trình Triển Khai AITA-INTELLIGENT (SWD392 Group 4)
+    dateFormat YYYY-MM-DD
+    section Giai đoạn 1 - Nền Tảng
+    Kiến trúc Docker DB Schema 16 bảng và Seed TV1        :done, m1, 2026-09-15, 2026-09-18
+    section Giai đoạn 2 - Phát Triển Song Song
+    TV1 - Auth RBAC Courses Enrollments Teams             :active, tv1, 2026-09-18, 2026-09-25
+    TV2 - Docker Sandbox BullMQ Queue Grading Worker      :active, tv2, 2026-09-18, 2026-09-25
+    TV3 - Gemini AI Tutor Key Pool và Prompt Versioning   :active, tv3, 2026-09-18, 2026-09-25
+    TV4 - Git Analytics Octokit và Peer Audit API         :active, tv4, 2026-09-18, 2026-09-25
+    TV5 - Next.js 14 Design System Dashboard Foundations  :active, tv5, 2026-09-18, 2026-09-25
+    section Giai đoạn 3 - Tích Hợp
+    Ghép API Backend vào Frontend UI Toàn Nhóm            :m3, 2026-09-25, 2026-09-30
+    section Giai đoạn 4 - Hoàn Thiện
+    Demo Kịch Bản Kiểm Thử và Tối Ưu Hệ Thống             :m4, 2026-09-30, 2026-10-04
+    Viết Báo Cáo và Chuẩn Bị Bảo Vệ Đồ Án                 :m5, 2026-10-04, 2026-10-07
 ```
 
 ---
