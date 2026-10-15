@@ -25,6 +25,7 @@ interface MockUser {
   email: string;
   password_hash: string;
   role: 'ADMIN' | 'LECTURER' | 'STUDENT';
+  status: 'ACTIVE' | 'PENDING' | 'LOCKED' | 'REJECTED';
   created_at: Date;
 }
 
@@ -83,6 +84,7 @@ const mockUsers: MockUser[] = [
     email: 'admin@fpt.edu.vn',
     password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
     role: 'ADMIN',
+    status: 'ACTIVE',
     created_at: new Date(),
   },
   {
@@ -91,6 +93,7 @@ const mockUsers: MockUser[] = [
     email: 'giangnv@fe.edu.vn',
     password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
     role: 'LECTURER',
+    status: 'ACTIVE',
     created_at: new Date(),
   },
   {
@@ -99,6 +102,7 @@ const mockUsers: MockUser[] = [
     email: 'student1@fpt.edu.vn',
     password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
     role: 'STUDENT',
+    status: 'ACTIVE',
     created_at: new Date(),
   },
   {
@@ -107,6 +111,7 @@ const mockUsers: MockUser[] = [
     email: 'student2@fpt.edu.vn',
     password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
     role: 'STUDENT',
+    status: 'ACTIVE',
     created_at: new Date(),
   },
   {
@@ -115,6 +120,25 @@ const mockUsers: MockUser[] = [
     email: 'student3@fpt.edu.vn',
     password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
     role: 'STUDENT',
+    status: 'ACTIVE',
+    created_at: new Date(),
+  },
+  {
+    user_id: 6,
+    full_name: 'mai.lna.qe190151',
+    email: 'mai.lna.qe190151@fpt.edu.vn',
+    password_hash: 'OAUTH_GOOGLE',
+    role: 'STUDENT',
+    status: 'ACTIVE',
+    created_at: new Date(),
+  },
+  {
+    user_id: 7,
+    full_name: 'AMai',
+    email: 'lenguyenanhmai05@gmail.com',
+    password_hash: 'OAUTH_GOOGLE',
+    role: 'ADMIN',
+    status: 'ACTIVE',
     created_at: new Date(),
   },
 ];
@@ -184,13 +208,23 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
     let email: string = '';
     let password_hash: string = '';
     let role: 'ADMIN' | 'LECTURER' | 'STUDENT' = 'STUDENT';
+    let status: 'ACTIVE' | 'PENDING' | 'LOCKED' | 'REJECTED' = 'ACTIVE';
 
     if (params && params.length >= 4) {
-      if (params.length >= 5) {
-        [user_id, full_name, email, password_hash, role] = params;
+      if (params.length >= 6) {
+        [user_id, full_name, email, password_hash, role, status] = params;
+      } else if (params.length === 5) {
+        if (typeof params[0] === 'number') {
+          [user_id, full_name, email, password_hash, role] = params;
+          status = role === 'LECTURER' ? 'PENDING' : 'ACTIVE';
+        } else {
+          [full_name, email, password_hash, role, status] = params;
+          user_id = mockUsers.length > 0 ? Math.max(...mockUsers.map((u) => u.user_id)) + 1 : 1;
+        }
       } else {
         [full_name, email, password_hash, role] = params;
         user_id = mockUsers.length > 0 ? Math.max(...mockUsers.map((u) => u.user_id)) + 1 : 1;
+        status = role === 'LECTURER' ? 'PENDING' : 'ACTIVE';
       }
     } else {
       const valuesMatch = cleanSql.match(/VALUES\s*\(([^)]+)\)/i);
@@ -202,12 +236,14 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
           email = parts[2] || '';
           password_hash = parts[3] || '';
           role = (parts[4] as any) || 'STUDENT';
+          status = (parts[5] as any) || (role === 'LECTURER' ? 'PENDING' : 'ACTIVE');
         } else {
           user_id = mockUsers.length > 0 ? Math.max(...mockUsers.map((u) => u.user_id)) + 1 : 1;
           full_name = parts[0] || 'User';
           email = parts[1] || '';
           password_hash = parts[2] || '';
           role = (parts[3] as any) || 'STUDENT';
+          status = (parts[4] as any) || (role === 'LECTURER' ? 'PENDING' : 'ACTIVE');
         }
       } else {
         user_id = mockUsers.length > 0 ? Math.max(...mockUsers.map((u) => u.user_id)) + 1 : 1;
@@ -225,12 +261,15 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
       err.code = '23505';
       throw err;
     }
+    const targetRole = role || 'STUDENT';
+    const targetStatus = status || (targetRole === 'LECTURER' ? 'PENDING' : 'ACTIVE');
     const newUser: MockUser = {
       user_id,
       full_name,
       email,
       password_hash,
-      role: role || 'STUDENT',
+      role: targetRole,
+      status: targetStatus,
       created_at: new Date(),
     };
     mockUsers.push(newUser);
@@ -249,6 +288,49 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
     const userId = parseInt(params[0], 10);
     const user = mockUsers.find((u) => u.user_id === userId);
     return { rows: user ? [user] : [] };
+  }
+
+  // Auth: SELECT user_id, full_name, email, role, status, created_at FROM users
+  if (/FROM users/i.test(cleanSql) && !/WHERE/i.test(cleanSql)) {
+    return { rows: mockUsers.map(u => ({ user_id: u.user_id, full_name: u.full_name, email: u.email, role: u.role, status: u.status, created_at: u.created_at })) };
+  }
+  if (/FROM users WHERE role = \$1/i.test(cleanSql)) {
+    const role = params[0];
+    return { rows: mockUsers.filter(u => u.role === role).map(u => ({ user_id: u.user_id, full_name: u.full_name, email: u.email, role: u.role, status: u.status, created_at: u.created_at })) };
+  }
+
+  // Auth: UPDATE users SET status = $1 WHERE user_id = $2
+  if (/UPDATE users SET status = \$1 WHERE user_id = \$2/i.test(cleanSql)) {
+    const [status, userId] = params;
+    const user = mockUsers.find(u => u.user_id === parseInt(userId, 10));
+    if (user) {
+      user.status = status;
+      return { rows: [{ user_id: user.user_id, full_name: user.full_name, email: user.email, role: user.role, status: user.status }] };
+    }
+    return { rows: [] };
+  }
+
+  // Auth: UPDATE users SET role = $1 WHERE user_id = $2
+  if (/UPDATE users SET role = \$1 WHERE user_id = \$2/i.test(cleanSql)) {
+    const [role, userId] = params;
+    const user = mockUsers.find(u => u.user_id === parseInt(userId, 10));
+    if (user) {
+      user.role = role;
+      return { rows: [{ user_id: user.user_id, full_name: user.full_name, email: user.email, role: user.role }] };
+    }
+    return { rows: [] };
+  }
+
+  // Auth: UPDATE users SET role = 'ADMIN', status = 'ACTIVE' WHERE user_id = $1
+  if (/UPDATE users SET role = 'ADMIN'/i.test(cleanSql)) {
+    const userId = parseInt(params[0], 10);
+    const user = mockUsers.find(u => u.user_id === userId);
+    if (user) {
+      user.role = 'ADMIN';
+      user.status = 'ACTIVE';
+      return { rows: [user] };
+    }
+    return { rows: [] };
   }
 
   // Courses: Lecturer check SELECT user_id, role, full_name FROM users WHERE user_id = $1 AND role IN ('LECTURER', 'ADMIN')
@@ -656,18 +738,24 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
 
 const originalQuery = realPool.query.bind(realPool);
 
+let lastPostgresCheck = 0;
+
 const resilientQuery = (async (sqlText: any, params?: any): Promise<any> => {
   if (typeof sqlText !== 'string') {
     return (originalQuery as any)(sqlText, params);
   }
 
-  if (!isPostgresAvailable) {
+  // If postgres was marked unavailable, periodically try to reconnect
+  if (!isPostgresAvailable && Date.now() - lastPostgresCheck < 3000) {
     return executeMockQuery(sqlText, params);
   }
 
   try {
     const result = await (originalQuery as any)(sqlText, params);
-    isPostgresAvailable = true;
+    if (!isPostgresAvailable) {
+      console.log('✅ PostgreSQL connection restored.');
+      isPostgresAvailable = true;
+    }
     return result;
   } catch (err: any) {
     if (
@@ -678,6 +766,7 @@ const resilientQuery = (async (sqlText: any, params?: any): Promise<any> => {
       err.message?.includes('ECONNREFUSED') ||
       err.message?.includes('connect ECONNREFUSED')
     ) {
+      lastPostgresCheck = Date.now();
       if (isPostgresAvailable) {
         console.warn('⚠️  PostgreSQL connection unavailable. Seamlessly running in Fallback In-Memory Mode with Seed Data.');
         isPostgresAvailable = false;
