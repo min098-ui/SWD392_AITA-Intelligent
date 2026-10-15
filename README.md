@@ -202,26 +202,16 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 
 ---
 
-### 3. Lộ Trình Triển Khai Cho Cả Nhóm (Milestone Roadmap)
+### 3. Lộ Trình Triển Khai Theo Giai Đoạn (Milestone Roadmap)
 
-```mermaid
-gantt
-    title Lộ Trình Triển Khai AITA-INTELLIGENT (SWD392 Group 4)
-    dateFormat YYYY-MM-DD
-    section Giai đoạn 1 - Nền Tảng
-    Kiến trúc Docker DB Schema 16 bảng và Seed TV1        :done, m1, 2026-09-15, 2026-09-18
-    section Giai đoạn 2 - Phát Triển Song Song
-    TV1 - Auth RBAC Courses Enrollments Teams             :active, tv1, 2026-09-18, 2026-09-25
-    TV2 - Docker Sandbox BullMQ Queue Grading Worker      :active, tv2, 2026-09-18, 2026-09-25
-    TV3 - Gemini AI Tutor Key Pool và Prompt Versioning   :active, tv3, 2026-09-18, 2026-09-25
-    TV4 - Git Analytics Octokit và Peer Audit API         :active, tv4, 2026-09-18, 2026-09-25
-    TV5 - Next.js 14 Design System Dashboard Foundations  :active, tv5, 2026-09-18, 2026-09-25
-    section Giai đoạn 3 - Tích Hợp
-    Ghép API Backend vào Frontend UI Toàn Nhóm            :m3, 2026-09-25, 2026-09-30
-    section Giai đoạn 4 - Hoàn Thiện
-    Demo Kịch Bản Kiểm Thử và Tối Ưu Hệ Thống             :m4, 2026-09-30, 2026-10-04
-    Viết Báo Cáo và Chuẩn Bị Bảo Vệ Đồ Án                 :m5, 2026-10-04, 2026-10-07
-```
+Dự án được triển khai qua **4 giai đoạn trọng tâm**, đảm bảo phát triển song song độc lập và tích hợp trơn tru:
+
+| Giai đoạn | Mục tiêu chính | Nội dung công việc trọng tâm | Phụ trách chính | Kết quả bàn giao (Deliverables) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Giai đoạn 1: Nền Tảng (Foundation)** | Thiết lập hạ tầng DevOps, Express Server và Database nền tảng | • Khởi động PostgreSQL 16 & Redis qua Docker Compose<br>• Cấu hình Express server, CORS, middleware, `/api/health`<br>• Thiết kế DB Schema 16 bảng và nạp dữ liệu mẫu seed data | **TV1** *(Lead Architect)* | `docker-compose.yml`<br>`database/schema.sql`<br>`database/seed.sql`<br>API `/api/health` |
+| **Giai đoạn 2: Phát Triển Tính Năng Song Song** | Xây dựng 5 trụ cột kỹ thuật độc lập theo chuyên môn | • **TV1:** Auth RBAC, JWT Token, Courses & Teams API<br>• **TV2:** Docker Sandbox runner, BullMQ Queue & Worker chấm bài<br>• **TV3:** Gemini AI Tutor Socratic, AES-256 Key Rotation Pool<br>• **TV4:** Octokit Git sync telemetry, Noise Filter & Peer Audits<br>• **TV5:** Next.js 14 Glassmorphic UI & 3 Dashboards người dùng | **Cả 5 thành viên** *(Độc lập trên feature branch)* | Toàn bộ 24 REST APIs<br>Sandbox images (Python/Node)<br>Giao diện Dashboards |
+| **Giai đoạn 3: Tích Hợp Hệ Thống (Integration)** | Ghép nối toàn diện API Backend vào giao diện Next.js 14 | • Tích hợp đăng nhập, điều hướng RBAC theo vai trò người dùng<br>• Kết nối luồng nộp bài, theo dõi tiến độ chấm và nhận xét AI<br>• Ghép nối màn hình thống kê Git đóng góp và phiếu đánh giá chéo | **Cả nhóm** | Ứng dụng Web hoạt động đồng bộ tại `localhost:3000` |
+| **Giai đoạn 4: Kiểm Thử & Hoàn Thiện (Finalization)** | Thử nghiệm các kịch bản ngoại lệ, tối ưu và chuẩn bị bảo vệ | • Kiểm thử kịch bản Free-Rider (BR-07), Rate Limit 429 (BR-04), Sandbox Timeout (BR-03)<br>• Chạy bộ test suite tự động kiểm chứng 100% test cases từng thành viên<br>• Hoàn thiện tài liệu kiến trúc, báo cáo đồ án và chuẩn bị slide bảo vệ | **Cả nhóm** | Báo cáo đồ án SWD392<br>Bộ kịch bản demo bảo vệ |
 
 ---
 
