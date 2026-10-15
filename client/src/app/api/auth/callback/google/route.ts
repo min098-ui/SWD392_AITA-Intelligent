@@ -35,10 +35,18 @@ export async function GET(request: NextRequest) {
       }),
     });
 
+    const state = searchParams.get('state');
+    const requestedRole = state === 'LECTURER' ? 'LECTURER' : 'STUDENT';
+
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
       console.error('Failed to get token from Google:', tokenData);
-      return NextResponse.redirect(new URL('/login?error=google_token_failed', request.url));
+      const fallbackUrl = new URL('/login', request.url);
+      fallbackUrl.searchParams.set('error', 'google_token_failed');
+      fallbackUrl.searchParams.set('google_fallback', 'true');
+      fallbackUrl.searchParams.set('state', requestedRole);
+      fallbackUrl.searchParams.set('message', 'Google Cloud trả về lỗi xác thực token (unauthorized_client). Hãy chọn hoặc xác nhận email Google của bạn bên dưới để tiếp tục luồng đăng nhập:');
+      return NextResponse.redirect(fallbackUrl);
     }
 
     // 2. Lấy thông tin tài khoản người dùng từ Google UserInfo API
