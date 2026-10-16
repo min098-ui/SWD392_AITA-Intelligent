@@ -114,7 +114,27 @@ export default function Navigation({
           overflowX: 'auto',
           scrollbarWidth: 'none'
         }}>
-          {centerContent}
+          {centerContent ? (
+            centerContent
+          ) : pathname === '/' && !isLoggedIn ? (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+              <a href="#overview" style={{ fontSize: '0.9rem', color: 'var(--text-muted)', transition: 'color 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
+                {lang === 'vi' ? 'Tổng Quan' : 'Overview'}
+              </a>
+              <a href="#sandbox" style={{ fontSize: '0.9rem', color: 'var(--text-muted)', transition: 'color 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
+                {lang === 'vi' ? 'Docker Sandbox' : 'Sandbox'}
+              </a>
+              <a href="#ai-tutor" style={{ fontSize: '0.9rem', color: 'var(--text-muted)', transition: 'color 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
+                {lang === 'vi' ? 'Gemini AI' : 'AI Tutor'}
+              </a>
+              <a href="#telemetry" style={{ fontSize: '0.9rem', color: 'var(--text-muted)', transition: 'color 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
+                {lang === 'vi' ? 'Git Telemetry' : 'Telemetry'}
+              </a>
+              <a href="#use-modes" style={{ fontSize: '0.9rem', color: 'var(--text-muted)', transition: 'color 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
+                {lang === 'vi' ? 'Chế Độ Sử Dụng' : 'Use Modes'}
+              </a>
+            </nav>
+          ) : null}
         </div>
 
         {/* Phần Hình 3: Profile Avatar Dropdown (nếu đăng nhập) hoặc LanguageSwitcher & Đăng Nhập (nếu chưa) */}
@@ -124,8 +144,9 @@ export default function Navigation({
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <LanguageSwitcher />
-              <Link href="/login" className="btn-primary" style={{ padding: '7px 18px', fontSize: '0.88rem', borderRadius: '8px' }}>
-                {lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}
+              <Link href="/login" className="pill-btn-white" style={{ padding: '7px 18px', fontSize: '0.88rem' }}>
+                <span>{lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}</span>
+                <span className="pill-arrow" style={{ width: '18px', height: '18px', fontSize: '0.7rem' }}>→</span>
               </Link>
             </div>
           )}
