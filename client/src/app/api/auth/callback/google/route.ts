@@ -121,19 +121,45 @@ export async function GET(request: NextRequest) {
     const finalRole = isAdmin ? 'ADMIN' : requestedRole;
 
     // 3. Đồng bộ với Backend AITA Server (cấp JWT token và phân quyền)
-    const backendRes = await fetch('http://localhost:5000/api/auth/google', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: googleUser.email,
-        fullName: googleUser.name || googleUser.email.split('@')[0],
-        role: finalRole,
-      }),
-    });
+    const backendBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
+    let backendRes: Response;
+    try {
+      backendRes = await fetch(`${backendBase}/api/auth/google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: googleUser.email,
+          fullName: googleUser.name || googleUser.email.split('@')[0],
+          role: finalRole,
+        }),
+      });
+    } catch {
+      // Fallback nếu kết nối IPv6 localhost gặp sự cố
+      const altUrl = backendBase.includes('localhost') 
+        ? backendBase.replace('localhost', '127.0.0.1')
+        : 'http://127.0.0.1:5000';
+      backendRes = await fetch(`${altUrl}/api/auth/google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: googleUser.email,
+          fullName: googleUser.name || googleUser.email.split('@')[0],
+          role: finalRole,
+        }),
+      });
+    }
 
-    const backendData = await backendRes.json();
+    let backendData: any = {};
+    try {
+      backendData = await backendRes.json();
+    } catch {
+      backendData = { message: 'Máy chủ phản hồi định dạng không hợp lệ' };
+    }
+
     if (!backendRes.ok || !backendData.token) {
       console.error('Backend Google auth failed:', backendData);
       const errorCode = backendData.code || 'backend_auth_failed';
@@ -152,6 +178,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(callbackUrl);
   } catch (err: any) {
     console.error('Google OAuth callback unexpected error:', err);
-    return NextResponse.redirect(new URL('/login?error=oauth_error', request.url));
+    const errorUrl = new URL('/login', request.url);
+    errorUrl.searchParams.set('error', 'oauth_error');
+    errorUrl.searchParams.set('message', err?.message || 'Lỗi không xác định khi kết nối OAuth.');
+    return NextResponse.redirect(errorUrl);
   }
 }
