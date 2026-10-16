@@ -153,8 +153,8 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
           width: '40px',
           height: '40px',
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)',
-          border: isOpen ? '2px solid #60a5fa' : '2px solid rgba(255, 255, 255, 0.25)',
+          background: 'linear-gradient(135deg, #1e40af 0%, #0284c7 48%, #38bdf8 100%)',
+          border: isOpen ? '2px solid #38bdf8' : '2px solid rgba(255, 255, 255, 0.35)',
           color: '#ffffff',
           fontWeight: 800,
           fontSize: '1.05rem',
@@ -164,8 +164,8 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
           cursor: 'pointer',
           outline: 'none',
           boxShadow: isOpen
-            ? '0 0 16px rgba(59, 130, 246, 0.6)'
-            : '0 2px 8px rgba(0, 0, 0, 0.3)',
+            ? '0 0 18px rgba(56, 189, 248, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.45)'
+            : '0 4px 14px rgba(2, 132, 199, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35)',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           transform: isOpen ? 'scale(1.05)' : 'scale(1)'
         }}
@@ -203,7 +203,7 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
               width: '44px',
               height: '44px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)',
+              background: 'linear-gradient(135deg, #1e40af 0%, #0284c7 48%, #38bdf8 100%)',
               color: '#ffffff',
               fontWeight: 800,
               fontSize: '1.2rem',
@@ -211,7 +211,8 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.35)'
+              border: '1.5px solid rgba(255, 255, 255, 0.35)',
+              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
             }}>
               {initial}
             </div>
