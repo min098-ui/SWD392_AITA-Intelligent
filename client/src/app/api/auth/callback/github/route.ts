@@ -86,20 +86,47 @@ export async function GET(request: NextRequest) {
     const requestedRole = state === 'LECTURER' ? 'LECTURER' : 'STUDENT';
 
     // 4. Đồng bộ với Backend AITA Server
-    const backendRes = await fetch('http://localhost:5000/api/auth/github', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: userEmail,
-        fullName: githubUser.name || githubUser.login,
-        githubUsername: githubUser.login,
-        role: requestedRole,
-      }),
-    });
+    const backendBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
+    let backendRes: Response;
+    try {
+      backendRes = await fetch(`${backendBase}/api/auth/github`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          fullName: githubUser.name || githubUser.login,
+          githubUsername: githubUser.login,
+          role: requestedRole,
+        }),
+      });
+    } catch {
+      // Fallback nếu kết nối IPv6 localhost gặp sự cố
+      const altUrl = backendBase.includes('localhost') 
+        ? backendBase.replace('localhost', '127.0.0.1')
+        : 'http://127.0.0.1:5000';
+      backendRes = await fetch(`${altUrl}/api/auth/github`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          fullName: githubUser.name || githubUser.login,
+          githubUsername: githubUser.login,
+          role: requestedRole,
+        }),
+      });
+    }
 
-    const backendData = await backendRes.json();
+    let backendData: any = {};
+    try {
+      backendData = await backendRes.json();
+    } catch {
+      backendData = { message: 'Máy chủ phản hồi định dạng không hợp lệ' };
+    }
+
     if (!backendRes.ok || !backendData.token) {
       console.error('Backend GitHub auth failed:', backendData);
       const errorCode = backendData.code || 'backend_auth_failed';
@@ -118,6 +145,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(callbackUrl);
   } catch (err: any) {
     console.error('GitHub OAuth callback unexpected error:', err);
-    return NextResponse.redirect(new URL('/login?error=oauth_error', request.url));
+    const errorUrl = new URL('/login', request.url);
+    errorUrl.searchParams.set('error', 'oauth_error');
+    errorUrl.searchParams.set('message', err?.message || 'Lỗi không xác định khi kết nối OAuth.');
+    return NextResponse.redirect(errorUrl);
   }
 }
