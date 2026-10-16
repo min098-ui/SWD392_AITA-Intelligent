@@ -111,9 +111,12 @@ function LoginContent() {
     } else if (err === 'github_denied') {
       setErrorType('general');
       setAlertMessage(currentT.errorGithubDenied);
+    } else if (err === 'oauth_error') {
+      setErrorType('general');
+      setAlertMessage(msg || (lang === 'vi' ? 'Phiên xác thực đã hết hạn hoặc kết nối bị gián đoạn. Vui lòng bấm vào nút đăng nhập bên dưới để thử lại.' : 'OAuth session expired or connection was interrupted. Please click the button below to try again.'));
     } else if (err) {
       setErrorType('general');
-      setAlertMessage(currentT.errorGeneral);
+      setAlertMessage(msg || currentT.errorGeneral);
     }
   }, [searchParams, currentT]);
 
