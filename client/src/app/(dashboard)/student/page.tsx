@@ -382,7 +382,7 @@ export default function StudentDashboard() {
   return (
     <>
       <Navigation centerContent={studentTabs} />
-      <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '1.5rem 1.5rem', width: '100%', flex: 1 }}>
+      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '1.5rem 2rem', width: '100%', flex: 1 }}>
         {/* Toast */}
         {successToast && (
           <div style={{
@@ -397,8 +397,17 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* Course & Team Status Bar */}
-        <div className="glass-card" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        {/* Course & Team Status Bar: Thanh điều hướng thanh thoát, không bọc hộp cứng */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1.25rem',
+          paddingBottom: '1.4rem',
+          marginBottom: '2rem',
+          borderBottom: '1px solid var(--border-color)'
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.9rem' }}>
             <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Học phần:' : 'Course:'}</span>
             {myTeams.length > 1 ? (
@@ -616,7 +625,7 @@ export default function StudentDashboard() {
                                       width: '26px',
                                       height: '26px',
                                       borderRadius: '50%',
-                                      background: isMe ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'var(--bg-glass)',
+                                      background: isMe ? 'linear-gradient(135deg, #1e40af, #0284c7)' : 'var(--bg-glass)',
                                       color: isMe ? '#fff' : 'var(--text-main)',
                                       border: isMe ? 'none' : '1px solid var(--border-color)',
                                       display: 'flex',
