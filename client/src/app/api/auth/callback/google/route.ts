@@ -1,4 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+
+function getGoogleCredentials() {
+  let clientId = '';
+  let clientSecret = '';
+
+  const candidatePaths = [
+    path.join(process.cwd(), '.env.local'),
+    path.join(process.cwd(), 'client', '.env.local'),
+  ];
+
+  for (const envPath of candidatePaths) {
+    try {
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf-8');
+        const lines = content.split(/\r?\n/);
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+          const match = trimmed.match(/^([^=]+)=(.*)$/);
+          if (match) {
+            const key = match[1].trim();
+            const val = match[2].trim().replace(/^['"](.*)['"]$/, '$1');
+            if (key === 'GOOGLE_CLIENT_ID' && !clientId) clientId = val;
+            if (key === 'NEXT_PUBLIC_GOOGLE_CLIENT_ID' && !clientId) clientId = val;
+            if (key === 'GOOGLE_CLIENT_SECRET' && !clientSecret) clientSecret = val;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const isStale = (s?: string) => !s || s.includes('255327045579') || s.includes('GOCSPX-L31vo');
+
+  if (isStale(clientId)) {
+    const nextPublic = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '').trim();
+    if (!isStale(nextPublic)) {
+      clientId = nextPublic;
+    } else {
+      clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
+    }
+  }
+
+  if (isStale(clientSecret)) {
+    const envSec = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+    if (!isStale(envSec)) {
+      clientSecret = envSec;
+    }
+  }
+
+  return { clientId, clientSecret };
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -11,8 +66,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+    const { clientId, clientSecret } = getGoogleCredentials();
     const redirectUri = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/callback/google';
 
     // 1. Trao đổi authorization code lấy access_token từ Google
@@ -35,8 +89,18 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok || !tokenData.access_token) {
-      console.error('Failed to get token from Google:', tokenData);
-      return NextResponse.redirect(new URL('/login?error=google_token_failed', request.url));
+      console.error('Failed to get token from Google:', {
+        status: tokenRes.status,
+        error: tokenData.error,
+        error_description: tokenData.error_description,
+        clientIdUsed: clientId ? `${clientId.slice(0, 15)}...` : 'missing',
+      });
+      const errorUrl = new URL('/login', request.url);
+      errorUrl.searchParams.set('error', 'google_token_failed');
+      if (tokenData.error_description) {
+        errorUrl.searchParams.set('message', tokenData.error_description);
+      }
+      return NextResponse.redirect(errorUrl);
     }
 
     // 2. Lấy thông tin tài khoản người dùng từ Google UserInfo API
