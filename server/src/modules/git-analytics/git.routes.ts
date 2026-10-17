@@ -187,6 +187,7 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
         `INSERT INTO git_commits (team_id, author_user_id, commit_hash, message, lines_added, lines_deleted, committed_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (commit_hash) DO UPDATE SET
+           author_user_id = EXCLUDED.author_user_id,
            lines_added = EXCLUDED.lines_added,
            lines_deleted = EXCLUDED.lines_deleted,
            message = EXCLUDED.message,
