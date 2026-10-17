@@ -233,6 +233,7 @@ router.get('/:teamId', authenticateJWT, async (req: Request, res: Response) => {
               'assigned_module', tm.assigned_module,
               'role', tm.role
             )
+            ORDER BY CASE WHEN tm.role = 'LEADER' THEN 0 ELSE 1 END, tm.team_member_id ASC
           ) FILTER (WHERE tm.team_member_id IS NOT NULL), '[]'::json
         ) as members
       FROM teams t
@@ -283,6 +284,7 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
               'assigned_module', tm.assigned_module,
               'role', tm.role
             )
+            ORDER BY CASE WHEN tm.role = 'LEADER' THEN 0 ELSE 1 END, tm.team_member_id ASC
           ) FILTER (WHERE tm.team_member_id IS NOT NULL), '[]'::json
         ) as members
       FROM teams t
@@ -349,6 +351,47 @@ router.delete('/:teamId/members/:teamMemberId', authenticateJWT, requireRole('AD
     return res.json({ message: 'Đã xóa thành viên khỏi nhóm thành công.' });
   } catch (error) {
     console.error('Error removing team member:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// DELETE /api/teams/:teamId - Xóa nhóm đồ án
+router.delete('/:teamId', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
+  const teamId = parseInt(req.params.teamId, 10);
+  if (isNaN(teamId)) {
+    return res.status(400).json({ message: 'teamId không hợp lệ.' });
+  }
+
+  try {
+    const teamRes = await pool.query(
+      `SELECT t.*, c.lecturer_id 
+       FROM teams t 
+       JOIN courses c ON t.course_id = c.course_id 
+       WHERE t.team_id = $1`,
+      [teamId]
+    );
+
+    if (teamRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy nhóm tương ứng.' });
+    }
+
+    const team = teamRes.rows[0];
+    if (req.user!.role === 'LECTURER' && team.lecturer_id !== req.user!.userId) {
+      return res.status(403).json({
+        message: 'Bạn chỉ có quyền xóa nhóm thuộc môn học do mình phụ trách.',
+      });
+    }
+
+    // Xóa các dữ liệu liên quan đến nhóm
+    await pool.query('DELETE FROM peer_audits WHERE team_id = $1', [teamId]);
+    await pool.query('DELETE FROM git_commits WHERE team_id = $1', [teamId]);
+    await pool.query('DELETE FROM submissions WHERE team_id = $1', [teamId]);
+    await pool.query('DELETE FROM team_members WHERE team_id = $1', [teamId]);
+    await pool.query('DELETE FROM teams WHERE team_id = $1', [teamId]);
+
+    return res.json({ message: 'Đã xóa nhóm thành công.' });
+  } catch (error) {
+    console.error('Error deleting team:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
