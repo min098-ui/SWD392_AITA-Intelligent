@@ -48,7 +48,7 @@ export class GradingWorkerService {
    */
   public async processJob(job: Job<GradingJobPayload>): Promise<any> {
     const { grading_job_id, submission_id, assignment_id, code_content, artifact_url } = job.data;
-    const language = job.data.language || 'python';
+    const language = job.data.language || 'javascript';
 
     console.log(`[Grading Worker] 🚀 Processing GradingJob #${grading_job_id} for Submission #${submission_id}...`);
 
@@ -148,8 +148,12 @@ export class GradingWorkerService {
         [grading_job_id]
       );
       await pool.query(
-        `UPDATE submissions SET status = 'GRADED' WHERE submission_id = $1`,
-        [submission_id]
+        `UPDATE submissions 
+         SET status = 'GRADED', 
+             ai_score = $1, 
+             final_score = COALESCE(final_score, $1) 
+         WHERE submission_id = $2`,
+        [totalEarnedScore, submission_id]
       );
 
       console.log(
