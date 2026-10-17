@@ -116,8 +116,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=google_userinfo_failed', request.url));
     }
 
-    const ADMIN_EMAILS = ['lenguyenanhmai05@gmail.com', 'admin@fpt.edu.vn'];
-    const isAdmin = ADMIN_EMAILS.includes((googleUser.email || '').toLowerCase().trim());
+    const ADMIN_EMAILS = [
+      'lenguyenanhmai05@gmail.com',
+      'tuongvy22102004@gmail.com',
+      'admin@fpt.edu.vn',
+    ];
+    const envAdmins = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map(e => e.toLowerCase().trim())
+      .filter(Boolean);
+    const normalizedGoogleEmail = (googleUser.email || '').toLowerCase().trim();
+    const isAdmin = ADMIN_EMAILS.includes(normalizedGoogleEmail) || envAdmins.includes(normalizedGoogleEmail);
     const finalRole = isAdmin ? 'ADMIN' : requestedRole;
 
     // 3. Đồng bộ với Backend AITA Server (cấp JWT token và phân quyền)
