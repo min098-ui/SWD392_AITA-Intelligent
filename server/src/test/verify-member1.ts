@@ -148,9 +148,9 @@ async function runTests() {
   // Seed checks
   assert(seedContent.includes('admin@fpt.edu.vn'), 'seed.sql contains Admin user');
   assert(seedContent.includes('giangnv@fe.edu.vn'), 'seed.sql contains Lecturer user');
-  assert(seedContent.includes('student1@fpt.edu.vn'), 'seed.sql contains Student 1');
-  assert(seedContent.includes('student2@fpt.edu.vn'), 'seed.sql contains Student 2');
-  assert(seedContent.includes('student3@fpt.edu.vn'), 'seed.sql contains Student 3');
+  assert(seedContent.includes('lenguyenlinhnhi2110@gmail.com'), 'seed.sql contains Leader Mai');
+  assert(seedContent.includes('dinhgiahuylol12345@gmail.com'), 'seed.sql contains Member Huy');
+  assert(seedContent.includes('dotrandangkhoa17@gmail.com'), 'seed.sql contains Member Khoa');
   assert(seedContent.includes('SWD392'), 'seed.sql contains SWD392 course');
   assert(seedContent.includes('INSERT INTO course_enrollments'), 'seed.sql contains course_enrollments records');
   assert(seedContent.includes('Group 4 - AITA Project'), 'seed.sql contains Group 4 team');
