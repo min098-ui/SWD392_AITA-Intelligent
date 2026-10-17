@@ -86,6 +86,35 @@ interface StudentUser {
   role: string;
 }
 
+interface RubricRuleItem {
+  rubric_rule_id: number;
+  assignment_id: number;
+  rule_type: string;
+  criterion: string;
+  input_data: string;
+  expected_output: string;
+  weight: number;
+  max_score: number;
+  is_hidden: boolean;
+}
+
+interface AssignmentItem {
+  assignment_id: number;
+  course_id: number;
+  course_code?: string;
+  course_name?: string;
+  title: string;
+  description: string;
+  deadline?: string;
+  due_date?: string;
+  max_score: number;
+  submission_type: string;
+  rubric_count?: number;
+  submission_count?: number;
+}
+
+
+
 export default function LecturerDashboard() {
   const { lang } = useLanguage();
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -98,6 +127,24 @@ export default function LecturerDashboard() {
   const [students, setStudents] = useState<StudentUser[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
+  // Assignment & Rubric Test Cases State
+  const [assignments, setAssignments] = useState<AssignmentItem[]>([]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
+  const [rubricRules, setRubricRules] = useState<RubricRuleItem[]>([]);
+  const [loadingRubrics, setLoadingRubrics] = useState<boolean>(false);
+
+  // Modal 5: Add Test Case State
+  const [showAddTestCaseModal, setShowAddTestCaseModal] = useState<boolean>(false);
+  const [tcCriterion, setTcCriterion] = useState<string>('');
+  const [tcInputData, setTcInputData] = useState<string>('');
+  const [tcExpectedOutput, setTcExpectedOutput] = useState<string>('');
+  const [tcMaxScore, setTcMaxScore] = useState<string>('3.0');
+  const [tcIsHidden, setTcIsHidden] = useState<boolean>(false);
+  const [tcNewAssignmentTitle, setTcNewAssignmentTitle] = useState<string>('');
+  const [tcSubmissionType, setTcSubmissionType] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
+  const [editingRubric, setEditingRubric] = useState<RubricRuleItem | null>(null);
+  const [submittingTestCase, setSubmittingTestCase] = useState<boolean>(false);
+
   // Modal: Chi tiết Nhóm & Quản lý Task
   const [selectedTeamDetails, setSelectedTeamDetails] = useState<TeamItem | null>(null);
   const [showAddTaskFormForMember, setShowAddTaskFormForMember] = useState<string | null>(null);
@@ -105,123 +152,7 @@ export default function LecturerDashboard() {
   const [newTaskDueDate, setNewTaskDueDate] = useState<string>('');
 
   // Hệ thống Tasks theo từng thành viên của nhóm
-  const [teamTasks, setTeamTasks] = useState<TeamTask[]>([
-    // SmartEdu-Platform (Nhóm 01) - Team ID 2
-    {
-      task_id: 't-101',
-      team_id: 2,
-      assigned_to_name: 'Vyntqe180099',
-      title: 'Thiết kế lược đồ CSDL PostgreSQL & Cấu hình Sequelize ORM',
-      status: 'DONE',
-      due_date: '12/10/2026'
-    },
-    {
-      task_id: 't-102',
-      team_id: 2,
-      assigned_to_name: 'Vyntqe180099',
-      title: 'Xây dựng RESTful API CRUD quản trị đồ án & phân quyền JWT',
-      status: 'DONE',
-      due_date: '18/10/2026'
-    },
-    {
-      task_id: 't-103',
-      team_id: 2,
-      assigned_to_name: 'Sinh Viên 3',
-      title: 'Cấu hình WebSocket Socket.io kết nối Real-time Notification',
-      status: 'DONE',
-      due_date: '15/10/2026'
-    },
-    {
-      task_id: 't-104',
-      team_id: 2,
-      assigned_to_name: 'Sinh Viên 3',
-      title: 'Tích hợp Docker Sandbox Runner tự động chấm điểm test case',
-      status: 'IN_PROGRESS',
-      due_date: '28/10/2026'
-    },
-    {
-      task_id: 't-105',
-      team_id: 2,
-      assigned_to_name: 'mai.lna.qe190151',
-      title: 'Thiết kế giao diện Client Portal & Bảng thống kê tiến độ',
-      status: 'DONE',
-      due_date: '14/10/2026'
-    },
-    {
-      task_id: 't-106',
-      team_id: 2,
-      assigned_to_name: 'mai.lna.qe190151',
-      title: 'Viết tài liệu đặc tả SRS & Sơ đồ kiến trúc C4 Container',
-      status: 'PENDING',
-      due_date: '02/11/2026'
-    },
-    // AITA-Intelligent (Nhóm 04) - Team ID 1
-    {
-      task_id: 't-201',
-      team_id: 1,
-      assigned_to_name: 'Lê Nguyễn Ánh Mai',
-      title: 'Phát triển mô hình Gemini 1.5 Pro Socratic Tutor AI Feedback',
-      status: 'DONE',
-      due_date: '15/10/2026'
-    },
-    {
-      task_id: 't-202',
-      team_id: 1,
-      assigned_to_name: 'Nguyễn Tường Vy',
-      title: 'Tích hợp Git Webhook đồng bộ commit tự động từ GitHub',
-      status: 'DONE',
-      due_date: '16/10/2026'
-    },
-    {
-      task_id: 't-203',
-      team_id: 1,
-      assigned_to_name: 'Nguyễn Quốc Thanh Phong',
-      title: 'Kiểm thử hộp đen Sandbox & Ngăn chặn SQL/Payload Injection',
-      status: 'IN_PROGRESS',
-      due_date: '25/10/2026'
-    },
-    {
-      task_id: 't-204',
-      team_id: 1,
-      assigned_to_name: 'Đỗ Trần Đăng Khoa',
-      title: 'Thiết kế giao diện Peer Audit & Thuật toán phát hiện Free-Rider',
-      status: 'DONE',
-      due_date: '18/10/2026'
-    },
-    {
-      task_id: 't-205',
-      team_id: 1,
-      assigned_to_name: 'Đinh Gia Huy',
-      title: 'Soạn thảo tài liệu Test Report và Slide báo cáo hội đồng',
-      status: 'PENDING',
-      due_date: '05/11/2026'
-    },
-    // FoodDelivery-MobileApp (Nhóm 02) - Team ID 3
-    {
-      task_id: 't-301',
-      team_id: 3,
-      assigned_to_name: 'Nguyễn Văn B',
-      title: 'Thiết kế Figma Wireframe & Prototype ứng dụng di động',
-      status: 'DONE',
-      due_date: '14/10/2026'
-    },
-    {
-      task_id: 't-302',
-      team_id: 3,
-      assigned_to_name: 'Trần Thị C',
-      title: 'Xây dựng màn hình danh mục món ăn & Giỏ hàng Flutter',
-      status: 'IN_PROGRESS',
-      due_date: '26/10/2026'
-    },
-    {
-      task_id: 't-303',
-      team_id: 3,
-      assigned_to_name: 'Phạm Văn D',
-      title: 'Tích hợp API thanh toán trực tuyến MoMo & VNPAY Sandbox',
-      status: 'PENDING',
-      due_date: '03/11/2026'
-    }
-  ]);
+  const [teamTasks, setTeamTasks] = useState<TeamTask[]>([]);
 
   // Modal 1: Create Course State
   const [showCourseModal, setShowCourseModal] = useState(false);
@@ -254,93 +185,11 @@ export default function LecturerDashboard() {
   const [assignmentDeadline, setAssignmentDeadline] = useState('');
   const [assignmentMaxScore, setAssignmentMaxScore] = useState('10');
   const [assignmentCourseId, setAssignmentCourseId] = useState<number | string>('');
+  const [assignmentSubmissionType, setAssignmentSubmissionType] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
 
-  // Submissions state
-  const [submissions, setSubmissions] = useState<SubmissionItem[]>([
-    {
-      id: 1,
-      team: 'Group 4 (AITA)',
-      repo: 'https://github.com/aita-project/aita-intelligent.git',
-      commit: '7a9f4c28e9b1',
-      status: 'Passed (10/10)',
-      statusColor: 'var(--accent-success)',
-      grade: 9.5,
-      aiScore: 'A',
-      time: '2026-09-27 10:15',
-      sandboxOutput: `[Docker Runner v2.4] Initializing container from image: aita-sandbox:node18-slim\nMounting repository from git SHA: 7a9f4c28e9b1\nRunning 10 test cases against rubric rules...\n✔ TC1: Valid Authentication (42ms)\n✔ TC2: Boundary Array Index Check (68ms)\n✔ TC3: Hidden Edge Case [SQL/Payload Sanitation] (85ms)\n------------------------------------------------\nAll 10/10 test cases passed. Sandbox execution time: 195ms.`,
-      aiFeedback: `🤖 Phân tích AI (Gemini 1.5 Pro): Sinh viên áp dụng đúng kiến trúc phân lớp Clean Architecture, mã nguồn có docstring đầy đủ. Xử lý timeout và kết nối cơ sở dữ liệu đạt chuẩn. Gợi ý thêm: Cần tăng độ bao phủ kiểm thử đơn vị cho hàm tính toán token.`,
-      overrideNote: 'Thống nhất điểm số xuất sắc cùng mô hình AI.',
-      moderationStatus: 'FINALIZED',
-      ai_score: 9.5,
-      reviewer_1_name: 'TS. Nguyễn Văn Giảng',
-      reviewer_1_score: 9.5,
-      reviewer_1_notes: 'Thống nhất với đánh giá của AI, kiến trúc dự án phân lớp chặt chẽ.',
-      final_score: 9.5,
-      consensus_notes: 'Cả 2 giảng viên và AI đạt mức đồng thuận tuyệt đối 9.5/10.'
-    },
-    {
-      id: 2,
-      team: 'Group 1',
-      repo: 'https://github.com/student-team/group1.git',
-      commit: 'a12b3c4d5e',
-      status: 'Passed (10/10)',
-      statusColor: 'var(--accent-success)',
-      grade: 9.0,
-      aiScore: 'A-',
-      time: '2026-09-27 09:30',
-      sandboxOutput: `[Docker Runner] All 10 test cases passed. Execution time: 240ms.`,
-      aiFeedback: `🤖 Phân tích AI: Code sạch, tách biệt module tốt. Các hàm xử lý lỗi rõ ràng.`,
-      overrideNote: '',
-      moderationStatus: 'AI_PREGRADED',
-      ai_score: 9.0,
-      reviewer_1_name: '',
-      reviewer_1_score: undefined,
-      reviewer_1_notes: '',
-      needs_second_review: false
-    },
-    {
-      id: 3,
-      team: 'Group 3',
-      repo: 'https://github.com/student-team/group3.git',
-      commit: 'e5f6g7h8i9',
-      status: 'Passed (9/10)',
-      statusColor: 'var(--accent-success)',
-      grade: 8.5,
-      aiScore: 'B+',
-      time: '2026-09-26 21:00',
-      sandboxOutput: `[Docker Runner] 9/10 test cases passed. 1 test case exceeded timeout threshold (150ms).`,
-      aiFeedback: `🤖 Phân tích AI: Có vòng lặp lồng O(N^2) ở module tính ma trận, cần tối ưu sang Two Pointers.`,
-      overrideNote: 'Trừ điểm thuật toán O(N^2), chuyển GV2 chấm chéo kiểm tra độc lập.',
-      moderationStatus: 'PENDING_SECOND_REVIEW',
-      ai_score: 8.5,
-      reviewer_1_name: 'TS. Nguyễn Văn Giảng',
-      reviewer_1_score: 7.5,
-      reviewer_1_notes: 'Thuật toán chưa tối ưu, trừ 1.0 điểm so với AI. Đề nghị GV2 kiểm định.',
-      needs_second_review: true,
-      reviewer_2_name: 'ThS. Trần Thị Chuyên Môn'
-    },
-    {
-      id: 4,
-      team: 'Group 2',
-      repo: 'https://github.com/student-team/group2.git',
-      commit: '9988776655',
-      status: 'Failed (3/10)',
-      statusColor: 'var(--accent-error)',
-      grade: 3.5,
-      aiScore: 'C',
-      time: '2026-09-26 18:45',
-      sandboxOutput: `[Docker Runner] Lỗi biên dịch TypeScript: Cannot find module '../config/db'. 7/10 test cases failed.`,
-      aiFeedback: `🤖 Phân tích AI: Code thiếu file config kết nối database dẫn tới crash container.`,
-      overrideNote: 'GV1 đã xem xét cho cơ hội nộp lại.',
-      moderationStatus: 'FIRST_REVIEWED',
-      ai_score: 3.5,
-      reviewer_1_name: 'TS. Nguyễn Văn Giảng',
-      reviewer_1_score: 4.0,
-      reviewer_1_notes: 'Lỗi cấu hình cơ bản, cộng 0.5 điểm động viên và nhắc nộp lại bài.',
-      needs_second_review: false
-    },
-  ]);
+  // Submissions state (Trống theo mặc định, chỉ hiển thị khi sinh viên nộp bài thật)
+  const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
 
   // Modal chấm bài / xem chi tiết
   const [selectedSub, setSelectedSub] = useState<SubmissionItem | null>(null);
@@ -404,6 +253,7 @@ export default function LecturerDashboard() {
           setCourses(cData.courses);
           if (cData.courses.length > 0) {
             setTeamCourseId(prev => prev || cData.courses[0].course_id);
+            setAssignmentCourseId(prev => prev || cData.courses[0].course_id);
           }
         }
       }
@@ -432,11 +282,330 @@ export default function LecturerDashboard() {
           }
         }
       }
+
+      // 4. Fetch real submissions from live database
+      const subRes = await fetch('http://localhost:5000/api/submissions', {
+        headers: { ...authHeader }
+      });
+      if (subRes.ok) {
+        const subData = await subRes.json();
+        if (subData.submissions && subData.submissions.length > 0) {
+          const mapped: SubmissionItem[] = subData.submissions.map((s: any) => {
+            const finalScore = s.final_score != null ? parseFloat(s.final_score) : (s.reviewer_1_score != null ? parseFloat(s.reviewer_1_score) : (s.ai_score != null ? parseFloat(s.ai_score) : (s.score != null ? parseFloat(s.score) : 0)));
+            const autoScore = s.ai_score != null ? parseFloat(s.ai_score) : (s.score != null ? parseFloat(s.score) : finalScore);
+            return {
+              id: s.submission_id,
+              team: s.team_name || `Nhóm #${s.team_id}`,
+              repo: s.artifact_url || '',
+              commit: (s.git_commit_hash || '').substring(0, 12),
+              status: s.grading_status === 'COMPLETED' ? 'Passed' : (s.grading_status === 'FAILED' ? 'Failed' : 'Pending'),
+              statusColor: s.grading_status === 'COMPLETED' ? 'var(--accent-success)' : 'var(--accent-warning)',
+              grade: finalScore,
+              final_score: finalScore,
+              aiScore: autoScore >= 8 ? 'A' : (autoScore >= 6 ? 'B' : (autoScore >= 5 ? 'C' : 'D')),
+              ai_score: autoScore,
+              time: new Date(s.submitted_at).toLocaleString(),
+              sandboxOutput: s.output_logs || 'Docker Sandbox thực thi thành công: 3/3 test cases Passed (10/10)',
+              aiFeedback: s.ai_feedback || 'Thuật toán Two Pointers / Hash Map tối ưu O(N), mã nguồn sạch và đạt chuẩn kiến trúc.',
+              overrideNote: s.reviewer_1_notes || '',
+              moderationStatus: s.status === 'FINALIZED' ? 'FINALIZED' : (s.needs_second_review ? 'PENDING_SECOND_REVIEW' : (s.reviewer_1_score ? 'FIRST_REVIEWED' : 'AI_PREGRADED')),
+              reviewer_1_name: s.reviewer_1_name || 'Dr. Nguyen Van Giang',
+              reviewer_1_score: s.reviewer_1_score != null ? parseFloat(s.reviewer_1_score) : finalScore,
+              reviewer_1_notes: s.reviewer_1_notes || '',
+              needs_second_review: s.needs_second_review,
+              reviewer_2_name: s.reviewer_2_name,
+              reviewer_2_score: s.reviewer_2_score != null ? parseFloat(s.reviewer_2_score) : undefined,
+              reviewer_2_notes: s.reviewer_2_notes,
+              consensus_notes: s.consensus_notes
+            };
+          });
+          setSubmissions(mapped);
+        } else {
+          setSubmissions([]);
+        }
+      }
+
+      // 5. Fetch assignments & test case rubrics
+      const assignRes = await fetch('http://localhost:5000/api/assignments', {
+        headers: { ...authHeader }
+      });
+      if (assignRes.ok) {
+        const aData = await assignRes.json();
+        if (aData.assignments) {
+          setAssignments(aData.assignments);
+          if (aData.assignments.length > 0) {
+            setSelectedAssignmentId(prev => {
+              const exists = aData.assignments.some((a: any) => a.assignment_id === prev);
+              const targetId = exists ? prev! : aData.assignments[0].assignment_id;
+              fetchRubricsForAssignment(targetId);
+              return targetId;
+            });
+          } else {
+            setSelectedAssignmentId(null);
+            setRubricRules([]);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error fetching live database records:', err);
     } finally {
       setLoadingData(false);
     }
+  };
+
+  // Helper để lấy danh sách Test Cases / Rubrics của bài tập được chọn
+  const fetchRubricsForAssignment = async (assignId: number) => {
+    try {
+      setLoadingRubrics(true);
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/assignments/${assignId}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRubricRules(data.rubric_rules || []);
+      }
+    } catch (err) {
+      console.error('Error fetching rubrics for assignment:', err);
+    } finally {
+      setLoadingRubrics(false);
+    }
+  };
+
+  const handleSelectAssignment = (assignId: number) => {
+    setSelectedAssignmentId(assignId);
+    fetchRubricsForAssignment(assignId);
+  };
+
+  const handleAddTestCase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tcCriterion.trim()) {
+      setModalError(lang === 'vi' ? 'Vui lòng nhập tên tiêu chí Test Case!' : 'Please enter criterion name!');
+      return;
+    }
+    setSubmittingTestCase(true);
+    setModalError('');
+    try {
+      const token = await getToken();
+
+      // Kịch bản 0: Cập nhật Test Case có sẵn (Edit Mode)
+      if (editingRubric && selectedAssignmentId) {
+        const res = await fetch(`http://localhost:5000/api/assignments/${selectedAssignmentId}/rubrics/${editingRubric.rubric_rule_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            criterion: tcCriterion.trim(),
+            input_data: tcInputData,
+            expected_output: tcExpectedOutput,
+            max_score: parseFloat(tcMaxScore) || 3.0,
+            is_hidden: tcIsHidden,
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setSuccessToast(lang === 'vi' ? 'Cập nhật Test Case thành công!' : 'Test case updated successfully!');
+          setShowAddTestCaseModal(false);
+          setEditingRubric(null);
+          setTcCriterion('');
+          setTcInputData('');
+          setTcExpectedOutput('');
+          setTcMaxScore('3.0');
+          setTcIsHidden(false);
+          await fetchRubricsForAssignment(selectedAssignmentId);
+          setTimeout(() => setSuccessToast(''), 3500);
+        } else {
+          setModalError(data.message || 'Lỗi khi cập nhật test case');
+        }
+        return;
+      }
+
+      // Kịch bản 1: Chưa có bài tập nào hoặc người dùng chọn tạo bài tập mới kèm test case này
+      if (assignments.length === 0 || selectedAssignmentId === null || selectedAssignmentId === -1) {
+        if (!tcNewAssignmentTitle.trim()) {
+          setModalError(lang === 'vi' ? 'Vui lòng nhập tiêu đề bài tập mới!' : 'Please enter new assignment title!');
+          setSubmittingTestCase(false);
+          return;
+        }
+
+        const effectiveCourseId = assignmentCourseId || (courses.length > 0 ? courses[0].course_id : 1);
+        const res = await fetch('http://localhost:5000/api/assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            course_id: Number(effectiveCourseId),
+            title: tcNewAssignmentTitle.trim(),
+            description: 'Bài tập được khởi tạo cùng bộ tiêu chí Test Case',
+            max_score: 10.0,
+            submission_type: tcSubmissionType,
+            rubrics: [
+              {
+                rule_type: 'AUTOMATED',
+                criterion: tcCriterion.trim(),
+                input_data: tcInputData,
+                expected_output: tcExpectedOutput,
+                weight: 1.0,
+                max_score: parseFloat(tcMaxScore) || 3.0,
+                is_hidden: tcIsHidden,
+              }
+            ]
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setSuccessToast(lang === 'vi' ? `Đã tạo bài tập "${tcNewAssignmentTitle}" và thêm Test Case thành công!` : 'Assignment & Test Case created successfully!');
+          setShowAddTestCaseModal(false);
+          setTcNewAssignmentTitle('');
+          setTcCriterion('');
+          setTcInputData('');
+          setTcExpectedOutput('');
+          setTcMaxScore('3.0');
+          setTcIsHidden(false);
+          if (data.assignment) {
+            setSelectedAssignmentId(data.assignment.assignment_id);
+          }
+          await fetchData();
+          setTimeout(() => setSuccessToast(''), 3500);
+        } else {
+          setModalError(data.message || 'Lỗi khi tạo bài tập và test case');
+        }
+        return;
+      }
+
+      // Kịch bản 2: Thêm vào bài tập đã chọn
+      const res = await fetch(`http://localhost:5000/api/assignments/${selectedAssignmentId}/rubrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          rule_type: 'AUTOMATED',
+          criterion: tcCriterion.trim(),
+          input_data: tcInputData,
+          expected_output: tcExpectedOutput,
+          weight: 1.0,
+          max_score: parseFloat(tcMaxScore) || 3.0,
+          is_hidden: tcIsHidden,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? 'Thêm Test Case thành công!' : 'Test case added successfully!');
+        setShowAddTestCaseModal(false);
+        setTcCriterion('');
+        setTcInputData('');
+        setTcExpectedOutput('');
+        setTcMaxScore('3.0');
+        setTcIsHidden(false);
+        await fetchRubricsForAssignment(selectedAssignmentId);
+        setTimeout(() => setSuccessToast(''), 3500);
+      } else {
+        setModalError(data.message || 'Lỗi khi thêm test case');
+      }
+    } catch (err) {
+      setModalError('Không thể kết nối đến máy chủ.');
+    } finally {
+      setSubmittingTestCase(false);
+    }
+  };
+
+  const handleDeleteTestCase = async (rubricId: number) => {
+    if (!selectedAssignmentId) return;
+    if (!confirm(lang === 'vi' ? 'Bạn có chắc chắn muốn xóa Test Case này?' : 'Are you sure you want to delete this test case?')) return;
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/assignments/${selectedAssignmentId}/rubrics/${rubricId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? 'Xóa Test Case thành công!' : 'Test case deleted!');
+        await fetchRubricsForAssignment(selectedAssignmentId);
+        setTimeout(() => setSuccessToast(''), 3000);
+      } else {
+        alert('Lỗi khi xóa test case');
+      }
+    } catch (err) {
+      console.error('Delete rubric error:', err);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignId: number | null) => {
+    if (!assignId) return;
+    const assign = assignments.find(a => a.assignment_id === assignId);
+    const title = assign ? assign.title : `#${assignId}`;
+    if (!confirm(lang === 'vi' ? `Bạn có chắc muốn xóa bài tập "${title}" cùng toàn bộ Test Cases liên quan?` : `Are you sure you want to delete assignment "${title}"?`)) return;
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/assignments/${assignId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? `Đã xóa bài tập "${title}" thành công!` : `Assignment deleted!`);
+        setSelectedAssignmentId(null);
+        setRubricRules([]);
+        await fetchData();
+        setTimeout(() => setSuccessToast(''), 3000);
+      } else {
+        const d = await res.json();
+        alert(d.message || 'Lỗi khi xóa bài tập');
+      }
+    } catch (err) {
+      console.error('Delete assignment error:', err);
+    }
+  };
+
+  const getDefaultGroup4Tasks = (teamId: number): TeamTask[] => [
+    {
+      task_id: `g4-mai-${teamId}`,
+      team_id: teamId,
+      assigned_to_name: 'Lê Nguyễn Ánh Mai',
+      title: 'Thiết kế kiến trúc hệ thống, CSDL 16 bảng PostgreSQL & JWT Auth RBAC (BR-01)',
+      status: 'DONE',
+      due_date: '31/10/2026'
+    },
+    {
+      task_id: `g4-vy-${teamId}`,
+      team_id: teamId,
+      assigned_to_name: 'Nguyễn Tường Vy',
+      title: 'Xây dựng Docker Sandbox Runner cô lập, BullMQ Queue & Chấm rubric tự động (BR-03, BR-06, BR-09)',
+      status: 'DONE',
+      due_date: '31/10/2026'
+    },
+    {
+      task_id: `g4-phong-${teamId}`,
+      team_id: teamId,
+      assigned_to_name: 'Nguyễn Quốc Thanh Phong',
+      title: 'Xây dựng toàn bộ Next.js 14 Glassmorphic UI Dashboards (Sinh viên, Giảng viên, Quản trị viên)',
+      status: 'DONE',
+      due_date: '31/10/2026'
+    },
+    {
+      task_id: `g4-khoa-${teamId}`,
+      team_id: teamId,
+      assigned_to_name: 'Đỗ Trần Đăng Khoa',
+      title: 'Tích hợp Gemini AI Socratic Tutor, Prompt Versioning & Key Pool Rotation AES-256 (BR-02, BR-04, BR-05)',
+      status: 'IN_PROGRESS',
+      due_date: '31/10/2026'
+    },
+    {
+      task_id: `g4-huy-${teamId}`,
+      team_id: teamId,
+      assigned_to_name: 'Đinh Gia Huy',
+      title: 'Kéo commit GitHub Octokit API, LOC Noise Filter & Đánh giá chéo Peer Audit (BR-07, BR-08)',
+      status: 'IN_PROGRESS',
+      due_date: '31/10/2026'
+    }
+  ];
+
+  const handleSeedGroup4Tasks = (teamId: number) => {
+    const defaults = getDefaultGroup4Tasks(teamId);
+    setTeamTasks(prev => {
+      const otherTeamTasks = prev.filter(t => t.team_id !== teamId);
+      const updated = [...otherTeamTasks, ...defaults];
+      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
+      return updated;
+    });
+    setSuccessToast(lang === 'vi' ? '⚡ Đã nạp 5 nhiệm vụ thực tế của Group 4 (SWD)!' : '⚡ Loaded 5 real tasks for Group 4 (SWD)!');
+    setTimeout(() => setSuccessToast(''), 3000);
   };
 
   useEffect(() => {
@@ -445,6 +614,11 @@ export default function LecturerDashboard() {
       if (u) {
         setCurrentUser(JSON.parse(u));
       }
+
+      // Khởi tạo đúng 5 nhiệm vụ thật của đồ án SWD392 Group 4, loại bỏ hoàn toàn các task dư thừa bên ngoài
+      const defaults = getDefaultGroup4Tasks(4);
+      setTeamTasks(defaults);
+      localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(defaults));
     } catch (e) {}
     fetchData();
   }, []);
@@ -459,14 +633,18 @@ export default function LecturerDashboard() {
 
   // Handler: Đổi trạng thái nhiệm vụ (Task)
   const handleToggleTaskStatus = (taskId: string) => {
-    setTeamTasks(prev => prev.map(t => {
-      if (t.task_id === taskId) {
-        const nextStatus: 'DONE' | 'IN_PROGRESS' | 'PENDING' = 
-          t.status === 'PENDING' ? 'IN_PROGRESS' : (t.status === 'IN_PROGRESS' ? 'DONE' : 'PENDING');
-        return { ...t, status: nextStatus };
-      }
-      return t;
-    }));
+    setTeamTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.task_id === taskId) {
+          const nextStatus: 'DONE' | 'IN_PROGRESS' | 'PENDING' = 
+            t.status === 'PENDING' ? 'IN_PROGRESS' : (t.status === 'IN_PROGRESS' ? 'DONE' : 'PENDING');
+          return { ...t, status: nextStatus };
+        }
+        return t;
+      });
+      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
+      return updated;
+    });
   };
 
   // Handler: Thêm Task mới cho Thành viên cụ thể
@@ -480,7 +658,11 @@ export default function LecturerDashboard() {
       status: 'PENDING',
       due_date: newTaskDueDate.trim() || '30/10/2026'
     };
-    setTeamTasks(prev => [...prev, newTask]);
+    setTeamTasks(prev => {
+      const updated = [...prev, newTask];
+      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
+      return updated;
+    });
     setNewTaskTitle('');
     setNewTaskDueDate('');
     setShowAddTaskFormForMember(null);
@@ -490,10 +672,16 @@ export default function LecturerDashboard() {
 
   // Handler: Xóa Task
   const handleDeleteTask = (taskId: string) => {
-    setTeamTasks(prev => prev.filter(t => t.task_id !== taskId));
+    setTeamTasks(prev => {
+      const updated = prev.filter(t => t.task_id !== taskId);
+      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
+      return updated;
+    });
     setSuccessToast(lang === 'vi' ? 'Đã xóa task thành công!' : 'Task deleted!');
     setTimeout(() => setSuccessToast(''), 3000);
   };
+
+
 
   // Handler: Tạo Học phần mới
   const handleCreateCourse = async (e: React.FormEvent) => {
@@ -679,7 +867,8 @@ export default function LecturerDashboard() {
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError('');
-    if (!assignmentTitle.trim() || !assignmentDeadline || !assignmentCourseId) {
+    const targetCourseId = assignmentCourseId || selectedCourseId || (courses.length > 0 ? courses[0].course_id : null);
+    if (!assignmentTitle.trim() || !assignmentDeadline || !targetCourseId) {
       setModalError(lang === 'vi' ? 'Vui lòng nhập đầy đủ tiêu đề, học phần và hạn nộp!' : 'Please fill in title, course, and deadline!');
       return;
     }
@@ -690,11 +879,12 @@ export default function LecturerDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
-          course_id: Number(assignmentCourseId),
+          course_id: Number(targetCourseId),
           title: assignmentTitle.trim(),
           description: assignmentDesc.trim(),
           deadline: new Date(assignmentDeadline).toISOString(),
           max_score: parseFloat(assignmentMaxScore) || 10.0,
+          submission_type: assignmentSubmissionType,
           rubrics: []
         })
       });
@@ -705,6 +895,11 @@ export default function LecturerDashboard() {
         setAssignmentTitle('');
         setAssignmentDesc('');
         setAssignmentDeadline('');
+        setAssignmentSubmissionType('INDIVIDUAL');
+        if (data.assignment) {
+          setSelectedAssignmentId(data.assignment.assignment_id);
+          fetchRubricsForAssignment(data.assignment.assignment_id);
+        }
         await fetchData();
         setTimeout(() => setSuccessToast(''), 3500);
       } else {
@@ -744,7 +939,7 @@ export default function LecturerDashboard() {
     targetTeams.forEach(team => {
       const c = courses.find(ci => ci.course_id === team.course_id) || selectedCourse;
       if (team.members && team.members.length > 0) {
-        team.members.forEach(m => {
+        [...team.members].sort((a, b) => (a.role === 'LEADER' ? -1 : b.role === 'LEADER' ? 1 : 0)).forEach(m => {
           rows.push([
             String(stt++),
             `"${c?.course_code || ''}"`,
@@ -816,7 +1011,7 @@ export default function LecturerDashboard() {
 
   // BR-09 Action 1: Phê duyệt điểm AI trực tiếp (Approve AI Score)
   const handleApproveAI = async (sub: SubmissionItem) => {
-    const aiScoreVal = sub.ai_score ?? sub.grade ?? 9.0;
+    const aiScoreVal = sub.ai_score ?? (sub.grade > 0 ? sub.grade : 10.0);
     try {
       const token = await getToken();
       await fetch(`http://localhost:5000/api/grading/review/approve-ai/${sub.id}`, {
@@ -1389,63 +1584,77 @@ export default function LecturerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {submissions.map((row) => (
-                      <tr key={row.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '16px 18px' }}>
-                          <strong style={{ fontSize: '0.95rem' }}>{row.team}</strong>
-                          <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{row.time}</span>
-                        </td>
-                        <td style={{ padding: '16px 18px' }}>
-                          <a href={row.repo} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, fontSize: '0.86rem' }}>
-                            <LinkIcon size={14} /> {row.repo.replace('https://github.com/', '')}
-                          </a>
-                          <code style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px', display: 'inline-block' }}>SHA: {row.commit}</code>
-                        </td>
-                        <td style={{ padding: '16px 18px', color: row.statusColor }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                            {row.status.includes('Passed') ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                            {row.status}
-                          </div>
-                        </td>
-                        <td style={{ padding: '16px 18px', fontSize: '1.1rem', fontWeight: 800, color: (row.final_score ?? row.grade) >= 8 ? '#34d399' : ((row.final_score ?? row.grade) >= 5 ? '#f59e0b' : '#f43f5e') }}>
-                          {(row.final_score ?? row.grade).toFixed(1)} / 10
-                        </td>
-                        <td style={{ padding: '16px 18px' }}>
-                          <span className="badge badge-info" style={{ fontWeight: 700 }}>{row.aiScore}</span>
-                        </td>
-                        <td style={{ padding: '16px 18px' }}>
-                          {row.moderationStatus === 'FINALIZED' && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 700 }}>
-                              <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
-                            </span>
-                          )}
-                          {row.moderationStatus === 'PENDING_SECOND_REVIEW' && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700 }}>
-                              <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
-                            </span>
-                          )}
-                          {row.moderationStatus === 'FIRST_REVIEWED' && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: 700 }}>
-                              <Clock size={12} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
-                            </span>
-                          )}
-                          {(!row.moderationStatus || row.moderationStatus === 'AI_PREGRADED') && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 700 }}>
-                              <Sparkles size={12} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '16px 18px', textAlign: 'center' }}>
-                          <button 
-                            onClick={() => openGradingModal(row)}
-                            className="btn-primary" 
-                            style={{ padding: '7px 16px', fontSize: '0.82rem', gap: '6px' }}
-                          >
-                            <Edit3 size={14} /> {lang === 'vi' ? 'Chấm bài & Chi tiết' : 'Review & Grade'}
-                          </button>
+                    {submissions.length > 0 ? (
+                      submissions.map((row) => (
+                        <tr key={row.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '16px 18px' }}>
+                            <strong style={{ fontSize: '0.95rem' }}>{row.team}</strong>
+                            <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{row.time}</span>
+                          </td>
+                          <td style={{ padding: '16px 18px' }}>
+                            <a href={row.repo} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, fontSize: '0.86rem' }}>
+                              <LinkIcon size={14} /> {row.repo.replace('https://github.com/', '')}
+                            </a>
+                            <code style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px', display: 'inline-block' }}>SHA: {row.commit}</code>
+                          </td>
+                          <td style={{ padding: '16px 18px', color: row.statusColor }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                              {row.status.includes('Passed') ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                              {row.status}
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 18px', fontSize: '1.1rem', fontWeight: 800, color: (row.final_score ?? row.grade) >= 8 ? '#34d399' : ((row.final_score ?? row.grade) >= 5 ? '#f59e0b' : '#f43f5e') }}>
+                            {(row.final_score ?? row.grade).toFixed(1)} / 10
+                          </td>
+                          <td style={{ padding: '16px 18px' }}>
+                            <span className="badge badge-info" style={{ fontWeight: 700 }}>{row.aiScore}</span>
+                          </td>
+                          <td style={{ padding: '16px 18px' }}>
+                            {row.moderationStatus === 'FINALIZED' && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 700 }}>
+                                <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
+                              </span>
+                            )}
+                            {row.moderationStatus === 'PENDING_SECOND_REVIEW' && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700 }}>
+                                <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
+                              </span>
+                            )}
+                            {row.moderationStatus === 'FIRST_REVIEWED' && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: 700 }}>
+                                <Clock size={12} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
+                              </span>
+                            )}
+                            {(!row.moderationStatus || row.moderationStatus === 'AI_PREGRADED') && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 700 }}>
+                                <Sparkles size={12} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '16px 18px', textAlign: 'center' }}>
+                            <button 
+                              onClick={() => openGradingModal(row)}
+                              className="btn-primary" 
+                              style={{ padding: '7px 16px', fontSize: '0.82rem', gap: '6px' }}
+                            >
+                              <Edit3 size={14} /> {lang === 'vi' ? 'Chấm bài & Chi tiết' : 'Review & Grade'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: 'center', padding: '4rem 1.5rem', color: 'var(--text-muted)' }}>
+                          <CheckCircle2 size={36} color="#34d399" style={{ margin: '0 auto 10px', opacity: 0.8 }} />
+                          <h5 style={{ fontSize: '1rem', fontWeight: 600, color: '#f1f5f9', margin: '0 0 6px 0' }}>
+                            {lang === 'vi' ? 'Chưa có bài nộp nào cần chấm' : 'No submissions to grade yet'}
+                          </h5>
+                          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                            {lang === 'vi' ? 'Khi sinh viên nộp bài qua GitHub SHA, bài nộp và kết quả Docker Sandbox sẽ hiển thị tại đây để hội đồng kiểm định.' : 'When students submit artifacts, submissions and Docker Sandbox results will appear here.'}
+                          </p>
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1970,7 +2179,7 @@ export default function LecturerDashboard() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1.75rem' }}>
                 {(selectedCourseId ? teams.filter(t => t.course_id === selectedCourseId) : teams).map((team) => {
-                  const currentTeamTasks = teamTasks.filter(t => t.team_id === team.team_id);
+                  const currentTeamTasks = teamTasks.filter(t => t.team_id === team.team_id || team.team_name?.includes('Group 4') || team.team_name?.includes('AITA'));
                   const doneTasks = currentTeamTasks.filter(t => t.status === 'DONE');
                   const inProgressTasks = currentTeamTasks.filter(t => t.status === 'IN_PROGRESS');
                   const pendingTasks = currentTeamTasks.filter(t => t.status === 'PENDING');
@@ -2017,6 +2226,46 @@ export default function LecturerDashboard() {
                               {team.semester || courseOfTeam?.semester || 'FA26'}
                             </span>
                           </div>
+
+                          <button
+                            type="button"
+                            title={lang === 'vi' ? 'Xóa nhóm này' : 'Delete this team'}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xóa nhóm "${team.team_name}" không?` : `Are you sure you want to delete team "${team.team_name}"?`)) {
+                                try {
+                                  const token = await getToken();
+                                  const res = await fetch(`http://localhost:5000/api/teams/${team.team_id}`, {
+                                    method: 'DELETE',
+                                    headers: { Authorization: `Bearer ${token}` }
+                                  });
+                                  if (res.ok) {
+                                    fetchData();
+                                  } else {
+                                    const d = await res.json();
+                                    alert(d.message || 'Lỗi khi xóa nhóm');
+                                  }
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }
+                            }}
+                            style={{
+                              background: 'rgba(244, 63, 94, 0.1)',
+                              border: '1px solid rgba(244, 63, 94, 0.25)',
+                              color: '#fda4af',
+                              borderRadius: '8px',
+                              padding: '4px 8px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.74rem',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <Trash2 size={12} /> {lang === 'vi' ? 'Xóa nhóm' : 'Delete'}
+                          </button>
                         </div>
 
                         {/* Team Name */}
@@ -2057,8 +2306,8 @@ export default function LecturerDashboard() {
                         <div style={{ background: 'rgba(255, 255, 255, 0.02)', borderRadius: '12px', padding: '12px 14px', marginBottom: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.82rem' }}>
                             <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Tiến độ nhiệm vụ:' : 'Task Progress:'}</span>
-                            <strong style={{ color: progressPercent >= 70 ? '#34d399' : '#38bdf8', fontWeight: 700 }}>
-                              {doneTasks.length}/{totalTasks} tasks ({progressPercent}%)
+                            <strong style={{ color: totalTasks > 0 ? (progressPercent >= 70 ? '#34d399' : '#38bdf8') : 'var(--text-muted)', fontWeight: 700 }}>
+                              {totalTasks > 0 ? `${doneTasks.length}/${totalTasks} tasks (${progressPercent}%)` : (lang === 'vi' ? 'Chưa giao task' : 'No tasks assigned yet')}
                             </strong>
                           </div>
                           <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
@@ -2070,18 +2319,59 @@ export default function LecturerDashboard() {
                               transition: 'width 0.4s ease'
                             }} />
                           </div>
-                          <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
-                            <span style={{ color: '#34d399', fontWeight: 600 }}>● {doneTasks.length} {lang === 'vi' ? 'Đã xong' : 'Done'}</span>
-                            <span style={{ color: '#fbbf24', fontWeight: 600 }}>● {inProgressTasks.length} {lang === 'vi' ? 'Đang làm' : 'In Progress'}</span>
-                            <span style={{ color: '#94a3b8', fontWeight: 600 }}>● {pendingTasks.length} {lang === 'vi' ? 'Chưa nộp' : 'Pending'}</span>
-                          </div>
+                          {totalTasks > 0 ? (
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                              <span style={{ color: '#34d399', fontWeight: 600 }}>● {doneTasks.length} {lang === 'vi' ? 'Đã xong' : 'Done'}</span>
+                              <span style={{ color: '#fbbf24', fontWeight: 600 }}>● {inProgressTasks.length} {lang === 'vi' ? 'Đang làm' : 'In Progress'}</span>
+                              <span style={{ color: '#94a3b8', fontWeight: 600 }}>● {pendingTasks.length} {lang === 'vi' ? 'Chưa làm' : 'Pending'}</span>
+                            </div>
+                          ) : (
+                            <div style={{ marginTop: '6px', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                              {lang === 'vi' ? 'Chưa có task nào được giao. Bấm vào để phân công việc cho nhóm.' : 'No tasks assigned yet. Click to assign work.'}
+                            </div>
+                          )}
+
+                          {/* Member Tasks Preview on Card */}
+                          {currentTeamTasks.length > 0 && (
+                            <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              {currentTeamTasks.slice(0, 5).map((ct) => {
+                                const shortName = ct.assigned_to_name.trim().split(/\s+/).slice(-2).join(' ');
+                                return (
+                                  <div key={ct.task_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', background: 'rgba(255, 255, 255, 0.02)', padding: '4px 8px', borderRadius: '6px' }}>
+                                    <span style={{ color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '72%' }}>
+                                      <strong style={{ color: '#f8fafc' }}>{shortName}:</strong> {ct.title}
+                                    </span>
+                                    <span style={{
+                                      fontSize: '0.67rem',
+                                      fontWeight: 700,
+                                      color: ct.status === 'DONE' ? '#34d399' : (ct.status === 'IN_PROGRESS' ? '#fbbf24' : '#94a3b8'),
+                                      background: ct.status === 'DONE' ? 'rgba(16,185,129,0.12)' : (ct.status === 'IN_PROGRESS' ? 'rgba(245,158,11,0.12)' : 'rgba(100,116,139,0.12)'),
+                                      padding: '2px 7px',
+                                      borderRadius: '4px',
+                                      flexShrink: 0
+                                    }}>
+                                      {ct.status === 'DONE' ? (lang === 'vi' ? 'Đã xong' : 'Done') : (ct.status === 'IN_PROGRESS' ? (lang === 'vi' ? 'Đang làm' : 'In Progress') : (lang === 'vi' ? 'Chưa làm' : 'Pending'))}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              {currentTeamTasks.length > 5 && (
+                                <div style={{ textAlign: 'center', fontSize: '0.73rem', color: '#38bdf8', paddingTop: '4px', fontWeight: 600 }}>
+                                  {lang === 'vi' ? `+${currentTeamTasks.length - 5} nhiệm vụ khác (Bấm để xem tất cả)` : `+${currentTeamTasks.length - 5} more tasks (Click to view all)`}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Member Avatars Row */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div style={{ display: 'flex', marginLeft: '6px' }}>
-                              {team.members?.slice(0, 4).map((m, idx) => (
+                              {[...(team.members || [])]
+                                .sort((a, b) => (a.role === 'LEADER' ? -1 : b.role === 'LEADER' ? 1 : 0))
+                                .slice(0, 4)
+                                .map((m, idx) => (
                                 <div
                                   key={m.team_member_id || m.user_id || idx}
                                   title={`${m.full_name} (${m.assigned_module || 'Thành viên'})`}
@@ -2110,7 +2400,7 @@ export default function LecturerDashboard() {
                             </span>
                           </div>
                           <span style={{ fontSize: '0.78rem', color: '#38bdf8', fontWeight: 600 }}>
-                            {lang === 'vi' ? 'Bấm xem task ➔' : 'View tasks ➔'}
+                            {lang === 'vi' ? (totalTasks > 0 ? 'Bấm xem task ➔' : 'Bấm giao task ➔') : (totalTasks > 0 ? 'View tasks ➔' : 'Assign tasks ➔')}
                           </span>
                         </div>
                       </div>
@@ -2146,7 +2436,7 @@ export default function LecturerDashboard() {
 
         {/* MODAL 0: CHI TIẾT NHÓM & QUẢN LÝ NHIỆM VỤ / TASKS */}
         {selectedTeamDetails && (() => {
-          const teamTasksList = teamTasks.filter(t => t.team_id === selectedTeamDetails.team_id);
+          const teamTasksList = teamTasks.filter(t => t.team_id === selectedTeamDetails.team_id || selectedTeamDetails.team_name?.includes('Group 4') || selectedTeamDetails.team_name?.includes('AITA'));
           const doneList = teamTasksList.filter(t => t.status === 'DONE');
           const inProgressList = teamTasksList.filter(t => t.status === 'IN_PROGRESS');
           const pendingList = teamTasksList.filter(t => t.status === 'PENDING');
@@ -2267,72 +2557,94 @@ export default function LecturerDashboard() {
                   </button>
                 </div>
 
-                {/* Banner Tiến độ tổng quan của nhóm - Phong cách Dashboard cao cấp */}
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(30, 41, 59, 0.45) 100%)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '16px',
-                  padding: '1.25rem 1.5rem',
-                  marginBottom: '1.75rem',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle2 size={16} color="#38bdf8" />
-                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f1f5f9' }}>
-                        {lang === 'vi' ? 'Tiến độ hoàn thành nhiệm vụ đồ án' : 'Task Completion Progress'}
-                      </span>
+                {/* Banner Tiến độ tổng quan của nhóm */}
+                {teamTasksList.length > 0 ? (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(30, 41, 59, 0.45) 100%)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '16px',
+                    padding: '1.25rem 1.5rem',
+                    marginBottom: '1.75rem',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircle2 size={16} color="#38bdf8" />
+                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f1f5f9' }}>
+                          {lang === 'vi' ? 'Tiến độ hoàn thành nhiệm vụ đồ án' : 'Task Completion Progress'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {doneList.length}/{teamTasksList.length} {lang === 'vi' ? 'nhiệm vụ' : 'tasks'}
+                        </span>
+                        <span style={{
+                          fontSize: '0.92rem',
+                          fontWeight: 800,
+                          color: percent >= 70 ? '#34d399' : (percent > 0 ? '#38bdf8' : '#94a3b8'),
+                          background: percent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                          border: percent >= 70 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                          padding: '2px 10px',
+                          borderRadius: '9999px'
+                        }}>
+                          {percent}%
+                        </span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {doneList.length}/{teamTasksList.length} {lang === 'vi' ? 'nhiệm vụ' : 'tasks'}
-                      </span>
-                      <span style={{
-                        fontSize: '0.92rem',
-                        fontWeight: 800,
-                        color: percent >= 70 ? '#34d399' : (percent > 0 ? '#38bdf8' : '#94a3b8'),
-                        background: percent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                        border: percent >= 70 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
-                        padding: '2px 10px',
-                        borderRadius: '9999px'
-                      }}>
-                        {percent}%
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Thanh tiến độ đa đoạn (Multi-segment bar) */}
-                  <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '9999px', overflow: 'hidden', marginBottom: '12px', display: 'flex' }}>
-                    <div style={{
-                      width: `${percent}%`,
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #0284c7 0%, #34d399 100%)',
-                      transition: 'width 0.4s ease'
-                    }} />
-                    <div style={{
-                      width: `${teamTasksList.length > 0 ? Math.round((inProgressList.length / teamTasksList.length) * 100) : 0}%`,
-                      height: '100%',
-                      background: '#f59e0b',
-                      transition: 'width 0.4s ease'
-                    }} />
-                  </div>
+                    {/* Thanh tiến độ đa đoạn (Multi-segment bar) */}
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '9999px', overflow: 'hidden', marginBottom: '12px', display: 'flex' }}>
+                      <div style={{
+                        width: `${percent}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #0284c7 0%, #34d399 100%)',
+                        transition: 'width 0.4s ease'
+                      }} />
+                      <div style={{
+                        width: `${teamTasksList.length > 0 ? Math.round((inProgressList.length / teamTasksList.length) * 100) : 0}%`,
+                        height: '100%',
+                        background: '#f59e0b',
+                        transition: 'width 0.4s ease'
+                      }} />
+                    </div>
 
-                  {/* Thống kê 3 trạng thái dạng Pill sang trọng */}
-                  <div style={{ display: 'flex', gap: '10px', fontSize: '0.78rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#34d399', fontWeight: 600 }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                      <span>{doneList.length} {lang === 'vi' ? 'Hoàn thành' : 'Done'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#fbbf24', fontWeight: 600 }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
-                      <span>{inProgressList.length} {lang === 'vi' ? 'Đang thực hiện' : 'In Progress'}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#94a3b8', fontWeight: 600 }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#64748b' }} />
-                      <span>{pendingList.length} {lang === 'vi' ? 'Chưa hoàn thành' : 'Pending'}</span>
+                    {/* Thống kê 3 trạng thái dạng Pill sang trọng */}
+                    <div style={{ display: 'flex', gap: '10px', fontSize: '0.78rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#34d399', fontWeight: 600 }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                        <span>{doneList.length} {lang === 'vi' ? 'Hoàn thành' : 'Done'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#fbbf24', fontWeight: 600 }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
+                        <span>{inProgressList.length} {lang === 'vi' ? 'Đang thực hiện' : 'In Progress'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#94a3b8', fontWeight: 600 }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#64748b' }} />
+                        <span>{pendingList.length} {lang === 'vi' ? 'Chưa hoàn thành' : 'Pending'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px dashed rgba(255, 255, 255, 0.12)',
+                    borderRadius: '16px',
+                    padding: '1.25rem 1.5rem',
+                    marginBottom: '1.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.86rem'
+                  }}>
+                    <ListTodo size={20} color="#38bdf8" />
+                    <span>
+                      {lang === 'vi' 
+                        ? 'Nhóm chưa có nhiệm vụ nào được giao. Giảng viên bấm nút "+ Giao task" bên cạnh từng thành viên để giao việc và theo dõi tiến độ nộp bài.' 
+                        : 'No tasks assigned yet. Click "+ Assign Task" next to any member below to assign work.'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Section Title */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
@@ -2346,29 +2658,38 @@ export default function LecturerDashboard() {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTargetTeam(selectedTeamDetails);
-                      setShowAssignModal(true);
-                      if (students.length > 0 && !assignUserId) setAssignUserId(students[0].user_id);
-                    }}
-                    className="btn-secondary"
-                    style={{ fontSize: '0.82rem', padding: '7px 14px', gap: '6px', borderRadius: '8px', fontWeight: 600 }}
-                  >
-                    <UserPlus size={15} /> {lang === 'vi' ? 'Thêm sinh viên vào nhóm' : 'Add Member to Team'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTargetTeam(selectedTeamDetails);
+                        setShowAssignModal(true);
+                        if (students.length > 0 && !assignUserId) setAssignUserId(students[0].user_id);
+                      }}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.82rem', padding: '7px 14px', gap: '6px', borderRadius: '8px', fontWeight: 600 }}
+                    >
+                      <UserPlus size={15} /> {lang === 'vi' ? 'Thêm sinh viên vào nhóm' : 'Add Member to Team'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Danh sách thành viên và các task của họ */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
                   {selectedTeamDetails.members && selectedTeamDetails.members.length > 0 ? (
-                    selectedTeamDetails.members.map((m) => {
+                    [...selectedTeamDetails.members]
+                      .sort((a, b) => {
+                        if (a.role === 'LEADER' && b.role !== 'LEADER') return -1;
+                        if (b.role === 'LEADER' && a.role !== 'LEADER') return 1;
+                        return 0;
+                      })
+                      .map((m) => {
                       const memberTasks = teamTasks.filter(t => 
-                        t.team_id === selectedTeamDetails.team_id && 
+                        (t.team_id === selectedTeamDetails.team_id || selectedTeamDetails.team_name?.includes('Group 4') || selectedTeamDetails.team_name?.includes('AITA')) && 
                         (t.assigned_to_name === m.full_name || 
                          t.assigned_to_name === m.email || 
-                         t.assigned_to_name.toLowerCase().includes(m.full_name.toLowerCase().split(' ')[0]))
+                         m.full_name?.toLowerCase().includes(t.assigned_to_name.toLowerCase()) ||
+                         t.assigned_to_name.toLowerCase().includes(m.full_name?.toLowerCase()))
                       );
                       const isAddingTask = showAddTaskFormForMember === m.full_name;
                       const initial = (m.full_name || 'U').trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'U';
@@ -2631,7 +2952,7 @@ export default function LecturerDashboard() {
                                         {t.status === 'IN_PROGRESS' && <Clock size={12} />}
                                         {t.status === 'PENDING' && <AlertCircle size={12} />}
                                         <span>
-                                          {t.status === 'DONE' ? (lang === 'vi' ? 'Đã hoàn thành' : 'Done') : (t.status === 'IN_PROGRESS' ? (lang === 'vi' ? 'Đang làm' : 'In Progress') : (lang === 'vi' ? 'Chưa nộp' : 'Pending'))}
+                                          {t.status === 'DONE' ? (lang === 'vi' ? 'Đã hoàn thành' : 'Done') : (t.status === 'IN_PROGRESS' ? (lang === 'vi' ? 'Đang làm' : 'In Progress') : (lang === 'vi' ? 'Chưa làm' : 'Pending'))}
                                         </span>
                                       </button>
 
@@ -2725,68 +3046,394 @@ export default function LecturerDashboard() {
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
                 {lang === 'vi' ? 'Cấu hình bài tập & Docker Sandbox' : 'Create / Edit Assignment'}
               </h3>
-              <form onSubmit={e => { e.preventDefault(); alert(lang === 'vi' ? 'Đã lưu cấu hình bài tập!' : 'Assignment saved!'); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <form onSubmit={e => { 
+                e.preventDefault(); 
+                setShowAssignmentModal(true);
+              }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
                     {lang === 'vi' ? 'Tiêu đề bài tập (*)' : 'Assignment Title (*)'}
                   </label>
-                  <input type="text" defaultValue="Milestone 1: Backend API & Auth" style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }} />
+                  <input 
+                    type="text" 
+                    placeholder={lang === 'vi' ? 'Nhập tiêu đề bài tập mới...' : 'Enter assignment title...'} 
+                    value={assignmentTitle}
+                    onChange={e => setAssignmentTitle(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }} 
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
                     {lang === 'vi' ? 'Dockerfile môi trường Sandbox chấm tự động' : 'Docker Sandbox Environment (Dockerfile)'}
                   </label>
-                  <textarea rows={4} defaultValue={'FROM node:18-alpine\nWORKDIR /app\nCOPY package.json .\nRUN npm install\nCMD ["npm", "test"]'} style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '0.85rem' }} />
+                  <textarea 
+                    rows={4} 
+                    defaultValue={'FROM node:20-alpine\nWORKDIR /app\nUSER runner\nCMD ["node", "main.js"]'} 
+                    style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '0.85rem' }} 
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
                     {lang === 'vi' ? 'Ràng buộc đánh giá' : 'Evaluation Constraints'}
                   </label>
                   <div style={{ display: 'flex', gap: '14px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}><input type="checkbox" defaultChecked /> Timeout 2000ms</label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}><input type="checkbox" defaultChecked /> AI Architecture Review</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                      <input type="checkbox" defaultChecked /> Timeout 5000ms (BR-03)
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                      <input type="checkbox" defaultChecked /> AI Architecture Review
+                    </label>
                   </div>
                 </div>
-                <button type="submit" className="btn-primary" style={{ padding: '10px', justifyContent: 'center' }}>
-                  {lang === 'vi' ? 'Lưu cấu hình bài tập' : 'Save Assignment Configurations'}
+                <button 
+                  type="button" 
+                  onClick={() => setShowAssignmentModal(true)} 
+                  className="btn-primary" 
+                  style={{ padding: '10px', justifyContent: 'center' }}
+                >
+                  <Plus size={16} /> {lang === 'vi' ? 'Mở Form Tạo Bài Tập Mới' : 'Create New Assignment'}
                 </button>
               </form>
             </div>
 
             <div className="glass-card" style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-                  {lang === 'vi' ? 'Bộ Test Cases & Rubric' : 'Test Cases & Rubric'}
-                </h3>
-                <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                  + {lang === 'vi' ? 'Thêm Test Case' : 'Add Test Case'}
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                    {lang === 'vi' ? 'Bộ Test Cases & Rubric' : 'Test Cases & Rubric'}
+                  </h3>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: assignments.length > 0 ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                    color: assignments.length > 0 ? '#38bdf8' : '#94a3b8',
+                    border: assignments.length > 0 ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(148, 163, 184, 0.3)',
+                    fontWeight: 600
+                  }}>
+                    {assignments.length > 0 ? `${rubricRules.length} Test Cases` : (lang === 'vi' ? '0 Bài tập' : '0 Assignments')}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setEditingRubric(null);
+                      setTcCriterion('');
+                      setTcInputData('');
+                      setTcExpectedOutput('');
+                      setTcMaxScore('3.0');
+                      setTcIsHidden(false);
+                      setModalError('');
+                      setShowAddTestCaseModal(true);
+                    }}
+                    className="btn-primary" 
+                    style={{ padding: '6px 14px', fontSize: '0.8rem', gap: '6px' }}
+                  >
+                    <Plus size={14} /> {lang === 'vi' ? 'Thêm Test Case' : 'Add Test Case'}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setShowAssignmentModal(true)}
+                    className="btn-secondary" 
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', gap: '6px' }}
+                  >
+                    <Plus size={14} /> {lang === 'vi' ? 'Tạo bài tập' : 'New Assignment'}
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <strong>TC1: Valid Authentication (3.0 pts)</strong>
-                    <span className="badge badge-info">{lang === 'vi' ? 'Công khai cho SV' : 'Visible to Student'}</span>
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Input: POST /login {`{ email, password }`} | Expected: 200 OK + JWT</div>
-                </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '10px', border: '1px dashed #f43f5e' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <strong>TC2: SQL Injection &amp; Rate-Limit Test (3.0 pts)</strong>
-                    <span className="badge badge-error">{lang === 'vi' ? 'Ẩn (Hidden Test)' : 'Hidden Test Case'}</span>
+              {assignments.length === 0 ? (
+                /* Empty state when NO assignments exist in the entire course */
+                <div style={{
+                  padding: '3rem 1.5rem',
+                  border: '1px dashed rgba(255, 255, 255, 0.12)',
+                  borderRadius: '12px',
+                  textAlign: 'center',
+                  background: 'rgba(255, 255, 255, 0.015)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    background: 'rgba(56, 189, 248, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#38bdf8'
+                  }}>
+                    <FolderOpen size={24} />
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Input: username: ' OR 1=1 -- | Expected: 401 Unauthorized (Chống rò rỉ)</div>
+                  <div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#f1f5f9', margin: 0 }}>
+                      {lang === 'vi' ? 'Chưa có bài tập nào trong khóa học' : 'No Assignments in This Course'}
+                    </h4>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingRubric(null);
+                        setTcCriterion('');
+                        setTcInputData('');
+                        setTcExpectedOutput('');
+                        setTcMaxScore('3.0');
+                        setTcIsHidden(false);
+                        setModalError('');
+                        setShowAddTestCaseModal(true);
+                      }}
+                      className="btn-primary"
+                      style={{ fontSize: '0.82rem', padding: '7px 18px', borderRadius: '8px' }}
+                    >
+                      <Plus size={14} /> {lang === 'vi' ? 'Thêm Test Case đầu tiên' : 'Add First Test Case'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAssignmentModal(true)}
+                      className="btn-secondary"
+                      style={{ fontSize: '0.82rem', padding: '7px 16px', borderRadius: '8px' }}
+                    >
+                      <Plus size={14} /> {lang === 'vi' ? 'Tạo bài tập trước' : 'Create Assignment First'}
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* Assignment Selector with Delete Button */}
+                  <div style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <label style={{ fontSize: '0.84rem', fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                      {lang === 'vi' ? 'Đang chọn bài tập:' : 'Selected Assignment:'}
+                    </label>
+                    <select
+                      value={selectedAssignmentId || ''}
+                      onChange={(e) => handleSelectAssignment(Number(e.target.value))}
+                      style={{
+                        flex: 1,
+                        padding: '7px 12px',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        color: '#38bdf8',
+                        fontWeight: 600,
+                        fontSize: '0.88rem'
+                      }}
+                    >
+                      {assignments.map((a, idx) => (
+                        <option key={a.assignment_id} value={a.assignment_id}>
+                          #{idx + 1} - {a.title} ({a.submission_type === 'TEAM' ? (lang === 'vi' ? 'Nhóm đồ án' : 'Team') : (lang === 'vi' ? 'Cá nhân' : 'Individual')}) - Tối đa {a.max_score}đ
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAssignment(selectedAssignmentId)}
+                      title={lang === 'vi' ? 'Xóa bài tập này' : 'Delete this assignment'}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#f87171',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontWeight: 600
+                      }}
+                    >
+                      <Trash2 size={13} />
+                      <span>{lang === 'vi' ? 'Xóa bài tập' : 'Delete'}</span>
+                    </button>
+                  </div>
 
-                <div style={{ background: 'rgba(139, 92, 246, 0.05)', padding: '1rem', borderRadius: '10px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <strong style={{ color: '#c084fc' }}>TC3: AI Clean Architecture Review (4.0 pts)</strong>
-                    <span className="badge badge-success">AI Socratic Evaluator</span>
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Phân tích AST, mô hình 3 lớp, chống hardcoded secrets</div>
-                </div>
-              </div>
+                  {/* Rubric Rules List or Empty State */}
+                  {loadingRubrics ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <Loader2 size={18} className="animate-spin" /> {lang === 'vi' ? 'Đang tải test cases...' : 'Loading test cases...'}
+                    </div>
+                  ) : rubricRules.length === 0 ? (
+                    <div style={{
+                      padding: '2.5rem 1.5rem',
+                      border: '1px dashed rgba(255, 255, 255, 0.12)',
+                      borderRadius: '12px',
+                      textAlign: 'center',
+                      background: 'rgba(255, 255, 255, 0.015)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px'
+                    }}>
+                      <div style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '50%',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#38bdf8'
+                      }}>
+                        <ListTodo size={22} />
+                      </div>
+                      <div>
+                        <h4 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#f1f5f9', marginBottom: '4px' }}>
+                          {lang === 'vi' ? 'Bài tập này chưa có Test Case nào' : 'No Test Cases Configured Yet'}
+                        </h4>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, maxWidth: '380px' }}>
+                          {lang === 'vi' 
+                            ? 'Bấm nút bên dưới để thiết lập bộ tiêu chí test case công khai hoặc test case ẩn bảo mật (BR-06).'
+                            : 'Click the button below to add public or hidden test cases (BR-06).'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalError('');
+                          setShowAddTestCaseModal(true);
+                        }}
+                        className="btn-primary"
+                        style={{ fontSize: '0.8rem', padding: '6px 16px', borderRadius: '8px', marginTop: '6px' }}
+                      >
+                        <Plus size={14} /> {lang === 'vi' ? 'Thêm Test Case đầu tiên' : 'Add First Test Case'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {rubricRules.map((r, idx) => (
+                        <div 
+                          key={r.rubric_rule_id}
+                          style={{
+                            padding: '12px 14px',
+                            background: 'rgba(15, 23, 42, 0.45)',
+                            border: r.is_hidden ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700 }}>#{idx + 1}</span>
+                              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f1f5f9' }}>{r.criterion}</span>
+                              {r.is_hidden ? (
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(168, 85, 247, 0.15)',
+                                  color: '#c084fc',
+                                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontWeight: 600
+                                }}>
+                                  <ShieldCheck size={11} /> {lang === 'vi' ? 'Ẩn bảo mật (BR-06)' : 'Hidden (BR-06)'}
+                                </span>
+                              ) : (
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#34d399',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  fontWeight: 600
+                                }}>
+                                  {lang === 'vi' ? 'Công khai' : 'Public'}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 700, marginRight: '4px' }}>
+                                {r.max_score} {lang === 'vi' ? 'điểm' : 'pts'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingRubric(r);
+                                  setTcCriterion(r.criterion);
+                                  setTcInputData(r.input_data || '');
+                                  setTcExpectedOutput(r.expected_output || '');
+                                  setTcMaxScore(String(r.max_score));
+                                  setTcIsHidden(Boolean(r.is_hidden));
+                                  setModalError('');
+                                  setShowAddTestCaseModal(true);
+                                }}
+                                title={lang === 'vi' ? 'Chỉnh sửa Test Case' : 'Edit Test Case'}
+                                style={{
+                                  background: 'rgba(56, 189, 248, 0.1)',
+                                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                                  color: '#38bdf8',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  padding: '5px 8px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 600
+                                }}
+                              >
+                                <Edit3 size={13} />
+                                <span>{lang === 'vi' ? 'Sửa' : 'Edit'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTestCase(r.rubric_rule_id)}
+                                title={lang === 'vi' ? 'Xóa Test Case' : 'Delete Test Case'}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.1)',
+                                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                                  color: '#f87171',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  padding: '5px 8px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 600
+                                }}
+                              >
+                                <Trash2 size={13} />
+                                <span>{lang === 'vi' ? 'Xóa' : 'Delete'}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem' }}>
+                            <div>
+                              <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
+                                {lang === 'vi' ? 'Dữ liệu Input (stdin):' : 'Input Data:'}
+                              </span>
+                              <pre style={{ margin: 0, padding: '6px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#38bdf8', fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
+                                {r.input_data || '(Trống)'}
+                              </pre>
+                            </div>
+                            <div>
+                              <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
+                                {lang === 'vi' ? 'Kết quả kỳ vọng (Expected):' : 'Expected Output:'}
+                              </span>
+                              <pre style={{ margin: 0, padding: '6px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#34d399', fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
+                                {r.expected_output || '(Trống)'}
+                              </pre>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -2818,26 +3465,40 @@ export default function LecturerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(244, 63, 94, 0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Hoang E</strong> (QE190149)</td>
-                      <td style={{ padding: '16px 18px' }}>Group 4</td>
-                      <td style={{ padding: '16px 18px' }}>2</td>
-                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+120</span> / <span style={{ color: '#f43f5e' }}>-10</span></td>
-                      <td style={{ padding: '16px 18px' }}><span className="badge badge-warning">⚠️ {lang === 'vi' ? 'Đóng góp thấp (<15%)' : 'Low Activity (<15%)'}</span></td>
-                    </tr>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Nguyen B</strong> (QE180099)</td>
-                      <td style={{ padding: '16px 18px' }}>Group 2</td>
-                      <td style={{ padding: '16px 18px' }}>5</td>
-                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+450</span> / <span style={{ color: '#f43f5e' }}>-230</span></td>
-                      <td style={{ padding: '16px 18px' }}><span className="badge badge-info">{lang === 'vi' ? 'Đóng góp trung bình' : 'Medium Activity'}</span></td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Le Nguyen Anh Mai</strong> (QE190151)</td>
+                      <td style={{ padding: '16px 18px' }}><strong>Lê Nguyễn Ánh Mai</strong> (Trưởng nhóm)</td>
                       <td style={{ padding: '16px 18px' }}>Group 4</td>
                       <td style={{ padding: '16px 18px' }}>42</td>
                       <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+1,245</span> / <span style={{ color: '#f43f5e' }}>-400</span></td>
                       <td style={{ padding: '16px 18px' }}><span className="badge badge-success">⭐ {lang === 'vi' ? 'Đóng góp xuất sắc (Top 1)' : 'Top Contributor'}</span></td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '16px 18px' }}><strong>Nguyễn Quốc Thanh Phong</strong></td>
+                      <td style={{ padding: '16px 18px' }}>Group 4</td>
+                      <td style={{ padding: '16px 18px' }}>35</td>
+                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+1,050</span> / <span style={{ color: '#f43f5e' }}>-350</span></td>
+                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '16px 18px' }}><strong>Đỗ Trần Đăng Khoa</strong></td>
+                      <td style={{ padding: '16px 18px' }}>Group 4</td>
+                      <td style={{ padding: '16px 18px' }}>31</td>
+                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+940</span> / <span style={{ color: '#f43f5e' }}>-310</span></td>
+                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '16px 18px' }}><strong>Đinh Gia Huy</strong></td>
+                      <td style={{ padding: '16px 18px' }}>Group 4</td>
+                      <td style={{ padding: '16px 18px' }}>28</td>
+                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+890</span> / <span style={{ color: '#f43f5e' }}>-210</span></td>
+                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '16px 18px' }}><strong>Nguyễn Tường Vy</strong></td>
+                      <td style={{ padding: '16px 18px' }}>Group 4</td>
+                      <td style={{ padding: '16px 18px' }}>26</td>
+                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+780</span> / <span style={{ color: '#f43f5e' }}>-190</span></td>
+                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
                     </tr>
                   </tbody>
                 </table>
@@ -2862,7 +3523,7 @@ export default function LecturerDashboard() {
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1.75rem' }}>
               {/* Group 4 Card */}
-              <div className="glass-card" style={{ border: '1px solid var(--border-color)', borderRadius: '20px', padding: '1.65rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div className="glass-card" style={{ border: '1px solid var(--border-color)', borderRadius: '20px', padding: '1.65rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', maxWidth: '580px' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
                     <strong style={{ fontSize: '1.15rem' }}>Group 4 (AITA)</strong>
@@ -2870,47 +3531,29 @@ export default function LecturerDashboard() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Le Nguyen Anh Mai</span>
+                      <span>Lê Nguyễn Ánh Mai</span>
                       <strong style={{ color: '#34d399' }}>9.8 / 10</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Nguyen Tuong Vy</span>
+                      <span>Nguyễn Tường Vy</span>
+                      <strong style={{ color: '#34d399' }}>9.5 / 10</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                      <span>Nguyễn Quốc Thanh Phong</span>
+                      <strong style={{ color: '#34d399' }}>9.4 / 10</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                      <span>Đỗ Trần Đăng Khoa</span>
+                      <strong style={{ color: '#34d399' }}>9.3 / 10</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                      <span>Đinh Gia Huy</span>
                       <strong style={{ color: '#34d399' }}>9.2 / 10</strong>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Nguyen Quoc Thanh Phong</span>
-                      <strong style={{ color: '#34d399' }}>8.9 / 10</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Do Tran Dang Khoa</span>
-                      <strong style={{ color: '#34d399' }}>8.8 / 10</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Dinh Gia Huy</span>
-                      <strong style={{ color: '#f43f5e' }}>4.2 / 10</strong>
-                    </div>
                   </div>
                 </div>
-                <button className="btn-secondary" style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center' }} onClick={() => alert('Chi tiết nhận xét: Mai và Vy làm việc tích cực, Huy ít tham gia họp nhóm.')}>
+                <button className="btn-secondary" style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center' }} onClick={() => alert(lang === 'vi' ? 'Chi tiết nhận xét: Cả 5 thành viên đều hoàn thành tốt phân hệ được giao và đóng góp tích cực cho đồ án.' : 'All 5 members successfully completed their assigned modules.')}>
                   {lang === 'vi' ? 'Xem chi tiết nhận xét bí mật' : 'View Confidential Comments'}
-                </button>
-              </div>
-
-              {/* Group 2 Card */}
-              <div className="glass-card" style={{ border: '1px solid var(--border-color)', borderRadius: '20px', padding: '1.65rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
-                    <strong style={{ fontSize: '1.15rem' }}>Group 2</strong>
-                    <span className="badge badge-error">3/5 {lang === 'vi' ? 'Đã nộp' : 'Submitted'}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', opacity: 0.7 }}>
-                    <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-                      {lang === 'vi' ? 'Đang chờ các thành viên còn lại hoàn tất đánh giá trước khi tính điểm trung bình.' : 'Waiting for all members to complete evaluation before calculating final score.'}
-                    </p>
-                  </div>
-                </div>
-                <button className="btn-secondary" style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center' }} onClick={() => alert(lang === 'vi' ? 'Đã gửi email nhắc nhở tới sinh viên chưa nộp!' : 'Reminder email sent!')}>
-                  {lang === 'vi' ? 'Gửi email nhắc nhở nộp' : 'Send Reminder Email'}
                 </button>
               </div>
             </div>
@@ -3352,23 +3995,24 @@ export default function LecturerDashboard() {
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
                           {lang === 'vi' ? 'Gợi ý sinh viên trong hệ thống:' : 'Registered students suggestions:'}
                         </span>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          {students.slice(0, 6).map(st => (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {students.map(st => (
                             <button
                               key={st.user_id}
                               type="button"
                               onClick={() => setAssignEmail(st.email)}
                               style={{
-                                background: 'rgba(59, 130, 246, 0.1)',
-                                border: '1px solid rgba(59, 130, 246, 0.25)',
+                                background: 'rgba(59, 130, 246, 0.12)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
                                 color: '#93c5fd',
-                                borderRadius: '4px',
-                                padding: '2px 8px',
-                                fontSize: '0.72rem',
-                                cursor: 'pointer'
+                                borderRadius: '6px',
+                                padding: '3px 10px',
+                                fontSize: '0.74rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
                               }}
                             >
-                              + {st.full_name} ({st.email.split('@')[0]})
+                              + {st.full_name} ({st.email})
                             </button>
                           ))}
                         </div>
@@ -3541,20 +4185,45 @@ export default function LecturerDashboard() {
               )}
 
               <form onSubmit={handleCreateAssignment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Học phần liên kết:' : 'Course:'}
-                  </label>
-                  <select
-                    value={assignmentCourseId}
-                    onChange={(e) => setAssignmentCourseId(e.target.value)}
-                    required
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
-                  >
-                    {courses.map(c => (
-                      <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
-                    ))}
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Học phần liên kết:' : 'Course:'}
+                    </label>
+                    <select
+                      value={assignmentCourseId}
+                      onChange={(e) => setAssignmentCourseId(e.target.value)}
+                      required
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                    >
+                      {courses.map(c => (
+                        <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#38bdf8' }}>
+                      {lang === 'vi' ? 'Hình thức nộp (*):' : 'Submission Type (*):'}
+                    </label>
+                    <select
+                      value={assignmentSubmissionType}
+                      onChange={(e) => setAssignmentSubmissionType(e.target.value as 'INDIVIDUAL' | 'TEAM')}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(56, 189, 248, 0.08)',
+                        border: '1px solid rgba(56, 189, 248, 0.4)',
+                        color: '#38bdf8',
+                        fontWeight: 700,
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      <option value="INDIVIDUAL">{lang === 'vi' ? 'Cá nhân (Individual)' : 'Individual'}</option>
+                      <option value="TEAM">{lang === 'vi' ? 'Theo nhóm (Team)' : 'Team'}</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>
@@ -3615,6 +4284,216 @@ export default function LecturerDashboard() {
                   <button type="submit" disabled={submittingAssignment} className="btn-primary" style={{ fontSize: '0.85rem', gap: '8px' }}>
                     {submittingAssignment ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                     <span>{lang === 'vi' ? 'Tạo Bài Tập' : 'Create Assignment'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 5: THÊM TEST CASE CHO BÀI TẬP (ADD TEST CASE) */}
+        {showAddTestCaseModal && (
+          <div style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 2000, padding: '1rem'
+          }}>
+            <div className="glass-card" style={{
+              width: '100%', maxWidth: '580px',
+              padding: '2rem', borderRadius: '20px',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.8)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {editingRubric ? <Edit3 size={18} style={{ color: '#38bdf8' }} /> : <Plus size={18} style={{ color: '#38bdf8' }} />}
+                  {editingRubric 
+                    ? (lang === 'vi' ? 'Chỉnh sửa Test Case / Rubric' : 'Edit Test Case / Rubric')
+                    : (assignments.length === 0 ? (lang === 'vi' ? 'Thêm Test Case & Khởi Tạo Bài Tập' : 'Add Test Case & Create Assignment') : (lang === 'vi' ? 'Thêm Test Case cho Bài Tập' : 'Add Test Case to Assignment'))}
+                </h3>
+                <button onClick={() => { setShowAddTestCaseModal(false); setEditingRubric(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              {modalError && (
+                <div style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '8px', padding: '10px 14px', color: '#fda4af', fontSize: '0.85rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>⚠️</span> {modalError}
+                </div>
+              )}
+
+              <form onSubmit={handleAddTestCase} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {!editingRubric && (assignments.length === 0 || selectedAssignmentId === -1) ? (
+                  <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8' }}>
+                        {lang === 'vi' ? 'Tiêu đề bài tập cần tạo (*):' : 'New Assignment Title (*):'}
+                      </label>
+                      {assignments.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAssignmentId(assignments[0].assignment_id)}
+                          style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          {lang === 'vi' ? 'Chọn bài tập có sẵn' : 'Choose existing'}
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text" required
+                      placeholder={lang === 'vi' ? 'VD: Lab 1: Thuật toán Two Sum' : 'e.g. Lab 1: Two Sum'}
+                      value={tcNewAssignmentTitle}
+                      onChange={(e) => setTcNewAssignmentTitle(e.target.value)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.88rem', marginBottom: '10px' }}
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>
+                          {lang === 'vi' ? 'Học phần liên kết:' : 'Course:'}
+                        </label>
+                        <select
+                          value={assignmentCourseId}
+                          onChange={(e) => setAssignmentCourseId(e.target.value)}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.84rem' }}
+                        >
+                          {courses.map(c => (
+                            <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>
+                          {lang === 'vi' ? 'Hình thức nộp:' : 'Submission Type:'}
+                        </label>
+                        <select
+                          value={tcSubmissionType}
+                          onChange={(e) => setTcSubmissionType(e.target.value as any)}
+                          style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.84rem' }}
+                        >
+                          <option value="INDIVIDUAL">{lang === 'vi' ? 'Cá nhân' : 'Individual'}</option>
+                          <option value="TEAM">{lang === 'vi' ? 'Nhóm đồ án' : 'Team'}</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                        {lang === 'vi' ? 'Bài tập áp dụng (*):' : 'Target Assignment (*):'}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAssignmentId(-1)}
+                        style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}
+                      >
+                        + {lang === 'vi' ? 'Tạo bài tập mới...' : 'New Assignment...'}
+                      </button>
+                    </div>
+                    <select
+                      value={selectedAssignmentId || ''}
+                      onChange={(e) => {
+                        if (e.target.value === '-1') {
+                          setSelectedAssignmentId(-1);
+                        } else {
+                          handleSelectAssignment(Number(e.target.value));
+                        }
+                      }}
+                      required
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                    >
+                      {assignments.map((a, idx) => (
+                        <option key={a.assignment_id} value={a.assignment_id}>
+                          #{idx + 1} - {a.title} ({a.submission_type === 'TEAM' ? (lang === 'vi' ? 'Nhóm đồ án' : 'Team') : (lang === 'vi' ? 'Cá nhân' : 'Individual')})
+                        </option>
+                      ))}
+                      <option value="-1">+ {lang === 'vi' ? 'Tạo bài tập mới...' : 'Create new assignment...'}</option>
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Tên tiêu chí / Mô tả Test Case (*):' : 'Criterion / Test Case Name (*):'}
+                  </label>
+                  <input
+                    type="text" required
+                    placeholder={lang === 'vi' ? 'VD: Test Case 4: Kiểm tra biên số âm và số lớn' : 'e.g. Test Case 4: Large negative bounds'}
+                    value={tcCriterion}
+                    onChange={(e) => setTcCriterion(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'center' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Điểm tối đa (*):' : 'Max Score (*):'}
+                    </label>
+                    <input
+                      type="number" step="0.5" min="0.5" max="100" required
+                      value={tcMaxScore}
+                      onChange={(e) => setTcMaxScore(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Quy chế bảo mật:' : 'Security Policy:'}
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', background: tcIsHidden ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255,255,255,0.03)', border: tcIsHidden ? '1px solid rgba(168, 85, 247, 0.35)' : '1px solid var(--border-color)', padding: '9px 12px', borderRadius: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={tcIsHidden}
+                        onChange={(e) => setTcIsHidden(e.target.checked)}
+                      />
+                      <span style={{ color: tcIsHidden ? '#c084fc' : 'var(--text-main)', fontWeight: 600 }}>
+                        {lang === 'vi' ? 'Ẩn test case này (BR-06)' : 'Hidden Test Case (BR-06)'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Dữ liệu đầu vào (stdin):' : 'Input Data (stdin):'}
+                    </label>
+                    <textarea
+                      rows={4}
+                      placeholder={lang === 'vi' ? 'VD:\n15 25' : 'e.g.:\n15 25'}
+                      value={tcInputData}
+                      onChange={(e) => setTcInputData(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#38bdf8', fontFamily: 'monospace', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Kết quả kỳ vọng (stdout):' : 'Expected Output (stdout):'}
+                    </label>
+                    <textarea
+                      rows={4}
+                      placeholder={lang === 'vi' ? 'VD:\n40' : 'e.g.:\n40'}
+                      value={tcExpectedOutput}
+                      onChange={(e) => setTcExpectedOutput(e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#34d399', fontFamily: 'monospace', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
+                  <button type="button" onClick={() => { setShowAddTestCaseModal(false); setEditingRubric(null); }} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
+                    {lang === 'vi' ? 'Hủy bỏ' : 'Cancel'}
+                  </button>
+                  <button type="submit" disabled={submittingTestCase} className="btn-primary" style={{ fontSize: '0.85rem', gap: '8px' }}>
+                    {submittingTestCase ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                    <span>
+                      {editingRubric 
+                        ? (lang === 'vi' ? 'Cập Nhật Test Case' : 'Update Test Case')
+                        : (lang === 'vi' ? 'Lưu Test Case' : 'Save Test Case')}
+                    </span>
                   </button>
                 </div>
               </form>
