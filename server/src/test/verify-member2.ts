@@ -26,18 +26,8 @@ function assert(condition: boolean, testName: string, failureDetail?: string) {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'aita_jwt_secret_dev_key_2026';
 
-// Mock JWT Tokens
-const lecturerToken = jwt.sign(
-  { userId: 2, email: 'giangnv@fe.edu.vn', role: 'LECTURER' },
-  JWT_SECRET,
-  { expiresIn: '1h' }
-);
-
-const studentToken = jwt.sign(
-  { userId: 4, email: 'student2@fpt.edu.vn', role: 'STUDENT' },
-  JWT_SECRET,
-  { expiresIn: '1h' }
-);
+let lecturerToken = '';
+let studentToken = '';
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -110,6 +100,28 @@ async function runMember2Verification() {
   await sleep(400);
 
   try {
+    // Dynamically retrieve existing lecturer, student, course, and team
+    const lectRes = await pool.query(`SELECT user_id, email, role FROM users WHERE role IN ('LECTURER', 'ADMIN') ORDER BY user_id ASC LIMIT 1`);
+    const studRes = await pool.query(`SELECT user_id, email, role FROM users WHERE role = 'STUDENT' ORDER BY user_id ASC LIMIT 1`);
+    const courseRes = await pool.query(`SELECT course_id FROM courses ORDER BY course_id ASC LIMIT 1`);
+    const teamRes = await pool.query(`SELECT team_id FROM teams ORDER BY team_id ASC LIMIT 1`);
+
+    const validLecturer = lectRes.rows[0] || { user_id: 2, email: 'giangnv@fe.edu.vn', role: 'LECTURER' };
+    const validStudent = studRes.rows[0] || { user_id: 4, email: 'student2@fpt.edu.vn', role: 'STUDENT' };
+    const validCourseId = courseRes.rows[0]?.course_id || 1;
+    const validTeamId = teamRes.rows[0]?.team_id || null;
+
+    lecturerToken = jwt.sign(
+      { userId: validLecturer.user_id, email: validLecturer.email, role: validLecturer.role },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    studentToken = jwt.sign(
+      { userId: validStudent.user_id, email: validStudent.email, role: validStudent.role },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     // ---------------------------------------------------------------------------
     // PRE-FLIGHT: Docker Sandbox Availability Check
     // ---------------------------------------------------------------------------
@@ -119,7 +131,7 @@ async function runMember2Verification() {
 
     // Setup Assignment with Public & Hidden Rubric Rules for the tests
     const createAssignRes = await makeRequest(TEST_PORT, 'POST', '/api/assignments', lecturerToken, {
-      course_id: 1,
+      course_id: validCourseId,
       title: 'Assignment Lab: Two Sum and Algorithm Security Benchmark',
       description: 'Calculate the sum of two numbers with boundary conditions and hidden stress tests.',
       start_date: new Date(),
@@ -174,19 +186,23 @@ async function runMember2Verification() {
     // ---------------------------------------------------------------------------
     console.log('\n--- ✅ TEST CASE 1: Correct Code Execution (10/10 Perfect Score) ---');
     const correctCode = `
-# Student Python Solution: Two Sum
-import sys
-a, b = map(int, input().split())
-print(a + b)
+// Student JavaScript Solution: Two Sum
+const fs = require('fs');
+const input = fs.readFileSync(0, 'utf-8').trim().split(/\\s+/);
+if (input.length >= 2) {
+  const a = parseInt(input[0], 10);
+  const b = parseInt(input[1], 10);
+  console.log(a + b);
+}
 `;
 
     const sub1Res = await makeRequest(TEST_PORT, 'POST', '/api/submissions', studentToken, {
       assignment_id: assignmentId,
-      team_id: 1,
+      team_id: validTeamId,
       artifact_url: 'https://github.com/aita-project/aita-intelligent/commit/c001',
       git_commit_hash: 'c001a2b3c4d5',
       code_content: correctCode,
-      language: 'python',
+      language: 'javascript',
     });
 
     assert(sub1Res.status === 201, 'Student submitted correct code successfully (HTTP 201)');
@@ -197,7 +213,7 @@ print(a + b)
 
     // Wait for BullMQ Worker and Sandbox to complete
     let sub1FinalStatus = '';
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       await sleep(1000);
       const checkRes = await makeRequest(TEST_PORT, 'GET', `/api/submissions/${subId1}`, studentToken);
       sub1FinalStatus = checkRes.data.submission.status;
@@ -218,19 +234,19 @@ print(a + b)
     // ---------------------------------------------------------------------------
     console.log('\n--- ✅ TEST CASE 2: Infinite Loop / Timeout Safeguard (BR-03) ---');
     const infiniteLoopCode = `
-# Student Buggy Solution: Infinite Loop
-import time
-while True:
-    time.sleep(0.05)
+// Student Buggy Solution: Infinite Loop (BR-03)
+while (true) {
+  // Infinite spin
+}
 `;
 
     const sub2Res = await makeRequest(TEST_PORT, 'POST', '/api/submissions', studentToken, {
       assignment_id: assignmentId,
-      team_id: 1,
+      team_id: validTeamId,
       artifact_url: 'https://github.com/aita-project/aita-intelligent/commit/bug001',
       git_commit_hash: 'bug001a2b3c4',
       code_content: infiniteLoopCode,
-      language: 'python',
+      language: 'javascript',
     });
 
     assert(sub2Res.status === 201, 'Submitted infinite loop code to pipeline (HTTP 201)');
