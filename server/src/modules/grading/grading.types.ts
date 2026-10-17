@@ -6,7 +6,7 @@ export interface GradingJobPayload {
   artifact_url: string;
   git_commit_hash: string;
   code_content?: string;
-  language?: 'python' | 'javascript' | 'nodejs';
+  language?: 'javascript' | 'nodejs';
   priority?: number;
 }
 
