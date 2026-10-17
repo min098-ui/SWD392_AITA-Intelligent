@@ -160,6 +160,12 @@ async function runMember4Tests() {
     // -------------------------------------------------------------------------
     console.log('\n👥 2. KIỂM THỬ HỆ THỐNG ĐÁNH GIÁ CHÉO NỘI BỘ (PEER AUDIT - BR-08)');
 
+    // Đảm bảo dữ liệu test độc lập cho môn học và nhóm 1
+    await pool.query(`INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id) VALUES (1, 'SWD392', 'Software Architecture & Design Project', 'FA26', 2) ON CONFLICT (course_id) DO NOTHING`);
+    await pool.query(`INSERT INTO teams (team_id, team_name, course_id, repo_url) VALUES (1, 'Group 4 - AITA Project', 1, 'https://github.com/min098-ui/SWD392_AITA-Intelligent') ON CONFLICT (team_id) DO NOTHING`);
+    await pool.query(`INSERT INTO users (user_id, full_name, email, password_hash, role) VALUES (3, 'Student One', 'student1@fpt.edu.vn', 'hash', 'STUDENT'), (4, 'Student Two', 'student2@fpt.edu.vn', 'hash', 'STUDENT') ON CONFLICT (user_id) DO NOTHING`);
+    await pool.query(`INSERT INTO team_members (team_id, user_id, assigned_module, role) VALUES (1, 3, 'Backend', 'MEMBER'), (1, 4, 'Frontend', 'MEMBER') ON CONFLICT DO NOTHING`);
+
     // Test 2.1: Sinh viên 1 cố tình tự chấm điểm chính mình -> Phải bị từ chối HTTP 400
     const selfAuditRes = await makeRequest(
       testPort,
@@ -273,6 +279,7 @@ async function runMember4Tests() {
        ON CONFLICT DO NOTHING`,
       [1, 99, 'Documentation Support']
     );
+    await pool.query('DELETE FROM git_commits WHERE author_user_id = $1 AND team_id = $2', [99, 1]);
     await pool.query(
       `INSERT INTO git_commits (team_id, author_user_id, commit_hash, message, lines_added, lines_deleted, committed_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())
@@ -290,6 +297,13 @@ async function runMember4Tests() {
       `Thành viên bị cờ: ${freeRiderMember?.full_name} (${freeRiderMember?.contribution_percentage}%)`
     );
 
+    // Dọn dẹp dữ liệu test ngay sau khi kiểm thử xong để không ảnh hưởng dữ liệu thật
+    await pool.query('DELETE FROM peer_audits WHERE team_id = 1');
+    await pool.query('DELETE FROM git_commits WHERE author_user_id IN (3, 4, 99) OR commit_hash = $1', ['hash_freerider_test_sample']);
+    await pool.query('DELETE FROM team_members WHERE user_id IN (3, 4, 99)');
+    await pool.query('DELETE FROM users WHERE user_id IN (3, 4, 99) OR email = $1', ['ylai.test@fpt.edu.vn']);
+    await pool.query('DELETE FROM teams WHERE team_id = 1');
+
     // -------------------------------------------------------------------------
     // TỔNG KẾT KẾT QUẢ
     // -------------------------------------------------------------------------
@@ -303,6 +317,13 @@ async function runMember4Tests() {
     }
     console.log('================================================================\n');
   } finally {
+    try {
+      await pool.query('DELETE FROM peer_audits WHERE team_id = 1');
+      await pool.query('DELETE FROM git_commits WHERE author_user_id IN (3, 4, 99) OR commit_hash = $1', ['hash_freerider_test_sample']);
+      await pool.query('DELETE FROM team_members WHERE user_id IN (3, 4, 99)');
+      await pool.query('DELETE FROM users WHERE user_id IN (3, 4, 99) OR email = $1', ['ylai.test@fpt.edu.vn']);
+      await pool.query('DELETE FROM teams WHERE team_id = 1');
+    } catch (e) {}
     server.close();
   }
 }
