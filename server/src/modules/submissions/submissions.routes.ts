@@ -12,7 +12,8 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
   try {
     let query = `
       SELECT s.*, a.title as assignment_title, t.team_name,
-        gj.grading_job_id, gj.status as grading_status
+        gj.grading_job_id, gj.status as grading_status,
+        COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score
       FROM submissions s
       JOIN assignments a ON s.assignment_id = a.assignment_id
       JOIN teams t ON s.team_id = t.team_id
@@ -50,7 +51,8 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
       `SELECT s.*, a.title as assignment_title, t.team_name,
-              gj.grading_job_id, gj.status as grading_status, gj.completed_at
+              gj.grading_job_id, gj.status as grading_status, gj.completed_at,
+              COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score
        FROM submissions s
        JOIN assignments a ON s.assignment_id = a.assignment_id
        LEFT JOIN teams t ON s.team_id = t.team_id
@@ -117,7 +119,7 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
       artifact_url,
       git_commit_hash,
       code_content: code_content || artifact_url,
-      language: language || 'python',
+      language: language || 'javascript',
       priority: 1,
     });
 
