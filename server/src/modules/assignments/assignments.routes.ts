@@ -22,7 +22,7 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
       query += ' WHERE a.course_id = $1';
       params.push(course_id);
     }
-    query += ' ORDER BY a.created_at DESC';
+    query += ' ORDER BY a.assignment_id ASC';
 
     const result = await pool.query(query, params);
     return res.json({ assignments: result.rows });
@@ -205,11 +205,56 @@ router.post('/:id/rubrics', authenticateJWT, requireRole('LECTURER', 'ADMIN'), a
   }
 });
 
+// PUT /api/assignments/:id/rubrics/:rubricId - Update a Rubric Rule (Lecturer / Admin only)
+router.put('/:id/rubrics/:rubricId', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (req: Request, res: Response) => {
+  const { id: assignmentId, rubricId } = req.params;
+  const { criterion, input_data, expected_output, max_score, weight, is_hidden } = req.body;
+
+  try {
+    const updateRes = await pool.query(
+      `UPDATE rubric_rules 
+       SET criterion = COALESCE($1, criterion),
+           input_data = COALESCE($2, input_data),
+           expected_output = COALESCE($3, expected_output),
+           max_score = COALESCE($4, max_score),
+           weight = COALESCE($5, weight),
+           is_hidden = COALESCE($6, is_hidden)
+       WHERE rubric_rule_id = $7 AND assignment_id = $8
+       RETURNING *`,
+      [
+        criterion,
+        input_data,
+        expected_output,
+        max_score !== undefined ? Number(max_score) : null,
+        weight !== undefined ? Number(weight) : null,
+        is_hidden !== undefined ? Boolean(is_hidden) : null,
+        rubricId,
+        assignmentId,
+      ]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Rubric rule not found.' });
+    }
+
+    return res.json({
+      message: 'Rubric rule updated successfully.',
+      rubric_rule: updateRes.rows[0],
+    });
+  } catch (error) {
+    console.error('Error updating rubric rule:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // DELETE /api/assignments/:id/rubrics/:rubricId - Delete a Rubric Rule (Lecturer / Admin only)
 router.delete('/:id/rubrics/:rubricId', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (req: Request, res: Response) => {
   const { id: assignmentId, rubricId } = req.params;
 
   try {
+    // Delete any grading_results referencing this rubric_rule first to avoid FK constraint violation
+    await pool.query('DELETE FROM grading_results WHERE rubric_rule_id = $1', [rubricId]);
+
     const delRes = await pool.query(
       'DELETE FROM rubric_rules WHERE rubric_rule_id = $1 AND assignment_id = $2 RETURNING *',
       [rubricId, assignmentId]
@@ -273,6 +318,37 @@ router.delete('/:id', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (
   const assignmentId = req.params.id;
 
   try {
+    // 1. Delete AI tutor chat sessions & messages linked to this assignment
+    await pool.query(
+      'DELETE FROM tutor_chat_messages WHERE session_id IN (SELECT session_id FROM tutor_chat_sessions WHERE assignment_id = $1)',
+      [assignmentId]
+    );
+    await pool.query('DELETE FROM tutor_chat_sessions WHERE assignment_id = $1', [assignmentId]);
+
+    // 2. Delete grading_results linked to rubric_rules or submissions of this assignment
+    await pool.query(
+      `DELETE FROM grading_results 
+       WHERE rubric_rule_id IN (SELECT rubric_rule_id FROM rubric_rules WHERE assignment_id = $1)
+          OR grading_job_id IN (
+            SELECT grading_job_id FROM grading_jobs 
+            WHERE submission_id IN (SELECT submission_id FROM submissions WHERE assignment_id = $1)
+          )`,
+      [assignmentId]
+    );
+
+    // 3. Delete grading_jobs
+    await pool.query(
+      'DELETE FROM grading_jobs WHERE submission_id IN (SELECT submission_id FROM submissions WHERE assignment_id = $1)',
+      [assignmentId]
+    );
+
+    // 4. Delete submissions
+    await pool.query('DELETE FROM submissions WHERE assignment_id = $1', [assignmentId]);
+
+    // 5. Delete rubric_rules
+    await pool.query('DELETE FROM rubric_rules WHERE assignment_id = $1', [assignmentId]);
+
+    // 6. Delete assignment
     const delRes = await pool.query('DELETE FROM assignments WHERE assignment_id = $1 RETURNING *', [assignmentId]);
     if (delRes.rows.length === 0) {
       return res.status(404).json({ message: 'Assignment not found.' });
