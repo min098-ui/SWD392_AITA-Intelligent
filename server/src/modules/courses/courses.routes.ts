@@ -128,8 +128,10 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
               'user_id', u.user_id,
               'full_name', u.full_name,
               'email', u.email,
-              'assigned_module', tm.assigned_module
+              'assigned_module', tm.assigned_module,
+              'role', tm.role
             )
+            ORDER BY CASE WHEN tm.role = 'LEADER' THEN 0 ELSE 1 END, tm.team_member_id ASC
           ) FILTER (WHERE tm.team_member_id IS NOT NULL), '[]'::json
         ) as members
       FROM teams t
@@ -268,8 +270,10 @@ router.get('/:id/teams', authenticateJWT, async (req: Request, res: Response) =>
               'user_id', u.user_id,
               'full_name', u.full_name,
               'email', u.email,
-              'assigned_module', tm.assigned_module
+              'assigned_module', tm.assigned_module,
+              'role', tm.role
             )
+            ORDER BY CASE WHEN tm.role = 'LEADER' THEN 0 ELSE 1 END, tm.team_member_id ASC
           ) FILTER (WHERE tm.team_member_id IS NOT NULL), '[]'::json
         ) as members
       FROM teams t
