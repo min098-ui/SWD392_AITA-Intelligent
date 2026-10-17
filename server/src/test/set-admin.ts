@@ -1,12 +1,16 @@
 import { pool } from '../config/db';
 
 async function main() {
-  const email = 'lenguyenanhmai05@gmail.com';
+  const adminEmails = [
+    'lenguyenanhmai05@gmail.com',
+    'tuongvy22102004@gmail.com',
+    'admin@fpt.edu.vn'
+  ];
   const res = await pool.query(
-    "UPDATE users SET role = 'ADMIN' WHERE LOWER(email) = LOWER($1) RETURNING user_id, full_name, email, role",
-    [email]
+    "UPDATE users SET role = 'ADMIN', status = 'ACTIVE' WHERE LOWER(email) = ANY($1::text[]) RETURNING user_id, full_name, email, role, status",
+    [adminEmails.map(e => e.toLowerCase())]
   );
-  console.log('Result:', res.rows);
+  console.log('Admin accounts updated successfully:', res.rows);
   process.exit(0);
 }
 
