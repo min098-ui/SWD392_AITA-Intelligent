@@ -140,7 +140,7 @@ router.post('/regrade/:submissionId', authenticateJWT, requireRole('LECTURER', '
       artifact_url: submission.artifact_url,
       git_commit_hash: submission.git_commit_hash,
       code_content: req.body.code_content || submission.artifact_url,
-      language: req.body.language || 'python',
+      language: req.body.language || 'javascript',
       priority: 2,
     });
 
