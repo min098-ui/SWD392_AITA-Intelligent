@@ -80,6 +80,11 @@ export default function AdminDashboard() {
     setTimeout(() => setToastMessage(''), 3500);
   };
 
+  const isPermanentAdminEmail = (email?: string) => {
+    const list = ['lenguyenanhmai05@gmail.com', 'tuongvy22102004@gmail.com', 'admin@fpt.edu.vn'];
+    return list.includes((email || '').toLowerCase().trim());
+  };
+
   // Helper để lấy token hoặc tự động cấp token hợp lệ cho Admin
   const getToken = async (): Promise<string> => {
     let token = localStorage.getItem('token');
@@ -87,11 +92,11 @@ export default function AdminDashboard() {
       try {
         const u = localStorage.getItem('user');
         const userObj = u ? JSON.parse(u) : null;
-        const email = userObj?.email || 'lenguyenanhmai05@gmail.com';
+        const email = userObj?.email || 'tuongvy22102004@gmail.com';
         const loginRes = await fetch('http://localhost:5000/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, fullName: userObj?.fullName || 'AMai', role: 'ADMIN' })
+          body: JSON.stringify({ email, fullName: userObj?.fullName || 'Admin', role: 'ADMIN' })
         });
         if (loginRes.ok) {
           const lData = await loginRes.json();
@@ -598,14 +603,14 @@ export default function AdminDashboard() {
               fontSize: '0.9rem',
               flexShrink: 0
             }}>
-              AM
+              {currentUser?.fullName ? currentUser.fullName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() : 'AD'}
             </div>
             <div style={{ overflow: 'hidden' }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {currentUser?.fullName || 'AMai'}
+                {currentUser?.fullName || 'Administrator'}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {currentUser?.email || 'lenguyenanhmai05@gmail.com'}
+                {currentUser?.email || 'tuongvy22102004@gmail.com'}
               </div>
             </div>
           </div>
@@ -872,7 +877,7 @@ export default function AdminDashboard() {
                           )}
                         </td>
                         <td style={{ padding: '16px' }}>
-                          {u.email === 'lenguyenanhmai05@gmail.com' ? (
+                          {isPermanentAdminEmail(u.email) ? (
                             <span style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>Admin Cố Định</span>
                           ) : u.status === 'PENDING' ? (
                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -950,7 +955,7 @@ export default function AdminDashboard() {
                         <td style={{ padding: '16px' }}>
                           <select 
                             value={u.role}
-                            disabled={u.email === 'lenguyenanhmai05@gmail.com'}
+                            disabled={isPermanentAdminEmail(u.email)}
                             onChange={e => handleChangeRole(u.id, e.target.value as any)}
                             style={{
                               background: 'rgba(0, 0, 0, 0.3)',
