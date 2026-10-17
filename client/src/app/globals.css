@@ -368,3 +368,19 @@ html {
   animation: floatSlow 5s ease-in-out infinite;
 }
 
+/* Custom sleek scrollbar for code editor */
+.code-editor-textarea::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.code-editor-textarea::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+.code-editor-textarea::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+}
+.code-editor-textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.45);
+}
+
