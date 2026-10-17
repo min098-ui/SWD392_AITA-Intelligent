@@ -9,11 +9,11 @@
 
 ## 👥 Danh Sách 5 Thành Viên & Vai Trò
 
-1. **Thành viên 1** – Software Architect & Core Auth Engineer (Trưởng nhóm / Kiến trúc sư)
-2. **Thành viên 2** – Docker Sandbox & Autograding Engineer
-3. **Thành viên 3** – AI Engine & Key Rotation Engineer
-4. **Thành viên 4** – Git Analytics & Peer Audit Engineer
-5. **Thành viên 5** – Frontend Lead & UI/UX & QA
+1. **Thành viên 1** – **Lê Nguyễn Ánh Mai** (`lenguyenlinhnhi2110@gmail.com`) – Software Architect & Core Auth Engineer (Trưởng nhóm / Leader)
+2. **Thành viên 2** – **Nguyễn Tường Vy** (`vyntqe180099@fpt.edu.vn`) – Docker Sandbox & Autograding Engineer
+3. **Thành viên 3** – **Đỗ Trần Đăng Khoa** (`dotrandangkhoa17@gmail.com`) – AI Engine & Key Rotation Engineer
+4. **Thành viên 4** – **Đinh Gia Huy** (`dinhgiahuylol12345@gmail.com`) – Git Analytics & Peer Audit Engineer
+5. **Thành viên 5** – **Nguyễn Quốc Thanh Phong** (`tfongcs05@gmail.com`) – Frontend Lead & UI/UX & QA
 
 ---
 
@@ -61,11 +61,11 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 
 ---
 
-### 👤 Thành Viên 2: Docker Sandbox & Autograding Engineer
+### 👤 Thành Viên 2: Docker Sandbox & Autograding Engineer (Nguyễn Tường Vy)
 *Nhiệm vụ: Xây dựng pipeline chấm bài tự động trong Docker Container cô lập và hàng đợi xử lý bất đồng bộ.*
 
 - **Sandbox Runner (`server/sandbox-images/`):**
-  - Viết `Dockerfile` cho từng ngôn ngữ hỗ trợ (Python, JavaScript/Node.js): Non-root user, network disabled, ulimit.
+  - Viết `Dockerfile` môi trường thực thi chuẩn (JavaScript/Node.js): Non-root user, network disabled, ulimit.
   - Cấu hình **giới hạn tài nguyên container**: CPU 0.5 core · RAM 256MB · Timeout 10–30 giây (`BR-03`).
   - Dùng thư viện `dockerode` để tạo container, chạy code sinh viên, đọc stdout/stderr và xóa container sau khi hoàn tất.
 
@@ -120,7 +120,7 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 
 ---
 
-### 👤 Thành Viên 4: Git Analytics & Peer Audit Engineer
+### 👤 Thành Viên 4: Git Analytics & Peer Audit Engineer (Đinh Gia Huy)
 *Nhiệm vụ: Phân tích đóng góp cá nhân từ GitHub, phát hiện free-rider và xây dựng hệ thống đánh giá chéo nội bộ nhóm.*
 
 - **Module `git-analytics` — Phân tích GitHub:**
@@ -189,7 +189,7 @@ Dự án được phân kỳ thực hiện qua **4 giai đoạn trọng tâm**, 
 | Giai đoạn | Mục tiêu chính | Nội dung công việc trọng tâm | Phụ trách chính | Kết quả bàn giao (Deliverables) |
 | :--- | :--- | :--- | :--- | :--- |
 | **Giai đoạn 1: Nền Tảng (Foundation)** | Thiết lập hạ tầng DevOps, Express Server và Database nền tảng | • Khởi động PostgreSQL 16 & Redis qua Docker Compose<br>• Cấu hình Express server, CORS, middleware, `/api/health`<br>• Thiết kế DB Schema 16 bảng và nạp dữ liệu mẫu seed data | **TV1** *(Lead Architect)* | `docker-compose.yml`<br>`database/schema.sql`<br>`database/seed.sql`<br>API `/api/health` |
-| **Giai đoạn 2: Phát Triển Tính Năng Song Song** | Xây dựng 5 trụ cột kỹ thuật độc lập theo chuyên môn | • **TV1:** Auth RBAC, JWT Token, Courses & Teams API<br>• **TV2:** Docker Sandbox runner, BullMQ Queue & Worker chấm bài<br>• **TV3:** Gemini AI Tutor Socratic, AES-256 Key Rotation Pool<br>• **TV4:** Octokit Git sync telemetry, Noise Filter & Peer Audits<br>• **TV5:** Next.js 14 Glassmorphic UI & 3 Dashboards người dùng | **Cả 5 thành viên** *(Độc lập trên feature branch)* | Toàn bộ 24 REST APIs<br>Sandbox images (Python/Node)<br>Giao diện Dashboards |
+| **Giai đoạn 2: Phát Triển Tính Năng Song Song** | Xây dựng 5 trụ cột kỹ thuật độc lập theo chuyên môn | • **TV1:** Auth RBAC, JWT Token, Courses & Teams API<br>• **TV2:** Docker Sandbox runner, BullMQ Queue & Worker chấm bài<br>• **TV3:** Gemini AI Tutor Socratic, AES-256 Key Rotation Pool<br>• **TV4:** Octokit Git sync telemetry, Noise Filter & Peer Audits<br>• **TV5:** Next.js 14 Glassmorphic UI & 3 Dashboards người dùng | **Cả 5 thành viên** *(Độc lập trên feature branch)* | Toàn bộ 24 REST APIs<br>Sandbox images (Node.js/JavaScript)<br>Giao diện Dashboards |
 | **Giai đoạn 3: Tích Hợp Hệ Thống (Integration)** | Ghép nối toàn diện API Backend vào giao diện Next.js 14 | • Tích hợp đăng nhập, điều hướng RBAC theo vai trò người dùng<br>• Kết nối luồng nộp bài, theo dõi tiến độ chấm và nhận xét AI<br>• Ghép nối màn hình thống kê Git đóng góp và phiếu đánh giá chéo | **Cả nhóm** | Ứng dụng Web hoạt động đồng bộ tại `localhost:3000` |
 | **Giai đoạn 4: Kiểm Thử & Hoàn Thiện (Finalization)** | Thử nghiệm các kịch bản ngoại lệ, tối ưu và chuẩn bị bảo vệ | • Kiểm thử kịch bản Free-Rider (BR-07), Rate Limit 429 (BR-04), Sandbox Timeout (BR-03)<br>• Chạy bộ test suite tự động kiểm chứng 100% test cases từng thành viên<br>• Hoàn thiện tài liệu kiến trúc, báo cáo đồ án và chuẩn bị slide bảo vệ | **Cả nhóm** | Báo cáo đồ án SWD392<br>Bộ kịch bản demo bảo vệ |
 
