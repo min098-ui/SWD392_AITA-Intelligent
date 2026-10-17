@@ -7,10 +7,19 @@ import { authenticateJWT } from '../../common/auth.middleware';
 const router = Router();
 
 // Permanent Admin accounts (cố định quyền ADMIN tuyệt đối)
-const ADMIN_EMAILS = ['lenguyenanhmai05@gmail.com', 'admin@fpt.edu.vn'];
+const DEFAULT_ADMIN_EMAILS = [
+  'lenguyenanhmai05@gmail.com',
+  'tuongvy22102004@gmail.com',
+  'admin@fpt.edu.vn',
+];
 
 export const isPermanentAdmin = (email: string): boolean => {
-  return ADMIN_EMAILS.includes((email || '').toLowerCase().trim());
+  const normalized = (email || '').toLowerCase().trim();
+  const envAdmins = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(e => e.toLowerCase().trim())
+    .filter(Boolean);
+  return DEFAULT_ADMIN_EMAILS.includes(normalized) || envAdmins.includes(normalized);
 };
 
 // POST /api/auth/register (BR-01: Bcrypt salt = 10)
@@ -526,6 +535,15 @@ router.patch('/users/:userId/role', authenticateJWT, async (req: Request, res: R
   }
 
   try {
+    const targetCheck = await pool.query('SELECT user_id, email, full_name, role FROM users WHERE user_id = $1', [userId]);
+    if (targetCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+    }
+
+    if (isPermanentAdmin(targetCheck.rows[0].email) && role !== 'ADMIN') {
+      return res.status(400).json({ message: 'Không thể thay đổi vai trò của Quản trị viên cố định.' });
+    }
+
     const result = await pool.query(
       'UPDATE users SET role = $1 WHERE user_id = $2 RETURNING user_id, full_name, email, role',
       [role, userId]
