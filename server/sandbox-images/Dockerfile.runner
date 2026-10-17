@@ -1,6 +1,6 @@
-# Dockerfile for Isolated Python Sandbox Runner
+# Dockerfile for Isolated Node.js Sandbox Runner (Default)
 # SWD392 - AITA Sandbox Runner
-FROM python:3.11-alpine
+FROM node:20-alpine
 
 # Security: Create non-root user
 RUN addgroup -S -g 1001 runner && adduser -S -u 1001 -G runner runner
@@ -13,4 +13,4 @@ RUN chown -R runner:runner /app
 USER runner
 
 # Default command
-CMD ["python", "main.py"]
+CMD ["node", "main.js"]
