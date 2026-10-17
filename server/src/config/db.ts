@@ -49,6 +49,7 @@ interface MockTeamMember {
   team_id: number;
   user_id: number;
   assigned_module: string;
+  role?: 'LEADER' | 'MEMBER';
 }
 
 interface MockGitCommit {
@@ -97,37 +98,10 @@ const mockUsers: MockUser[] = [
     created_at: new Date(),
   },
   {
-    user_id: 3,
-    full_name: 'Sinh Viên 1 (Auth & Architecture)',
-    email: 'student1@fpt.edu.vn',
-    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
-    role: 'STUDENT',
-    status: 'ACTIVE',
-    created_at: new Date(),
-  },
-  {
-    user_id: 4,
-    full_name: 'Sinh Viên 2 (Docker Sandbox)',
-    email: 'student2@fpt.edu.vn',
-    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
-    role: 'STUDENT',
-    status: 'ACTIVE',
-    created_at: new Date(),
-  },
-  {
-    user_id: 5,
-    full_name: 'Sinh Viên 3 (AI Tutor & Prompts)',
-    email: 'student3@fpt.edu.vn',
-    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
-    role: 'STUDENT',
-    status: 'ACTIVE',
-    created_at: new Date(),
-  },
-  {
     user_id: 6,
-    full_name: 'mai.lna.qe190151',
-    email: 'mai.lna.qe190151@fpt.edu.vn',
-    password_hash: 'OAUTH_GOOGLE',
+    full_name: 'Lê Nguyễn Ánh Mai',
+    email: 'lenguyenlinhnhi2110@gmail.com',
+    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
     role: 'STUDENT',
     status: 'ACTIVE',
     created_at: new Date(),
@@ -138,6 +112,51 @@ const mockUsers: MockUser[] = [
     email: 'lenguyenanhmai05@gmail.com',
     password_hash: 'OAUTH_GOOGLE',
     role: 'ADMIN',
+    status: 'ACTIVE',
+    created_at: new Date(),
+  },
+  {
+    user_id: 8,
+    full_name: 'Tuong Vy',
+    email: 'tuongvy22102004@gmail.com',
+    password_hash: 'OAUTH_GOOGLE',
+    role: 'ADMIN',
+    status: 'ACTIVE',
+    created_at: new Date(),
+  },
+  {
+    user_id: 9,
+    full_name: 'Đinh Gia Huy',
+    email: 'dinhgiahuylol12345@gmail.com',
+    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
+    role: 'STUDENT',
+    status: 'ACTIVE',
+    created_at: new Date(),
+  },
+  {
+    user_id: 10,
+    full_name: 'Đỗ Trần Đăng Khoa',
+    email: 'dotrandangkhoa17@gmail.com',
+    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
+    role: 'STUDENT',
+    status: 'ACTIVE',
+    created_at: new Date(),
+  },
+  {
+    user_id: 11,
+    full_name: 'Nguyễn Tường Vy',
+    email: 'vyntqe180099@fpt.edu.vn',
+    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
+    role: 'STUDENT',
+    status: 'ACTIVE',
+    created_at: new Date(),
+  },
+  {
+    user_id: 12,
+    full_name: 'Nguyễn Quốc Thanh Phong',
+    email: 'tfongcs05@gmail.com',
+    password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2',
+    role: 'STUDENT',
     status: 'ACTIVE',
     created_at: new Date(),
   },
@@ -158,7 +177,7 @@ const mockTeams: MockTeam[] = [
     team_id: 1,
     team_name: 'Group 4 - AITA Project',
     course_id: 1,
-    repo_url: 'https://github.com/aita-project/aita-intelligent.git',
+    repo_url: 'https://github.com/min098-ui/SWD392_AITA-Intelligent',
   },
 ];
 
@@ -166,20 +185,37 @@ const mockTeamMembers: MockTeamMember[] = [
   {
     team_member_id: 1,
     team_id: 1,
-    user_id: 3,
+    user_id: 6,
     assigned_module: 'Software Architecture, Auth & Course Core',
+    role: 'LEADER',
   },
   {
     team_member_id: 2,
     team_id: 1,
-    user_id: 4,
+    user_id: 9,
     assigned_module: 'Docker Sandbox Runner & Async Grading Queue',
+    role: 'MEMBER',
   },
   {
     team_member_id: 3,
     team_id: 1,
-    user_id: 5,
+    user_id: 10,
     assigned_module: 'AI Engine, Socratic Tutor & Key Rotation',
+    role: 'MEMBER',
+  },
+  {
+    team_member_id: 4,
+    team_id: 1,
+    user_id: 11,
+    assigned_module: 'Git Analytics, Noise Filter & Peer Audit',
+    role: 'MEMBER',
+  },
+  {
+    team_member_id: 5,
+    team_id: 1,
+    user_id: 12,
+    assigned_module: 'Frontend Web App (Next.js 14) & UI/UX',
+    role: 'MEMBER',
   },
 ];
 
@@ -433,6 +469,7 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
       const lecturer = course ? mockUsers.find((u) => u.user_id === course.lecturer_id) : null;
       const members = mockTeamMembers
         .filter((tm) => tm.team_id === team.team_id)
+        .sort((a, b) => (a.role === 'LEADER' ? -1 : b.role === 'LEADER' ? 1 : 0))
         .map((tm) => {
           const u = mockUsers.find((usr) => usr.user_id === tm.user_id);
           return {
@@ -441,6 +478,7 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
             full_name: u?.full_name || '',
             email: u?.email || '',
             assigned_module: tm.assigned_module,
+            role: tm.role || 'MEMBER',
           };
         });
       return {
