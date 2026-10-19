@@ -6,7 +6,7 @@ import fs from 'fs';
 
 export interface SandboxExecutionOptions {
   code: string;
-  language?: 'javascript' | 'nodejs';
+  language?: 'javascript' | 'nodejs' | 'python';
   inputData?: string;
   timeoutMs?: number;       // Default: 10,000ms, max 30,000ms (BR-03)
   cpuQuota?: number;        // Default: 0.5 core = 500,000,000 NanoCpus
@@ -49,9 +49,11 @@ export class SandboxService {
     }
   }
 
-  public async ensureSandboxImage(language: 'javascript' | 'nodejs' = 'javascript'): Promise<string> {
-    const imageName = 'aita-sandbox-node:latest';
-    const fallbackImage = 'node:20-alpine';
+  public async ensureSandboxImage(language: 'javascript' | 'nodejs' | 'python' = 'javascript'): Promise<string> {
+    const isPython = language === 'python';
+    const imageName = isPython ? 'aita-sandbox-python:latest' : 'aita-sandbox-node:latest';
+    const fallbackImage = isPython ? 'python:3.11-alpine' : 'node:20-alpine';
+    const dockerfileTarget = isPython ? 'Dockerfile.python' : 'Dockerfile.node';
 
     try {
       const images = await this.docker.listImages({ filters: { reference: [imageName] } });
@@ -61,7 +63,7 @@ export class SandboxService {
 
       const dockerfilePath = path.resolve(
         __dirname,
-        '../../../sandbox-images/Dockerfile.node'
+        `../../../sandbox-images/${dockerfileTarget}`
       );
 
       if (fs.existsSync(dockerfilePath)) {
@@ -167,10 +169,13 @@ export class SandboxService {
     } = options;
 
     const startTime = Date.now();
-    const filename = 'main.js';
+    const isPython = language === 'python';
+    const filename = isPython ? 'main.py' : 'main.js';
 
     // Command redirection: reads from /app/input.txt
-    const runCommand = ['sh', '-c', 'node main.js < /app/input.txt'];
+    const runCommand = isPython
+      ? ['sh', '-c', 'python main.py < /app/input.txt']
+      : ['sh', '-c', 'node main.js < /app/input.txt'];
 
     const available = await this.checkDockerAvailability();
     if (!available) {

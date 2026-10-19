@@ -1,0 +1,14 @@
+# Dockerfile for Isolated Python Sandbox Runner
+# SWD392 - AITA Sandbox Runner
+FROM python:3.11-alpine
+
+# Security: Create non-root runner user
+RUN addgroup -S -g 1001 runner && adduser -S -u 1001 -G runner runner
+
+WORKDIR /app
+
+RUN chown -R runner:runner /app
+
+USER runner
+
+CMD ["python", "main.py"]
