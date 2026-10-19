@@ -107,11 +107,22 @@ export class GradingWorkerService {
           actualOutput = sandboxRes.stdout || sandboxRes.stderr;
           executionTimeMs = sandboxRes.executionTimeMs;
 
-          const expectedTrimmed = (rule.expected_output || '').trim();
-          const actualTrimmed = (sandboxRes.stdout || '').trim();
+          const normalizeOutput = (str: string) => {
+            return (str || '')
+              .replace(/\\n/g, '\n')
+              .replace(/\r\n/g, '\n')
+              .replace(/\r/g, '\n')
+              .split('\n')
+              .map(line => line.trim())
+              .filter(line => line.length > 0)
+              .join('\n');
+          };
 
-          // Rule passes if exitCode is 0 and stdout matches expected output exactly
-          if (sandboxRes.exitCode === 0 && actualTrimmed === expectedTrimmed) {
+          const expectedNormalized = normalizeOutput(rule.expected_output || '');
+          const actualNormalized = normalizeOutput(sandboxRes.stdout || '');
+
+          // Rule passes if exitCode is 0 and stdout matches expected output
+          if (sandboxRes.exitCode === 0 && actualNormalized === expectedNormalized) {
             passed = true;
             score = Number(rule.max_score || 10.0);
           } else {
