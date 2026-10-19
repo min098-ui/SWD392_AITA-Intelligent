@@ -36,6 +36,7 @@ interface SubmissionItem {
   reviewer_2_notes?: string;
   consensus_notes?: string;
   final_score?: number;
+  submitter_name?: string;
 }
 
 interface CourseItem {
@@ -316,7 +317,8 @@ export default function LecturerDashboard() {
               reviewer_2_name: s.reviewer_2_name,
               reviewer_2_score: s.reviewer_2_score != null ? parseFloat(s.reviewer_2_score) : undefined,
               reviewer_2_notes: s.reviewer_2_notes,
-              consensus_notes: s.consensus_notes
+              consensus_notes: s.consensus_notes,
+              submitter_name: s.submitter_name || ''
             };
           });
           setSubmissions(mapped);
@@ -596,6 +598,25 @@ export default function LecturerDashboard() {
     }
   ];
 
+  const getDefaultGroup5Tasks = (teamId: number): TeamTask[] => [
+    {
+      task_id: `g5-mai-${teamId}`,
+      team_id: teamId,
+      assigned_to_name: 'Lê Nguyễn Ánh Mai',
+      title: 'Implement Graph Data Structure & Dijkstra Algorithm for Shortest Travel Path',
+      status: 'DONE',
+      due_date: '31/10/2026'
+    },
+    {
+      task_id: `g5-vy-${teamId}`,
+      team_id: teamId,
+      assigned_to_name: 'Nguyễn Tường Vy',
+      title: 'Implement BST Location Indexing & QuickSort/Min-Heap for Budget Filtering',
+      status: 'DONE',
+      due_date: '31/10/2026'
+    }
+  ];
+
   const handleSeedGroup4Tasks = (teamId: number) => {
     const defaults = getDefaultGroup4Tasks(teamId);
     setTeamTasks(prev => {
@@ -615,10 +636,31 @@ export default function LecturerDashboard() {
         setCurrentUser(JSON.parse(u));
       }
 
-      // Khởi tạo đúng 5 nhiệm vụ thật của đồ án SWD392 Group 4, loại bỏ hoàn toàn các task dư thừa bên ngoài
-      const defaults = getDefaultGroup4Tasks(4);
-      setTeamTasks(defaults);
-      localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(defaults));
+      // Khởi tạo nhiệm vụ đồ án SWD392 Group 4 & CSD201 Group 5 (Hoàn thành 100%)
+      let existingTasks: TeamTask[] = [];
+      try {
+        const stored = localStorage.getItem('aita_lecturer_team_tasks');
+        if (stored) existingTasks = JSON.parse(stored);
+      } catch(e) {}
+
+      const g4Tasks = getDefaultGroup4Tasks(4);
+      const g5Tasks = getDefaultGroup5Tasks(5);
+
+      let merged: TeamTask[] = existingTasks.length > 0 ? existingTasks : [...g4Tasks, ...g5Tasks];
+      // Đảm bảo toàn bộ task của CSD201 Group 5 đều có trạng thái hoàn thành (DONE)
+      merged = merged.filter(t => t.team_id !== 6).map(t => {
+        if (t.team_id === 5 || t.title.includes('Dijkstra') || t.title.includes('BST')) {
+          return { ...t, status: 'DONE' as const };
+        }
+        return t;
+      });
+      g5Tasks.forEach(gt => {
+        if (!merged.some(t => t.title === gt.title)) {
+          merged.push(gt);
+        }
+      });
+      setTeamTasks(merged);
+      localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(merged));
     } catch (e) {}
     fetchData();
   }, []);
@@ -1387,20 +1429,48 @@ export default function LecturerDashboard() {
             )}
           </div>
 
-          {/* Bên phải: Cụm nút Thao tác nhanh (Thêm học phần, Thêm bài tập, Tạo nhóm, Xuất CSV) */}
+          {/* Bên phải: Cụm nút Thao tác thông minh theo từng Tab (Contextual Action Bar) */}
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto' }}>
-            <button className="btn-secondary" style={{ padding: '8px 15px', fontSize: '0.85rem', whiteSpace: 'nowrap' }} onClick={() => setShowCourseModal(true)}>
-              <BookOpen size={16} /> {lang === 'vi' ? 'Thêm Học Phần' : 'New Course'}
-            </button>
-            <button className="btn-secondary" style={{ padding: '8px 15px', fontSize: '0.85rem', whiteSpace: 'nowrap' }} onClick={() => { if(courses.length > 0) setAssignmentCourseId(courses[0].course_id); setShowAssignmentModal(true); }}>
-              <Plus size={16} /> {lang === 'vi' ? 'Thêm Bài Tập' : 'New Assignment'}
-            </button>
-            <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap' }} onClick={() => setShowTeamModal(true)}>
-              <Plus size={16} /> {lang === 'vi' ? 'Tạo Nhóm Mới' : 'New Team'}
-            </button>
-            <button className="btn-secondary" style={{ padding: '8px 15px', fontSize: '0.85rem', whiteSpace: 'nowrap' }} onClick={handleExportCSV}>
-              <Download size={16} /> {lang === 'vi' ? 'Xuất CSV' : 'Export CSV'}
-            </button>
+            {activeTab === 'courses' && (
+              <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowCourseModal(true)}>
+                <Plus size={16} /> {lang === 'vi' ? 'Thêm Học Phần Mới' : 'Add New Course'}
+              </button>
+            )}
+
+            {activeTab === 'teams' && (
+              <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowTeamModal(true)}>
+                <Plus size={16} /> {lang === 'vi' ? 'Tạo Nhóm Mới' : 'New Team'}
+              </button>
+            )}
+
+            {activeTab === 'overview' && (
+              <>
+                <button className="btn-secondary" style={{ padding: '8px 15px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { if(courses.length > 0) setAssignmentCourseId(courses[0].course_id); setShowAssignmentModal(true); }}>
+                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Bài Tập' : 'New Assignment'}
+                </button>
+                <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleExportCSV}>
+                  <Download size={16} /> {lang === 'vi' ? 'Xuất CSV Bảng Điểm' : 'Export CSV'}
+                </button>
+              </>
+            )}
+
+            {activeTab === 'config' && (
+              <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowAddTestCaseModal(true)}>
+                <Plus size={16} /> {lang === 'vi' ? 'Thêm Tiêu Chí Rubric' : 'Add Rubric'}
+              </button>
+            )}
+
+            {activeTab === 'analytics' && (
+              <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={fetchData}>
+                <RotateCw size={16} /> {lang === 'vi' ? 'Làm mới Git' : 'Refresh Git'}
+              </button>
+            )}
+
+            {activeTab === 'peer' && (
+              <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleExportCSV}>
+                <Download size={16} /> {lang === 'vi' ? 'Xuất Báo Cáo' : 'Export Report'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1589,6 +1659,11 @@ export default function LecturerDashboard() {
                         <tr key={row.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                           <td style={{ padding: '16px 18px' }}>
                             <strong style={{ fontSize: '0.95rem' }}>{row.team}</strong>
+                            {row.submitter_name && (
+                              <span style={{ display: 'block', fontSize: '0.78rem', color: '#c4b5fd', marginTop: '2px', fontWeight: 500 }}>
+                                {lang === 'vi' ? 'Người nộp:' : 'By:'} {row.submitter_name}
+                              </span>
+                            )}
                             <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{row.time}</span>
                           </td>
                           <td style={{ padding: '16px 18px' }}>
