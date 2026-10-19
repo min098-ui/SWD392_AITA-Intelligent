@@ -29,12 +29,8 @@ router.post('/', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: 
 
     const course = courseRes.rows[0];
 
-    // Nếu người tạo là Giảng viên, xác thực giảng viên phụ trách môn học này
-    if (req.user!.role === 'LECTURER' && course.lecturer_id !== req.user!.userId) {
-      return res.status(403).json({
-        message: 'Bạn chỉ có quyền tạo nhóm cho môn học do chính mình phụ trách.',
-      });
-    }
+    // Giảng viên hoặc Admin đều có quyền tạo nhóm cho môn học
+
 
     // Thêm nhóm mới
     const result = await pool.query(
@@ -81,12 +77,8 @@ router.post('/:teamId/members', authenticateJWT, requireRole('ADMIN', 'LECTURER'
 
     const team = teamRes.rows[0];
 
-    // Nếu người thêm là Giảng viên, kiểm tra quyền phụ trách
-    if (req.user!.role === 'LECTURER' && team.lecturer_id !== req.user!.userId) {
-      return res.status(403).json({
-        message: 'Bạn chỉ có quyền quản lý thành viên của nhóm thuộc môn do mình phụ trách.',
-      });
-    }
+    // Giảng viên hoặc Admin đều có quyền quản lý thành viên của nhóm
+
 
     // 2. Thu thập danh sách người dùng cần gán
     const rawEmailString = (email || student_email || (Array.isArray(emails) ? emails.join(',') : emails) || '').toString().trim();
@@ -332,12 +324,8 @@ router.delete('/:teamId/members/:teamMemberId', authenticateJWT, requireRole('AD
       return res.status(404).json({ message: 'Không tìm thấy nhóm tương ứng.' });
     }
 
-    const team = teamRes.rows[0];
-    if (req.user!.role === 'LECTURER' && team.lecturer_id !== req.user!.userId) {
-      return res.status(403).json({
-        message: 'Bạn chỉ có quyền quản lý thành viên của nhóm thuộc môn do mình phụ trách.',
-      });
-    }
+    // Giảng viên hoặc Admin đều có quyền quản lý thành viên của nhóm
+
 
     const deleteRes = await pool.query(
       'DELETE FROM team_members WHERE team_id = $1 AND team_member_id = $2 RETURNING *',
@@ -375,12 +363,8 @@ router.delete('/:teamId', authenticateJWT, requireRole('ADMIN', 'LECTURER'), asy
       return res.status(404).json({ message: 'Không tìm thấy nhóm tương ứng.' });
     }
 
-    const team = teamRes.rows[0];
-    if (req.user!.role === 'LECTURER' && team.lecturer_id !== req.user!.userId) {
-      return res.status(403).json({
-        message: 'Bạn chỉ có quyền xóa nhóm thuộc môn học do mình phụ trách.',
-      });
-    }
+    // Giảng viên hoặc Admin đều có quyền xóa nhóm
+
 
     // Xóa các dữ liệu liên quan đến nhóm
     await pool.query('DELETE FROM peer_audits WHERE team_id = $1', [teamId]);

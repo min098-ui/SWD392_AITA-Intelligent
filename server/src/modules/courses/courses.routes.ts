@@ -12,24 +12,15 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
     let query: string;
     let params: any[] = [];
 
-    if (user.role === 'ADMIN') {
-      // Admin xem tất cả môn học
+    if (user.role === 'ADMIN' || user.role === 'LECTURER') {
+      // Giảng viên và Quản trị viên xem tất cả các môn học đang hoạt động
+      // Đảm bảo hỗ trợ đánh giá chéo BR-09 (Dual-Lecturer Review) và quản lý học phần
       query = `
         SELECT c.*, u.full_name as lecturer_name, u.email as lecturer_email
         FROM courses c
         JOIN users u ON c.lecturer_id = u.user_id
-        ORDER BY c.course_id DESC
+        ORDER BY c.course_id ASC
       `;
-    } else if (user.role === 'LECTURER') {
-      // Giảng viên xem môn do mình giảng dạy
-      query = `
-        SELECT c.*, u.full_name as lecturer_name, u.email as lecturer_email
-        FROM courses c
-        JOIN users u ON c.lecturer_id = u.user_id
-        WHERE c.lecturer_id = $1
-        ORDER BY c.course_id DESC
-      `;
-      params = [user.userId];
     } else {
       // Sinh viên xem các môn học mình tham gia (qua teams) hoặc tất cả môn đang mở
       query = `
