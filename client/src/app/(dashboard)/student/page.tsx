@@ -7,7 +7,7 @@ import {
   Send, Bot, CheckCircle2, Clock, GitBranch, MessageSquare, 
   Terminal, AlertCircle, FileCode, Users, ExternalLink, Sparkles, BookOpen,
   Loader2, Check, ArrowRight, X, RefreshCw, Database, Star, AlertTriangle,
-  Mail, Crown, ChevronDown, ChevronUp, CheckSquare, Play
+  Mail, Crown, ChevronDown, ChevronUp, CheckSquare, Play, User
 } from 'lucide-react';
 
 interface TeamMember {
@@ -54,6 +54,8 @@ interface SubmissionResult {
   grading_status?: string;
   score?: number;
   final_score?: number;
+  submitter_name?: string;
+  submitter_email?: string;
 }
 
 export default function StudentDashboard() {
@@ -64,6 +66,7 @@ export default function StudentDashboard() {
   // Live DB data
   const [myTeams, setMyTeams] = useState<TeamInfo[]>([]);
   const [myTeam, setMyTeam] = useState<TeamInfo | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [mySubmissions, setMySubmissions] = useState<SubmissionResult[]>([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -73,6 +76,7 @@ export default function StudentDashboard() {
   const [repoUrl, setRepoUrl] = useState('');
   const [commitHash, setCommitHash] = useState('');
   const [codeContent, setCodeContent] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState<'javascript' | 'python'>('javascript');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStep, setSubmitStep] = useState(0);
   const [submitError, setSubmitError] = useState('');
@@ -153,6 +157,7 @@ export default function StudentDashboard() {
 
       let currentTeam: TeamInfo | null = null;
       let matchedTeams: TeamInfo[] = [];
+      let initialFilter = 'ALL';
       if (teamRes.ok) {
         const tData = await teamRes.json();
         if (tData.teams && tData.teams.length > 0) {
@@ -167,16 +172,17 @@ export default function StudentDashboard() {
 
           setMyTeams(matchedTeams);
 
-          // Check if student previously selected a team in localStorage
-          const savedTeamId = typeof window !== 'undefined' ? localStorage.getItem('aita_student_selected_team_id') : null;
-          const foundSaved = matchedTeams.find((t: TeamInfo) => String(t.team_id) === savedTeamId);
+          // Check if student previously selected a team/filter in localStorage
+          const savedFilter = typeof window !== 'undefined' ? localStorage.getItem('aita_student_selected_team_id') : null;
+          if (savedFilter && (savedFilter === 'ALL' || matchedTeams.some((t: TeamInfo) => String(t.team_id) === savedFilter))) {
+            initialFilter = savedFilter;
+          }
+          setSelectedFilter(initialFilter);
 
-          if (foundSaved) {
-            currentTeam = foundSaved;
-          } else if (matchedTeams.length > 0) {
-            // Smart select: find team that currently has assignments (e.g. SDN), fallback to matchedTeams[0]
-            const teamWithAssign = matchedTeams.find((t: TeamInfo) => aList.some((a: Assignment) => a.course_id === t.course_id));
-            currentTeam = teamWithAssign || matchedTeams[0];
+          if (initialFilter !== 'ALL') {
+            currentTeam = matchedTeams.find((t: TeamInfo) => String(t.team_id) === initialFilter) || matchedTeams[0];
+          } else {
+            currentTeam = matchedTeams[0] || null;
           }
 
           setMyTeam(currentTeam);
@@ -189,28 +195,37 @@ export default function StudentDashboard() {
         }
       }
 
-      // Auto select assignment for currentTeam
-      if (currentTeam) {
-        const teamAssigns = aList.filter(a => !a.course_id || a.course_id === currentTeam!.course_id);
-        if (teamAssigns.length > 0) {
-          setSelectedAssignment(String(teamAssigns[0].assignment_id));
-        } else if (aList.length > 0) {
-          setSelectedAssignment(String(aList[0].assignment_id));
-        } else {
-          setSelectedAssignment('');
-        }
+      // Auto select assignment
+      const teamAssigns = (currentTeam && initialFilter !== 'ALL')
+        ? aList.filter(a => !a.course_id || a.course_id === currentTeam!.course_id)
+        : aList;
+      if (teamAssigns.length > 0) {
+        setSelectedAssignment(String(teamAssigns[0].assignment_id));
       } else if (aList.length > 0) {
         setSelectedAssignment(String(aList[0].assignment_id));
+      } else {
+        setSelectedAssignment('');
       }
 
-      // 4. Fetch submissions for team
-      if (currentTeam) {
-        const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${currentTeam.team_id}`, {
-          headers: { ...authHeader }
-        });
-        if (subRes.ok) {
-          const sData = await subRes.json();
-          setMySubmissions(sData.submissions || []);
+      // 4. Fetch all submissions for student's teams
+      if (matchedTeams.length > 0) {
+        try {
+          const subPromises = matchedTeams.map(t =>
+            fetch(`http://localhost:5000/api/submissions?team_id=${t.team_id}`, {
+              headers: { ...authHeader }
+            }).then(r => r.ok ? r.json() : { submissions: [] })
+          );
+          const results = await Promise.all(subPromises);
+          const allSubs: SubmissionResult[] = [];
+          results.forEach(r => {
+            if (r.submissions && Array.isArray(r.submissions)) {
+              allSubs.push(...r.submissions);
+            }
+          });
+          allSubs.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+          setMySubmissions(allSubs);
+        } catch (subErr) {
+          console.error('Error fetching submissions for all teams:', subErr);
         }
       }
     } catch (err) {
@@ -220,62 +235,134 @@ export default function StudentDashboard() {
     }
   };
 
-  // Helper to fetch submissions for a specific team
-  const fetchSubmissionsForTeam = async (teamId: number) => {
+  // Helper to fetch submissions for all teams or a specific team
+  const fetchSubmissionsForTeam = async (teamId?: number | 'ALL', teamsList?: TeamInfo[]) => {
     try {
       const token = await getToken();
-      const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${teamId}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
-      if (subRes.ok) {
-        const sData = await subRes.json();
-        setMySubmissions(sData.submissions || []);
+      const authHeader: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const activeList = teamsList || myTeams;
+
+      if (!teamId || teamId === 'ALL') {
+        if (activeList.length === 0) {
+          setMySubmissions([]);
+          return;
+        }
+        const subPromises = activeList.map(t =>
+          fetch(`http://localhost:5000/api/submissions?team_id=${t.team_id}`, {
+            headers: { ...authHeader }
+          }).then(r => r.ok ? r.json() : { submissions: [] })
+        );
+        const results = await Promise.all(subPromises);
+        const allSubs: SubmissionResult[] = [];
+        results.forEach(r => {
+          if (r.submissions && Array.isArray(r.submissions)) {
+            allSubs.push(...r.submissions);
+          }
+        });
+        allSubs.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+        setMySubmissions(allSubs);
+      } else {
+        const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${teamId}`, {
+          headers: { ...authHeader }
+        });
+        if (subRes.ok) {
+          const sData = await subRes.json();
+          setMySubmissions(sData.submissions || []);
+        }
       }
     } catch (e) {
       console.error('Error fetching submissions for team:', e);
     }
   };
 
-  // Switch active team & sync assignment + repo URL + submissions
-  const handleSelectTeam = (teamId: number, targetAssignId?: string | number) => {
-    const found = myTeams.find(t => t.team_id === teamId);
-    if (found) {
-      setMyTeam(found);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('aita_student_selected_team_id', String(found.team_id));
-      }
-      if (found.repo_url) {
-        setRepoUrl(found.repo_url);
+  // Switch active course/team filter (ALL or specific team_id)
+  const handleFilterChange = (filterVal: string, targetAssignId?: string | number) => {
+    setSelectedFilter(filterVal);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aita_student_selected_team_id', filterVal);
+    }
+
+    if (filterVal === 'ALL') {
+      if (myTeams.length > 0) {
+        setMyTeam(myTeams[0]);
+        if (myTeams[0].repo_url) setRepoUrl(myTeams[0].repo_url);
       }
       if (targetAssignId) {
         setSelectedAssignment(String(targetAssignId));
-      } else {
-        const teamAssigns = assignments.filter(a => !a.course_id || a.course_id === found.course_id);
-        if (teamAssigns.length > 0) {
-          setSelectedAssignment(String(teamAssigns[0].assignment_id));
-        } else {
-          setSelectedAssignment('');
-        }
+      } else if (assignments.length > 0) {
+        setSelectedAssignment(String(assignments[0].assignment_id));
       }
-      fetchSubmissionsForTeam(found.team_id);
+      fetchSubmissionsForTeam('ALL');
+    } else {
+      const found = myTeams.find(t => String(t.team_id) === filterVal);
+      if (found) {
+        setMyTeam(found);
+        if (found.repo_url) setRepoUrl(found.repo_url);
+        if (targetAssignId) {
+          setSelectedAssignment(String(targetAssignId));
+        } else {
+          const teamAssigns = assignments.filter(a => !a.course_id || a.course_id === found.course_id);
+          if (teamAssigns.length > 0) {
+            setSelectedAssignment(String(teamAssigns[0].assignment_id));
+          } else {
+            setSelectedAssignment('');
+          }
+        }
+        fetchSubmissionsForTeam(found.team_id);
+      }
     }
   };
 
-  const relevantAssignments = myTeam
-    ? assignments.filter(a => !a.course_id || a.course_id === myTeam.course_id)
-    : [];
+  const handleSelectTeam = (teamId: number, targetAssignId?: string | number) => {
+    handleFilterChange(String(teamId), targetAssignId);
+  };
+
+  const currentFilterTeam = selectedFilter === 'ALL'
+    ? myTeam
+    : (myTeams.find(t => String(t.team_id) === selectedFilter) || myTeam);
+
+  const displayedTeams = selectedFilter === 'ALL'
+    ? myTeams
+    : myTeams.filter(t => String(t.team_id) === selectedFilter);
+
+  const relevantAssignments = selectedFilter === 'ALL'
+    ? assignments.filter(a => myTeams.some(t => !a.course_id || a.course_id === t.course_id))
+    : assignments.filter(a => {
+        const targetTeam = myTeams.find(t => String(t.team_id) === selectedFilter);
+        return targetTeam ? (!a.course_id || a.course_id === targetTeam.course_id) : true;
+      });
+
+  const displayedSubmissions = selectedFilter === 'ALL'
+    ? mySubmissions
+    : mySubmissions.filter(s => String(s.team_id) === selectedFilter);
+
+  const targetAnalyticsTeam = selectedFilter === 'ALL'
+    ? (myTeam || myTeams[0])
+    : (myTeams.find(t => String(t.team_id) === selectedFilter) || myTeam || myTeams[0]);
+
+  const targetPeerTeam = selectedFilter === 'ALL'
+    ? (myTeam || myTeams[0])
+    : (myTeams.find(t => String(t.team_id) === selectedFilter) || myTeam || myTeams[0]);
 
   // Sync selected assignment with current course/team
   useEffect(() => {
     if (relevantAssignments.length > 0) {
       const hasMatch = relevantAssignments.some(a => String(a.assignment_id) === String(selectedAssignment));
       if (!selectedAssignment || !hasMatch) {
-        setSelectedAssignment(String(relevantAssignments[0].assignment_id));
+        const nextAssign = relevantAssignments[0];
+        setSelectedAssignment(String(nextAssign.assignment_id));
+        if (selectedFilter === 'ALL' && nextAssign.course_id) {
+          const matchT = myTeams.find(t => t.course_id === nextAssign.course_id);
+          if (matchT) {
+            setMyTeam(matchT);
+            if (matchT.repo_url) setRepoUrl(matchT.repo_url);
+          }
+        }
       }
     } else {
       setSelectedAssignment('');
     }
-  }, [myTeam, assignments]);
+  }, [selectedFilter, assignments, relevantAssignments]);
 
   useEffect(() => {
     try {
@@ -318,7 +405,12 @@ export default function StudentDashboard() {
       setSubmitError(lang === 'vi' ? 'Vui lòng nhập URL repo và commit hash!' : 'Please enter repo URL and commit hash!');
       return;
     }
-    if (!selectedAssignment || !myTeam) {
+    const currentAssign = assignments.find(a => String(a.assignment_id) === String(selectedAssignment));
+    const activeSubmitTeam = (currentAssign && currentAssign.course_id)
+      ? (myTeams.find(t => t.course_id === currentAssign.course_id) || myTeam || myTeams[0])
+      : (myTeam || myTeams[0]);
+
+    if (!selectedAssignment || !activeSubmitTeam) {
       setSubmitError(lang === 'vi' ? 'Không tìm thấy nhóm hoặc bài tập của bạn trong hệ thống!' : 'No team or assignment found!');
       return;
     }
@@ -338,11 +430,11 @@ export default function StudentDashboard() {
         },
         body: JSON.stringify({
           assignment_id: Number(selectedAssignment),
-          team_id: myTeam.team_id,
+          team_id: activeSubmitTeam.team_id,
           artifact_url: repoUrl.trim(),
           git_commit_hash: commitHash.trim(),
           code_content: codeContent.trim(),
-          language: 'javascript'
+          language: selectedLanguage
         })
       });
 
@@ -384,7 +476,7 @@ export default function StudentDashboard() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          team_id: myTeam?.team_id || 1,
+          team_id: targetPeerTeam?.team_id || 1,
           assignment_id: selectedAssignment || 1,
           reviewee_id: Number(peerMember),
           audit_round: 1,
@@ -425,7 +517,7 @@ export default function StudentDashboard() {
   };
 
   // Non-self teammates
-  const teammates = myTeam?.members?.filter(m => m.user_id !== currentUser?.userId) || [];
+  const teammates = targetPeerTeam?.members?.filter(m => m.user_id !== currentUser?.userId) || [];
 
   const studentTabs = (
     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
@@ -481,41 +573,57 @@ export default function StudentDashboard() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.9rem' }}>
             <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Học phần:' : 'Course:'}</span>
-            {myTeams.length > 1 ? (
+            {myTeams.length > 0 ? (
               <select
-                value={myTeam?.team_id || ''}
-                onChange={e => handleSelectTeam(Number(e.target.value))}
+                value={selectedFilter}
+                onChange={e => handleFilterChange(e.target.value)}
                 style={{
                   background: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  color: 'var(--accent-primary)',
-                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  color: '#38bdf8',
+                  padding: '6px 14px',
                   fontSize: '0.88rem',
-                  fontWeight: 600
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  minWidth: '280px',
+                  maxWidth: '720px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)'
                 }}
               >
+                <option value="ALL">
+                  📚 {lang === 'vi' ? 'Tất cả học phần' : 'All Courses'}
+                </option>
                 {myTeams.map(t => (
-                  <option key={t.team_id} value={t.team_id}>
-                    {t.course_code} - {t.course_name} ({t.team_name})
+                  <option key={t.team_id} value={String(t.team_id)}>
+                    📚 {t.course_code} – {t.course_name} ({t.semester || 'FA26'})
                   </option>
                 ))}
               </select>
             ) : (
               <strong style={{ color: 'var(--text-main)' }}>{myTeam ? `${myTeam.course_code} - ${myTeam.course_name}` : (lang === 'vi' ? 'Chưa được phân nhóm' : 'No team assigned')}</strong>
             )}
-            {myTeam && (
+            {selectedFilter === 'ALL' ? (
+              myTeams.length > 0 && (
+                <>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.2)', margin: '0 4px' }}>•</span>
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Nhóm:' : 'Team:'}</span>
+                  <strong style={{ color: '#38bdf8' }}>{lang === 'vi' ? `Tất cả (${myTeams.length} nhóm)` : `All (${myTeams.length} teams)`}</strong>
+                </>
+              )
+            ) : currentFilterTeam ? (
               <>
                 <span style={{ color: 'rgba(255, 255, 255, 0.2)', margin: '0 4px' }}>•</span>
                 <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Nhóm:' : 'Team:'}</span>
-                <strong style={{ color: '#38bdf8' }}>{myTeam.team_name}</strong>
+                <strong style={{ color: '#38bdf8' }}>{currentFilterTeam.team_name}</strong>
               </>
-            )}
+            ) : null}
           </div>
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {myTeam && (() => {
-              const myMember = myTeam.members?.find(m => 
+            {selectedFilter !== 'ALL' && currentFilterTeam && (() => {
+              const myMember = currentFilterTeam.members?.find(m => 
                 (currentUser?.userId && m.user_id === currentUser.userId) ||
                 (currentUser?.email && m.email && m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim())
               );
@@ -531,6 +639,19 @@ export default function StudentDashboard() {
                 </div>
               ) : null;
             })()}
+            {selectedFilter === 'ALL' && myTeams.length > 0 && (
+              <div style={{
+                background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
+                padding: '8px 16px', borderRadius: '10px'
+              }}>
+                <span style={{ fontSize: '0.75rem', color: '#38bdf8', display: 'block' }}>
+                  {lang === 'vi' ? 'Chế độ xem' : 'View Mode'}
+                </span>
+                <strong style={{ fontSize: '0.9rem', color: '#60a5fa' }}>
+                  {lang === 'vi' ? `Tổng hợp ${myTeams.length} môn học` : `All ${myTeams.length} Courses`}
+                </strong>
+              </div>
+            )}
             <button
               onClick={fetchData}
               disabled={loadingData}
@@ -555,8 +676,8 @@ export default function StudentDashboard() {
               </div>
             )}
 
-            {myTeams.length > 0 ? (
-              myTeams.map((team) => (
+            {displayedTeams.length > 0 ? (
+              displayedTeams.map((team) => (
                 <div
                   key={team.team_id}
                   style={{
@@ -1460,11 +1581,55 @@ export default function StudentDashboard() {
                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
                       </div>
 
+                      {/* Language Switcher Buttons */}
+                      <div style={{ display: 'flex', gap: '3px', background: 'rgba(0, 0, 0, 0.5)', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLanguage('javascript')}
+                          style={{
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: selectedLanguage === 'javascript' ? '#f59e0b' : 'transparent',
+                            color: selectedLanguage === 'javascript' ? '#000' : '#94a3b8',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <span>🟨 JS (Node.js)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLanguage('python')}
+                          style={{
+                            padding: '3px 9px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            background: selectedLanguage === 'python' ? '#38bdf8' : 'transparent',
+                            color: selectedLanguage === 'python' ? '#000' : '#94a3b8',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <span>🐍 Python 3</span>
+                        </button>
+                      </div>
+
                       {/* Active tab */}
                       <div 
                         style={{ 
-                          background: 'rgba(2, 132, 199, 0.15)', 
-                          border: '1px solid rgba(56, 189, 248, 0.35)',
+                          background: selectedLanguage === 'python' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.15)', 
+                          border: `1px solid ${selectedLanguage === 'python' ? 'rgba(56, 189, 248, 0.35)' : 'rgba(56, 189, 248, 0.35)'}`,
                           padding: '4px 10px',
                           borderRadius: '6px',
                           display: 'flex',
@@ -1472,114 +1637,57 @@ export default function StudentDashboard() {
                           gap: '6px'
                         }}
                       >
-                        <span style={{ background: '#f59e0b', color: '#000', fontWeight: 800, fontSize: '0.62rem', padding: '1px 4px', borderRadius: '3px' }}>JS</span>
-                        <span style={{ fontSize: '0.76rem', color: '#f1f5f9', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>main.js</span>
+                        <span style={{ background: selectedLanguage === 'python' ? '#38bdf8' : '#f59e0b', color: '#000', fontWeight: 800, fontSize: '0.62rem', padding: '1px 4px', borderRadius: '3px' }}>
+                          {selectedLanguage === 'python' ? 'PY' : 'JS'}
+                        </span>
+                        <span style={{ fontSize: '0.76rem', color: '#f1f5f9', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>
+                          {selectedLanguage === 'python' ? 'main.py' : 'main.js'}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Right: Scenario Chips */}
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.72rem', color: '#64748b', marginRight: '2px' }}>
-                        {lang === 'vi' ? 'Mẫu test:' : 'Test scenarios:'}
+                    {/* Right: Actions / Info (Clean - No sample code) */}
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {codeContent && (
+                        <button
+                          type="button"
+                          onClick={() => setCodeContent('')}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#f87171',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.7rem',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title={lang === 'vi' ? 'Xóa nội dung code' : 'Clear editor'}
+                        >
+                          ✕ {lang === 'vi' ? 'Xóa code' : 'Clear'}
+                        </button>
+                      )}
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>
+                        {selectedLanguage === 'python' ? 'Python 3.11' : 'Node.js 20'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setCodeContent(`const fs = require('fs');
-function solve() {
-  const input = fs.readFileSync(0, 'utf-8').trim().split(/\\s+/);
-  if (input.length < 2) return;
-  const target = parseInt(input[input.length - 1], 10);
-  const nums = input.slice(0, input.length - 1).map(Number);
-  const map = new Map();
-  for (const n of nums) {
-    const diff = target - n;
-    if (map.has(diff)) {
-      console.log(n + diff);
-      return;
-    }
-    map.set(n, true);
-  }
-}
-solve();`)}
-                        style={{
-                          background: 'rgba(16, 185, 129, 0.14)',
-                          border: '1px solid rgba(16, 185, 129, 0.35)',
-                          color: '#34d399',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.14)'}
-                      >
-                        ⚡ Two Sum (10/10)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCodeContent(`const fs = require('fs');
-const input = fs.readFileSync(0, 'utf-8').trim();
-const words = input.split(/\\s+/).filter(Boolean);
-console.log(words.reverse().join(' '));`)}
-                        style={{
-                          background: 'rgba(56, 189, 248, 0.14)',
-                          border: '1px solid rgba(56, 189, 248, 0.35)',
-                          color: '#38bdf8',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(56, 189, 248, 0.14)'}
-                      >
-                        ⚡ Reverse Words (10/10)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCodeContent(`// Test Case Timeout Watchdog (BR-03)
-while (true) {
-  // Vòng lặp vô tận kiểm tra Watchdog 5s
-}`)}
-                        style={{
-                          background: 'rgba(239, 68, 68, 0.14)',
-                          border: '1px solid rgba(239, 68, 68, 0.35)',
-                          color: '#f87171',
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.72rem',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.14)'}
-                      >
-                        ⚠️ Timeout (0/10)
-                      </button>
                     </div>
                   </div>
 
                   {/* Code Textarea */}
                   <textarea
-                    rows={6}
+                    rows={7}
                     value={codeContent}
                     onChange={e => setCodeContent(e.target.value)}
                     required
-                    placeholder="// Viết hoặc dán mã nguồn JavaScript chạy trên Docker Sandbox..."
+                    placeholder={
+                      selectedLanguage === 'python'
+                        ? (lang === 'vi' ? '# Viết hoặc dán mã nguồn Python 3 tại đây (chạy trên Docker Sandbox)...' : '# Write or paste Python 3 source code here...')
+                        : (lang === 'vi' ? '// Viết hoặc dán mã nguồn JavaScript tại đây (chạy trên Docker Sandbox)...' : '// Write or paste JavaScript source code here...')
+                    }
                     className="code-editor-textarea"
                     style={{
                       width: '100%',
@@ -1587,7 +1695,7 @@ while (true) {
                       background: '#090d16',
                       border: 'none',
                       outline: 'none',
-                      color: '#38bdf8',
+                      color: selectedLanguage === 'python' ? '#38bdf8' : '#fbbf24',
                       fontFamily: 'var(--font-mono, monospace)',
                       fontSize: '0.86rem',
                       lineHeight: '1.6',
@@ -1614,7 +1722,7 @@ while (true) {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8' }}>
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
-                      <span>Node.js 18 Sandbox</span>
+                      <span>{selectedLanguage === "python" ? "Python 3.11 Sandbox" : "Node.js 20 Sandbox"}</span>
                       <span style={{ color: '#475569' }}>|</span>
                       <span>Docker Container (Isolated)</span>
                     </div>
@@ -1745,16 +1853,32 @@ while (true) {
             </div>
 
             {/* Live submissions from DB */}
-            {mySubmissions.length > 0 ? (
+            {displayedSubmissions.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {mySubmissions.map((sub) => (
+                {displayedSubmissions.map((sub) => (
                   <div key={sub.submission_id} className="glass-card" style={{ padding: '1.5rem', borderLeft: `4px solid ${getStatusColor(sub.status)}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
                       <div>
                         <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '4px' }}>{sub.assignment_title || 'Assignment #' + sub.assignment_id}</h4>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1.2rem', flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           <span>Commit: <code style={{ color: '#60a5fa' }}>{sub.git_commit_hash?.slice(0, 12)}</code></span>
                           <span>{lang === 'vi' ? 'Nộp lúc:' : 'Submitted:'} {new Date(sub.submitted_at).toLocaleString('vi-VN')}</span>
+                          {sub.submitter_name && (
+                            <span style={{ 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '5px', 
+                              background: 'rgba(167, 139, 250, 0.12)', 
+                              padding: '2px 8px', 
+                              borderRadius: '6px', 
+                              border: '1px solid rgba(167, 139, 250, 0.3)',
+                              color: '#c4b5fd',
+                              fontSize: '0.78rem'
+                            }}>
+                              <User size={12} color="#a78bfa" />
+                              <span>{lang === 'vi' ? 'Người nộp:' : 'Submitted by:'} <strong style={{ color: '#e9d5ff' }}>{sub.submitter_name}</strong></span>
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1918,7 +2042,7 @@ while (true) {
           ) : (
             <div className="glass-card" style={{ padding: '2rem' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <GitBranch size={20} color="#38bdf8" /> {lang === 'vi' ? `Báo cáo Đóng góp Git - ${myTeam.team_name}` : `Team Git Contribution - ${myTeam.team_name}`}
+                <GitBranch size={20} color="#38bdf8" /> {lang === 'vi' ? `Báo cáo Đóng góp Git - ${targetAnalyticsTeam.team_name}` : `Team Git Contribution - ${targetAnalyticsTeam.team_name}`}
               </h3>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
