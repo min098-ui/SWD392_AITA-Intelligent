@@ -12,11 +12,13 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
   try {
     let query = `
       SELECT s.*, a.title as assignment_title, t.team_name,
+        u.full_name as submitter_name, u.email as submitter_email,
         gj.grading_job_id, gj.status as grading_status,
         COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score
       FROM submissions s
       JOIN assignments a ON s.assignment_id = a.assignment_id
       JOIN teams t ON s.team_id = t.team_id
+      LEFT JOIN users u ON s.submitted_by_user_id = u.user_id
       LEFT JOIN grading_jobs gj ON s.submission_id = gj.submission_id
     `;
     const params: any[] = [];
@@ -51,11 +53,13 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
       `SELECT s.*, a.title as assignment_title, t.team_name,
+              u.full_name as submitter_name, u.email as submitter_email,
               gj.grading_job_id, gj.status as grading_status, gj.completed_at,
               COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score
        FROM submissions s
        JOIN assignments a ON s.assignment_id = a.assignment_id
        LEFT JOIN teams t ON s.team_id = t.team_id
+       LEFT JOIN users u ON s.submitted_by_user_id = u.user_id
        LEFT JOIN grading_jobs gj ON s.submission_id = gj.submission_id
        WHERE s.submission_id = $1`,
       [submissionId]
