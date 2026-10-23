@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import { EventEmitter } from 'events';
 import dotenv from 'dotenv';
 
 import path from 'path';
@@ -77,6 +78,168 @@ interface MockPeerAudit {
 
 const mockGitCommits: MockGitCommit[] = [];
 const mockPeerAudits: MockPeerAudit[] = [];
+
+interface MockAiApiKey {
+  ai_api_key_id: number;
+  provider: string;
+  key_value_encrypted: string;
+  api_key_encrypted?: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'RATE_LIMITED' | 'EXHAUSTED';
+  usage_count: number;
+  rotated_at: Date | null;
+  created_at: Date;
+}
+
+interface MockPromptTemplate {
+  prompt_template_id: number;
+  name: string;
+  purpose: string;
+  template_content: string;
+  system_prompt?: string | null;
+  temperature: number;
+  version: string;
+  is_active: boolean;
+  created_at: Date;
+}
+
+interface MockTutorChatSession {
+  session_id: number;
+  user_id: number;
+  submission_id?: number | null;
+  assignment_id?: number | null;
+  session_title: string;
+  created_at: Date;
+}
+
+interface MockTutorChatMessage {
+  message_id: number;
+  session_id?: number | null;
+  user_id: number;
+  submission_id?: number | null;
+  prompt_template_id?: number | null;
+  ai_api_key_id?: number | null;
+  sender_type: 'STUDENT' | 'AI';
+  content: string;
+  created_at: Date;
+  sent_at: Date;
+}
+
+interface MockSubmission {
+  submission_id: number;
+  assignment_id: number;
+  team_id?: number | null;
+  submitted_by_user_id?: number | null;
+  artifact_url: string;
+  git_commit_hash: string;
+  status: string;
+  ai_score?: number | null;
+  ai_feedback?: string | null;
+  final_score?: number | null;
+  submitted_at: Date;
+}
+
+interface MockGradingResult {
+  grading_result_id: number;
+  grading_job_id: number;
+  rubric_rule_id: number;
+  score: number;
+  actual_output: string;
+  passed: boolean;
+  execution_time_ms: number;
+  ai_feedback?: string | null;
+  is_ai_generated: boolean;
+  graded_at: Date;
+}
+
+interface MockRubricRule {
+  rubric_rule_id: number;
+  assignment_id: number;
+  rule_type: string;
+  criterion: string;
+  expected_output?: string | null;
+  input_data?: string | null;
+  max_score: number;
+}
+
+const mockAiApiKeys: MockAiApiKey[] = [
+  {
+    ai_api_key_id: 1,
+    provider: 'Google-Gemini',
+    key_value_encrypted: 'enc_gemini_api_key_mock_value_xxxx1234',
+    api_key_encrypted: 'enc_gemini_api_key_mock_value_xxxx1234',
+    status: 'ACTIVE',
+    usage_count: 42,
+    rotated_at: new Date(),
+    created_at: new Date(),
+  },
+  {
+    ai_api_key_id: 2,
+    provider: 'OpenAI',
+    key_value_encrypted: 'enc_openai_api_key_mock_value_yyyy5678',
+    api_key_encrypted: 'enc_openai_api_key_mock_value_yyyy5678',
+    status: 'ACTIVE',
+    usage_count: 15,
+    rotated_at: new Date(),
+    created_at: new Date(),
+  },
+];
+
+const mockPromptTemplates: MockPromptTemplate[] = [
+  {
+    prompt_template_id: 1,
+    name: 'Code Grading Feedback Prompt',
+    purpose: 'Grading',
+    template_content: 'You are an expert AI Teaching Assistant for Software Engineering. Evaluate Clean Code, AST, and Design Patterns.',
+    system_prompt: 'Evaluate student code for Clean Code, AST structure and design patterns.',
+    temperature: 0.2,
+    version: 'v1.0',
+    is_active: true,
+    created_at: new Date(),
+  },
+  {
+    prompt_template_id: 2,
+    name: 'Interactive AI Tutor Chat Prompt',
+    purpose: 'TutorChat',
+    template_content: 'You are AITA, a friendly and knowledgeable AI coding tutor for university students. Guide using Socratic method.',
+    system_prompt: 'Apply Socratic method: guide thinking, never give complete code directly.',
+    temperature: 0.2,
+    version: 'v1.0',
+    is_active: true,
+    created_at: new Date(),
+  },
+];
+
+const mockTutorChatSessions: MockTutorChatSession[] = [];
+const mockTutorChatMessages: MockTutorChatMessage[] = [];
+const mockSubmissions: MockSubmission[] = [
+  {
+    submission_id: 1,
+    assignment_id: 1,
+    team_id: 1,
+    submitted_by_user_id: 6,
+    artifact_url: 'console.log("Hello")',
+    git_commit_hash: 'c1a2b3d4e5f6',
+    status: 'SUBMITTED',
+    submitted_at: new Date(),
+  },
+];
+const mockGradingResults: MockGradingResult[] = [];
+const mockRubricRules: MockRubricRule[] = [
+  {
+    rubric_rule_id: 1,
+    assignment_id: 1,
+    rule_type: 'UNIT_TEST',
+    criterion: 'Basic tests',
+    max_score: 5.0,
+  },
+  {
+    rubric_rule_id: 999,
+    assignment_id: 999,
+    rule_type: 'AI_ANALYSIS',
+    criterion: 'Code Style & Design Patterns',
+    max_score: 10.0,
+  },
+];
 
 const mockUsers: MockUser[] = [
   {
@@ -771,51 +934,488 @@ async function executeMockQuery(sqlText: string, params: any[] = []): Promise<{ 
     return { rows };
   }
 
+  // Transactions (BEGIN, COMMIT, ROLLBACK)
+  if (/^(BEGIN|COMMIT|ROLLBACK)/i.test(cleanSql)) {
+    return { rows: [] };
+  }
+
+  // AI API Keys: getNextActiveApiKey (SELECT ... FROM ai_api_keys WHERE status = 'ACTIVE' ORDER BY usage_count ASC)
+  if (/FROM ai_api_keys/i.test(cleanSql) && /status = 'ACTIVE'/i.test(cleanSql) && /ORDER BY usage_count/i.test(cleanSql)) {
+    const activeKeys = mockAiApiKeys
+      .filter((k) => k.status === 'ACTIVE')
+      .sort((a, b) => a.usage_count - b.usage_count || a.ai_api_key_id - b.ai_api_key_id);
+    return { rows: activeKeys.length > 0 ? [activeKeys[0]] : [] };
+  }
+
+  // AI API Keys: UPDATE status (markKeyRateLimited or status patch)
+  if (/UPDATE ai_api_keys SET status = \$1/i.test(cleanSql)) {
+    const [status, keyId] = params;
+    const key = mockAiApiKeys.find((k) => k.ai_api_key_id === Number(keyId));
+    if (key) {
+      key.status = status;
+      key.rotated_at = new Date();
+      return { rows: [key] };
+    }
+    return { rows: [] };
+  }
+
+  // AI API Keys: UPDATE usage_count (incrementKeyUsage)
+  if (/UPDATE ai_api_keys SET usage_count = usage_count \+ 1/i.test(cleanSql)) {
+    const keyId = Number(params[0]);
+    const key = mockAiApiKeys.find((k) => k.ai_api_key_id === keyId);
+    if (key) {
+      key.usage_count += 1;
+      key.rotated_at = new Date();
+      return { rows: [key] };
+    }
+    return { rows: [] };
+  }
+
+  // AI API Keys: SELECT * FROM ai_api_keys ORDER BY ai_api_key_id ASC
+  if (/FROM ai_api_keys/i.test(cleanSql) && !/WHERE/i.test(cleanSql)) {
+    return { rows: [...mockAiApiKeys].sort((a, b) => a.ai_api_key_id - b.ai_api_key_id) };
+  }
+
+  // AI API Keys: INSERT INTO ai_api_keys
+  if (/INSERT INTO ai_api_keys/i.test(cleanSql)) {
+    const [provider, key_val] = params;
+    const newId = mockAiApiKeys.length > 0 ? Math.max(...mockAiApiKeys.map((k) => k.ai_api_key_id)) + 1 : 1;
+    const newKey: MockAiApiKey = {
+      ai_api_key_id: newId,
+      provider: provider || 'Google-Gemini',
+      key_value_encrypted: key_val,
+      api_key_encrypted: key_val,
+      status: 'ACTIVE',
+      usage_count: 0,
+      rotated_at: null,
+      created_at: new Date(),
+    };
+    mockAiApiKeys.push(newKey);
+    return { rows: [newKey] };
+  }
+
+  // Prompt Templates: SELECT by purpose
+  if (/FROM prompt_templates/i.test(cleanSql) && /purpose =/i.test(cleanSql)) {
+    let purpose = '';
+    const match = cleanSql.match(/purpose = '([^']+)'/i);
+    if (match) {
+      purpose = match[1];
+    } else if (params && params.length > 0) {
+      purpose = params[0];
+    }
+    const filtered = mockPromptTemplates.filter((p) => !purpose || p.purpose.toLowerCase() === purpose.toLowerCase());
+    return { rows: filtered.sort((a, b) => b.prompt_template_id - a.prompt_template_id) };
+  }
+
+  // Prompt Templates: SELECT * FROM prompt_templates
+  if (/FROM prompt_templates/i.test(cleanSql)) {
+    return { rows: [...mockPromptTemplates].sort((a, b) => a.prompt_template_id - b.prompt_template_id) };
+  }
+
+  // Prompt Templates: INSERT INTO prompt_templates
+  if (/INSERT INTO prompt_templates/i.test(cleanSql)) {
+    const [name, purpose, template_content, system_prompt, version, temperature] = params;
+    const newId = mockPromptTemplates.length > 0 ? Math.max(...mockPromptTemplates.map((p) => p.prompt_template_id)) + 1 : 1;
+    const newTemplate: MockPromptTemplate = {
+      prompt_template_id: newId,
+      name,
+      purpose,
+      template_content,
+      system_prompt: system_prompt || null,
+      temperature: temperature !== undefined ? parseFloat(temperature) : 0.2,
+      version: version || 'v1.0',
+      is_active: true,
+      created_at: new Date(),
+    };
+    mockPromptTemplates.push(newTemplate);
+    return { rows: [newTemplate] };
+  }
+
+  // Tutor Chat Sessions: INSERT INTO tutor_chat_sessions
+  if (/INSERT INTO tutor_chat_sessions/i.test(cleanSql)) {
+    const [user_id, submission_id, assignment_id, session_title] = params;
+    const newId = mockTutorChatSessions.length > 0 ? Math.max(...mockTutorChatSessions.map((s) => s.session_id)) + 1 : 1;
+    const newSession: MockTutorChatSession = {
+      session_id: newId,
+      user_id: Number(user_id),
+      submission_id: submission_id ? Number(submission_id) : null,
+      assignment_id: assignment_id ? Number(assignment_id) : null,
+      session_title: session_title || 'New Session',
+      created_at: new Date(),
+    };
+    mockTutorChatSessions.push(newSession);
+    return { rows: [newSession] };
+  }
+
+  // Tutor Chat Sessions: SELECT * FROM tutor_chat_sessions WHERE session_id = $1
+  if (/FROM tutor_chat_sessions/i.test(cleanSql) && /session_id = \$1/i.test(cleanSql)) {
+    const sessionId = Number(params[0]);
+    const session = mockTutorChatSessions.find((s) => s.session_id === sessionId);
+    return { rows: session ? [session] : [] };
+  }
+
+  // Tutor Chat Messages: INSERT INTO tutor_chat_messages
+  if (/INSERT INTO tutor_chat_messages/i.test(cleanSql)) {
+    const newId = mockTutorChatMessages.length > 0 ? Math.max(...mockTutorChatMessages.map((m) => m.message_id)) + 1 : 1;
+    let newMsg: MockTutorChatMessage;
+    if (params.length === 6 && typeof params[0] === 'number') {
+      const [session_id, user_id, submission_id, prompt_template_id, ai_api_key_id, content] = params;
+      const sender = cleanSql.includes("'STUDENT'") ? 'STUDENT' : 'AI';
+      newMsg = {
+        message_id: newId,
+        session_id: session_id ? Number(session_id) : null,
+        user_id: Number(user_id),
+        submission_id: submission_id ? Number(submission_id) : null,
+        prompt_template_id: prompt_template_id ? Number(prompt_template_id) : null,
+        ai_api_key_id: ai_api_key_id ? Number(ai_api_key_id) : null,
+        sender_type: sender,
+        content: content || '',
+        created_at: new Date(),
+        sent_at: new Date(),
+      };
+    } else {
+      const [user_id, submission_id, prompt_template_id, ai_api_key_id, content] = params;
+      const sender = cleanSql.includes("'STUDENT'") ? 'STUDENT' : 'AI';
+      newMsg = {
+        message_id: newId,
+        session_id: null,
+        user_id: Number(user_id),
+        submission_id: submission_id ? Number(submission_id) : null,
+        prompt_template_id: prompt_template_id ? Number(prompt_template_id) : null,
+        ai_api_key_id: ai_api_key_id ? Number(ai_api_key_id) : null,
+        sender_type: sender,
+        content: content || '',
+        created_at: new Date(),
+        sent_at: new Date(),
+      };
+    }
+    mockTutorChatMessages.push(newMsg);
+    return { rows: [newMsg] };
+  }
+
+  // Tutor Chat Messages: SELECT by session_id
+  if (/FROM tutor_chat_messages/i.test(cleanSql) && /session_id = \$1/i.test(cleanSql)) {
+    const sessionId = Number(params[0]);
+    const messages = mockTutorChatMessages
+      .filter((m) => m.session_id === sessionId)
+      .map((m) => {
+        const u = mockUsers.find((usr) => usr.user_id === m.user_id);
+        return {
+          ...m,
+          student_name: u?.full_name || 'Student',
+        };
+      });
+    return { rows: messages };
+  }
+
+  // Tutor Chat Messages: SELECT by submission_id
+  if (/FROM tutor_chat_messages/i.test(cleanSql) && /submission_id = \$1/i.test(cleanSql)) {
+    const subId = Number(params[0]);
+    const messages = mockTutorChatMessages
+      .filter((m) => m.submission_id === subId)
+      .map((m) => {
+        const u = mockUsers.find((usr) => usr.user_id === m.user_id);
+        return {
+          ...m,
+          student_name: u?.full_name || 'Student',
+        };
+      });
+    return { rows: messages };
+  }
+
+  // Assignments: INSERT INTO assignments
+  if (/INSERT INTO assignments/i.test(cleanSql)) {
+    return { rows: [] };
+  }
+
+  // Rubric rules: INSERT INTO rubric_rules
+  if (/INSERT INTO rubric_rules/i.test(cleanSql)) {
+    let ruleId = 999;
+    let assignmentId = 999;
+    let ruleType = 'AI_ANALYSIS';
+    let criterion = 'Code Style';
+    let maxScore = 10.0;
+    if (params && params.length >= 5) {
+      [ruleId, assignmentId, ruleType, criterion, maxScore] = params;
+    } else {
+      const match = cleanSql.match(/VALUES\s*\(([^)]+)\)/i);
+      if (match) {
+        const parts = match[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, ''));
+        ruleId = Number(parts[0]) || 999;
+        assignmentId = Number(parts[1]) || 999;
+        ruleType = parts[2] || 'AI_ANALYSIS';
+        criterion = parts[3] || 'Code Style';
+        maxScore = parseFloat(parts[4]) || 10.0;
+      }
+    }
+    const existing = mockRubricRules.find((r) => r.rubric_rule_id === Number(ruleId));
+    if (!existing) {
+      mockRubricRules.push({
+        rubric_rule_id: Number(ruleId),
+        assignment_id: Number(assignmentId),
+        rule_type: ruleType,
+        criterion,
+        max_score: Number(maxScore),
+      });
+    }
+    return { rows: [] };
+  }
+
+  // Rubric rules: SELECT FROM rubric_rules
+  if (/FROM rubric_rules/i.test(cleanSql)) {
+    let assignmentId: number | null = null;
+    const match = cleanSql.match(/assignment_id\s*=\s*(\d+|\$1)/i);
+    if (match) {
+      if (match[1] === '$1' && params && params.length > 0) {
+        assignmentId = Number(params[0]);
+      } else {
+        assignmentId = Number(match[1]);
+      }
+    }
+    const rules = assignmentId !== null
+      ? mockRubricRules.filter((r) => r.assignment_id === assignmentId)
+      : mockRubricRules;
+    return { rows: rules };
+  }
+
+  // Submissions: INSERT INTO submissions
+  if (/INSERT INTO submissions/i.test(cleanSql)) {
+    let subId = 999;
+    let assignmentId = 999;
+    let artifactUrl = '';
+    let gitCommitHash = '';
+    let status = 'SUBMITTED';
+    if (params && params.length >= 5) {
+      [subId, assignmentId, artifactUrl, gitCommitHash, status] = params;
+    } else {
+      const match = cleanSql.match(/VALUES\s*\(([^)]+)\)/i);
+      if (match) {
+        const parts = match[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, ''));
+        subId = Number(parts[0]) || 999;
+        assignmentId = Number(parts[1]) || 999;
+        artifactUrl = parts[2] || '';
+        gitCommitHash = parts[3] || '';
+        status = parts[4] || 'SUBMITTED';
+      }
+    }
+    const existing = mockSubmissions.find((s) => s.submission_id === Number(subId));
+    if (!existing) {
+      mockSubmissions.push({
+        submission_id: Number(subId),
+        assignment_id: Number(assignmentId),
+        artifact_url: artifactUrl,
+        git_commit_hash: gitCommitHash,
+        status: status || 'SUBMITTED',
+        submitted_at: new Date(),
+      });
+    }
+    return { rows: [] };
+  }
+
+  // Grading jobs: UPDATE grading_jobs
+  if (/UPDATE grading_jobs/i.test(cleanSql)) {
+    return { rows: [] };
+  }
+
+  // Submissions: UPDATE submissions (grading worker)
+  if (/UPDATE submissions/i.test(cleanSql)) {
+    let subId: number | null = null;
+    const match = cleanSql.match(/submission_id\s*=\s*(\d+|\$(\d+))/i);
+    if (match) {
+      if (match[1].startsWith('$')) {
+        const paramIndex = Number(match[2]) - 1;
+        subId = Number(params[paramIndex]);
+      } else {
+        subId = Number(match[1]);
+      }
+    } else if (params && params.length > 0) {
+      subId = Number(params[params.length - 1]);
+    }
+    const sub = mockSubmissions.find((s) => s.submission_id === subId);
+    if (sub) {
+      if (params && params.length === 3) {
+        sub.status = 'GRADED';
+        sub.ai_score = parseFloat(params[0]);
+        sub.ai_feedback = params[1];
+        sub.final_score = parseFloat(params[0]);
+      } else if (params && params.length === 2) {
+        sub.status = 'GRADED';
+        sub.ai_score = parseFloat(params[0]);
+        sub.final_score = parseFloat(params[0]);
+      } else if (cleanSql.includes("status = 'GRADING'")) {
+        sub.status = 'GRADING';
+      }
+      return { rows: [sub] };
+    }
+    return { rows: [] };
+  }
+
+  // Submissions: SELECT FROM submissions
+  if (/FROM submissions/i.test(cleanSql)) {
+    let subId: number | null = null;
+    const match = cleanSql.match(/submission_id\s*=\s*(\d+|\$1)/i);
+    if (match) {
+      if (match[1] === '$1' && params && params.length > 0) {
+        subId = Number(params[0]);
+      } else {
+        subId = Number(match[1]);
+      }
+    }
+    if (subId !== null) {
+      const sub = mockSubmissions.find((s) => s.submission_id === subId);
+      return { rows: sub ? [sub] : [] };
+    }
+    return { rows: mockSubmissions };
+  }
+
+  // Grading results: INSERT INTO grading_results
+  if (/INSERT INTO grading_results/i.test(cleanSql)) {
+    const [jobId, ruleId, score, actual, passed, execTime, feedback, isAi] = params;
+    const newId = mockGradingResults.length + 1;
+    const newRes: MockGradingResult = {
+      grading_result_id: newId,
+      grading_job_id: Number(jobId),
+      rubric_rule_id: Number(ruleId),
+      score: parseFloat(score),
+      actual_output: actual || '',
+      passed: Boolean(passed),
+      execution_time_ms: parseInt(execTime, 10) || 0,
+      ai_feedback: feedback || null,
+      is_ai_generated: Boolean(isAi),
+      graded_at: new Date(),
+    };
+    mockGradingResults.push(newRes);
+    return { rows: [newRes] };
+  }
+
+  // Grading results: SELECT FROM grading_results
+  if (/FROM grading_results/i.test(cleanSql)) {
+    let jobId: number | null = null;
+    const match = cleanSql.match(/grading_job_id\s*=\s*(\d+|\$1)/i);
+    if (match) {
+      if (match[1] === '$1' && params && params.length > 0) {
+        jobId = Number(params[0]);
+      } else {
+        jobId = Number(match[1]);
+      }
+    }
+    const results = jobId !== null
+      ? mockGradingResults.filter((r) => r.grading_job_id === jobId)
+      : mockGradingResults;
+    return { rows: results };
+  }
+
   return { rows: [] };
 }
 
 const originalQuery = realPool.query.bind(realPool);
+const originalConnect = realPool.connect.bind(realPool);
 
 let lastPostgresCheck = 0;
 
-const resilientQuery = (async (sqlText: any, params?: any): Promise<any> => {
-  if (typeof sqlText !== 'string') {
-    return (originalQuery as any)(sqlText, params);
-  }
-
-  // If postgres was marked unavailable, periodically try to reconnect
-  if (!isPostgresAvailable && Date.now() - lastPostgresCheck < 3000) {
-    return executeMockQuery(sqlText, params);
-  }
-
-  try {
-    const result = await (originalQuery as any)(sqlText, params);
-    if (!isPostgresAvailable) {
-      console.log('✅ PostgreSQL connection restored.');
-      isPostgresAvailable = true;
+const createMockClient = () => {
+  const client: any = new EventEmitter();
+  client.query = (text: any, paramsOrCallback?: any, callback?: any): any => {
+    const cb = typeof paramsOrCallback === 'function' ? paramsOrCallback : callback;
+    const params = typeof paramsOrCallback === 'function' ? [] : (paramsOrCallback || []);
+    const p = Promise.resolve().then(() => executeMockQuery(text, params));
+    if (typeof cb === 'function') {
+      p.then((res: any) => cb(null, res)).catch((err: any) => cb(err));
     }
-    return result;
-  } catch (err: any) {
-    if (
-      err.code === 'ECONNREFUSED' ||
-      err.code === 'ETIMEDOUT' ||
-      err.code === 'ENOTFOUND' ||
-      err.name === 'AggregateError' ||
-      err.message?.includes('ECONNREFUSED') ||
-      err.message?.includes('connect ECONNREFUSED')
-    ) {
-      lastPostgresCheck = Date.now();
-      if (isPostgresAvailable) {
-        console.warn('⚠️  PostgreSQL connection unavailable. Seamlessly running in Fallback In-Memory Mode with Seed Data.');
-        isPostgresAvailable = false;
-      }
+    return p;
+  };
+  client.release = () => {};
+  return client;
+};
+
+const resilientQuery = (sqlText: any, paramsOrCallback?: any, callback?: any): any => {
+  const cb = typeof paramsOrCallback === 'function' ? paramsOrCallback : callback;
+  const params = typeof paramsOrCallback === 'function' ? [] : (paramsOrCallback || []);
+
+  const run = async (): Promise<any> => {
+    if (typeof sqlText !== 'string') {
+      return executeMockQuery('', []);
+    }
+
+    // If postgres was marked unavailable, periodically try to reconnect
+    if (!isPostgresAvailable && Date.now() - lastPostgresCheck < 3000) {
       return executeMockQuery(sqlText, params);
     }
-    throw err;
+
+    try {
+      const result = await (originalQuery as any)(sqlText, params);
+      if (!isPostgresAvailable) {
+        console.log('✅ PostgreSQL connection restored.');
+        isPostgresAvailable = true;
+      }
+      return result;
+    } catch (err: any) {
+      if (
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ETIMEDOUT' ||
+        err.code === 'ENOTFOUND' ||
+        err.name === 'AggregateError' ||
+        err.message?.includes('ECONNREFUSED') ||
+        err.message?.includes('connect ECONNREFUSED')
+      ) {
+        lastPostgresCheck = Date.now();
+        if (isPostgresAvailable) {
+          console.warn('⚠️  PostgreSQL connection unavailable. Seamlessly running in Fallback In-Memory Mode with Seed Data.');
+          isPostgresAvailable = false;
+        }
+        return executeMockQuery(sqlText, params);
+      }
+      throw err;
+    }
+  };
+
+  const p = run();
+  if (typeof cb === 'function') {
+    p.then((res: any) => cb(null, res)).catch((err: any) => cb(err));
   }
-}) as any;
+  return p;
+};
+
+const resilientConnect = (callback?: any): any => {
+  const run = async (): Promise<any> => {
+    if (!isPostgresAvailable && Date.now() - lastPostgresCheck < 3000) {
+      return createMockClient();
+    }
+
+    try {
+      const client = await originalConnect();
+      return client;
+    } catch (err: any) {
+      if (
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ETIMEDOUT' ||
+        err.code === 'ENOTFOUND' ||
+        err.name === 'AggregateError' ||
+        err.message?.includes('ECONNREFUSED') ||
+        err.message?.includes('connect ECONNREFUSED')
+      ) {
+        lastPostgresCheck = Date.now();
+        if (isPostgresAvailable) {
+          console.warn('⚠️  PostgreSQL connection unavailable. Seamlessly running in Fallback In-Memory Mode with Seed Data.');
+          isPostgresAvailable = false;
+        }
+        return createMockClient();
+      }
+      throw err;
+    }
+  };
+
+  if (typeof callback === 'function') {
+    run()
+      .then((client: any) => callback(null, client, client.release || (() => {})))
+      .catch((err: any) => callback(err));
+    return;
+  }
+  return run();
+};
 
 (realPool as any).query = resilientQuery;
+(realPool as any).connect = resilientConnect;
 
 export const pool = realPool;
 
