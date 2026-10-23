@@ -4,6 +4,7 @@
 > **Môn học:** SWD392 – Software Architecture & Design Project (FPT University Quy Nhơn)  
 > **Nhóm thực hiện:** Group 4  
 > **Họ và tên sinh viên:** **Đỗ Trần Đăng Khoa** (`dotrandangkhoa17@gmail.com`)  
+> **Tài khoản GitHub:** [`dotrandangkhoa17-gif`](https://github.com/dotrandangkhoa17-gif)  
 > **Vai trò:** **Thành Viên 3 — AI Engine & Key Rotation Engineer**  
 > **Nhánh Git phụ trách:** `Khoa` / `feature/ai-engine-key-rotation`  
 > **Các bảng Database phụ trách:** `ai_api_keys`, `prompt_templates`, `tutor_chat_sessions`, `tutor_chat_messages`  
@@ -263,4 +264,17 @@ Bộ kiểm thử tự động toàn diện được phát triển riêng trong 
 * **Trả lời:** Trong `ai-tutor.service.ts`, em đã xây dựng cơ chế **Graceful Fallback & Circuit Breaker**: Nếu toàn bộ các key trong CSDL đều rơi vào trạng thái `RATE_LIMITED` hoặc hết quota, hệ thống sẽ tự động kích hoạt bộ sinh phản hồi nội bộ (`generateFallbackSocratic`), cung cấp các hướng dẫn tư duy cơ bản mà không làm sập ứng dụng (zero-crash policy). Đồng thời hệ thống ghi log cảnh báo để Quản trị viên bổ sung key mới qua API `/api/ai-tutor/admin/keys`.
 
 ---
-*Tài liệu được hoàn thiện và xác minh bởi Thành viên 3 — Đỗ Trần Đăng Khoa — Group 4 SWD392.*
+
+## 9. Ma Trận Minh Chứng & Đóng Góp Kỹ Thuật (Contribution Proofs)
+
+| Hạng Mục | File Mã Nguồn / Tài Liệu | Trách Nhiệm Kỹ Thuật | Trạng Thái |
+| :--- | :--- | :--- | :--- |
+| **Bảo Mật API Key (BR-02)** | `server/src/modules/ai-tutor/crypto.service.ts` | Triển khai mã hóa 2 chiều chuẩn AES-256-GCM | ✅ 100% Hoàn thành |
+| **Key Pool Rotation (BR-04)** | `server/src/modules/ai-tutor/ai-tutor.service.ts` | Thuật toán Least-Used & xử lý mã lỗi HTTP 429 | ✅ 100% Hoàn thành |
+| **API Endpoints & RBAC (BR-05)** | `server/src/modules/ai-tutor/ai-tutor.routes.ts` | Định tuyến quản trị prompt templates & chat sessions | ✅ 100% Hoàn thành |
+| **Báo Cáo Kỹ Thuật** | `docs/thanhvien3.md` | Đặc tả kiến trúc, luồng sequence & vấn đáp phản biện | ✅ 100% Hoàn thành |
+| **Test Suite Tự Động** | `server/src/test/verify-member3.ts` | Bộ kiểm thử tự động 27/27 test cases PASS | ✅ 100% Hoàn thành |
+| **Kịch Bản Thực Nghiệm** | `server/src/test/run-scenarios-member3.ts` | Trình diễn 5 kịch bản thực tế phục vụ Hội đồng | ✅ 100% Hoàn thành |
+
+---
+*Tài liệu được hoàn thiện và xác minh bởi Thành viên 3 — Đỗ Trần Đăng Khoa (`dotrandangkhoa17-gif`) — Group 4 SWD392.*
