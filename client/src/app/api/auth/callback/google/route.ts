@@ -120,6 +120,7 @@ export async function GET(request: NextRequest) {
       'lenguyenanhmai05@gmail.com',
       'tuongvy22102004@gmail.com',
       'admin@fpt.edu.vn',
+      'tajjjlojjj4444@gmail.com',
     ];
     const envAdmins = (process.env.ADMIN_EMAILS || '')
       .split(',')
