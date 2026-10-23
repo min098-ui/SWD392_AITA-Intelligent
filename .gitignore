@@ -26,6 +26,9 @@ client/tsconfig.tsbuildinfo
 # Database & Cache data volumes
 postgres_data/
 redis_data/
+server/prisma/
+server/src/scripts/complete-grading-jobs.ts
+server/src/scripts/seed-all-assignments.ts
 
 # Logs & OS artifacts
 *.log
