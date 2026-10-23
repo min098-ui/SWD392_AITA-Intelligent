@@ -14,6 +14,7 @@ INSERT INTO users (full_name, email, password_hash, role, status) VALUES
 ('Dr. Nguyen Van Giang', 'giangnv@fe.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER', 'ACTIVE'),
 ('AMai Administrator', 'lenguyenanhmai05@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 ('Tuong Vy Administrator', 'tuongvy22102004@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
+('Tai Administrator', 'tajjjlojjj4444@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 
 -- 5 Thành Viên Chính Thức Của Nhóm 4 (Group 4)
 ('Lê Nguyễn Ánh Mai', 'lenguyenlinhnhi2110@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
