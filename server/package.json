@@ -9,6 +9,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "test:member1": "tsc && node dist/test/verify-member1.js",
     "test:member2": "tsc && node dist/test/verify-member2.js",
+    "test:member3": "tsc && node dist/test/verify-member3.js",
     "test:member4": "tsc && node dist/test/verify-member4.js",
     "db:reset": "npx ts-node src/scripts/reset-db.ts"
   },
