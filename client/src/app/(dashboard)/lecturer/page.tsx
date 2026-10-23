@@ -169,6 +169,21 @@ export default function LecturerDashboard() {
   const [teamRepoUrl, setTeamRepoUrl] = useState('');
   const [submittingTeam, setSubmittingTeam] = useState(false);
 
+  // Modal: Edit Course State
+  const [showEditCourseModal, setShowEditCourseModal] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<CourseItem | null>(null);
+  const [editCourseCode, setEditCourseCode] = useState('');
+  const [editCourseName, setEditCourseName] = useState('');
+  const [editCourseSemester, setEditCourseSemester] = useState('');
+  const [submittingEditCourse, setSubmittingEditCourse] = useState(false);
+
+  // Modal: Edit Team State
+  const [showEditTeamModal, setShowEditTeamModal] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<TeamItem | null>(null);
+  const [editTeamName, setEditTeamName] = useState('');
+  const [editTeamRepoUrl, setEditTeamRepoUrl] = useState('');
+  const [submittingEditTeam, setSubmittingEditTeam] = useState(false);
+
   // Modal 3: Assign Student to Team State
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [targetTeam, setTargetTeam] = useState<TeamItem | null>(null);
@@ -218,11 +233,11 @@ export default function LecturerDashboard() {
       try {
         const u = localStorage.getItem('user');
         const userObj = u ? JSON.parse(u) : null;
-        const email = userObj?.email || 'giangnv@fe.edu.vn';
+        const email = userObj?.email || 'yeny36306@gmail.com';
         const loginRes = await fetch('http://localhost:5000/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, fullName: userObj?.fullName || 'Dr. Nguyen Van Giang', role: 'LECTURER' })
+          body: JSON.stringify({ email, fullName: userObj?.fullName || 'Yen12 Yen', role: 'LECTURER' })
         });
         if (loginRes.ok) {
           const lData = await loginRes.json();
@@ -310,7 +325,7 @@ export default function LecturerDashboard() {
               aiFeedback: s.ai_feedback || 'Thuật toán Two Pointers / Hash Map tối ưu O(N), mã nguồn sạch và đạt chuẩn kiến trúc.',
               overrideNote: s.reviewer_1_notes || '',
               moderationStatus: s.status === 'FINALIZED' ? 'FINALIZED' : (s.needs_second_review ? 'PENDING_SECOND_REVIEW' : (s.reviewer_1_score ? 'FIRST_REVIEWED' : 'AI_PREGRADED')),
-              reviewer_1_name: s.reviewer_1_name || 'Dr. Nguyen Van Giang',
+              reviewer_1_name: s.reviewer_1_name || (currentUser?.fullName || 'Yen12 Yen'),
               reviewer_1_score: s.reviewer_1_score != null ? parseFloat(s.reviewer_1_score) : finalScore,
               reviewer_1_notes: s.reviewer_1_notes || '',
               needs_second_review: s.needs_second_review,
@@ -585,7 +600,7 @@ export default function LecturerDashboard() {
       team_id: teamId,
       assigned_to_name: 'Đỗ Trần Đăng Khoa',
       title: 'Tích hợp Gemini AI Socratic Tutor, Prompt Versioning & Key Pool Rotation AES-256 (BR-02, BR-04, BR-05)',
-      status: 'IN_PROGRESS',
+      status: 'DONE',
       due_date: '31/10/2026'
     },
     {
@@ -647,9 +662,19 @@ export default function LecturerDashboard() {
       const g5Tasks = getDefaultGroup5Tasks(5);
 
       let merged: TeamTask[] = existingTasks.length > 0 ? existingTasks : [...g4Tasks, ...g5Tasks];
-      // Đảm bảo toàn bộ task của CSD201 Group 5 đều có trạng thái hoàn thành (DONE)
+      // Đảm bảo task của Khoa (TV3) và các thành viên khác Done, riêng Huy (TV4) đang In Progress
       merged = merged.filter(t => t.team_id !== 6).map(t => {
-        if (t.team_id === 5 || t.title.includes('Dijkstra') || t.title.includes('BST')) {
+        if (t.assigned_to_name.includes('Huy') || t.title.includes('Octokit') || (t.task_id && t.task_id.includes('huy'))) {
+          return { ...t, status: 'IN_PROGRESS' as const };
+        }
+        if (
+          t.team_id === 5 ||
+          t.team_id === 4 ||
+          t.title.includes('Dijkstra') ||
+          t.title.includes('BST') ||
+          t.title.includes('Gemini') ||
+          t.assigned_to_name.includes('Khoa')
+        ) {
           return { ...t, status: 'DONE' as const };
         }
         return t;
@@ -812,6 +837,135 @@ export default function LecturerDashboard() {
       setModalError('Không thể kết nối đến máy chủ.');
     } finally {
       setSubmittingTeam(false);
+    }
+  };
+
+  // Handler: Mở modal chỉnh sửa học phần
+  const handleOpenEditCourse = (course: CourseItem) => {
+    setEditingCourse(course);
+    setEditCourseCode(course.course_code);
+    setEditCourseName(course.course_name);
+    setEditCourseSemester(course.semester);
+    setModalError('');
+    setShowEditCourseModal(true);
+  };
+
+  // Handler: Lưu chỉnh sửa học phần
+  const handleUpdateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+    setModalError('');
+    if (!editCourseCode.trim() || !editCourseName.trim() || !editCourseSemester.trim()) {
+      setModalError(lang === 'vi' ? 'Vui lòng nhập đầy đủ thông tin học phần!' : 'Please fill in all course fields!');
+      return;
+    }
+    setSubmittingEditCourse(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/courses/${editingCourse.course_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          course_code: editCourseCode.trim().toUpperCase(),
+          course_name: editCourseName.trim(),
+          semester: editCourseSemester.trim().toUpperCase(),
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? `Cập nhật học phần ${editCourseCode} thành công!` : `Course ${editCourseCode} updated successfully!`);
+        setShowEditCourseModal(false);
+        setEditingCourse(null);
+        await fetchData();
+        setTimeout(() => setSuccessToast(''), 3500);
+      } else {
+        setModalError(data.message || 'Lỗi khi cập nhật học phần');
+      }
+    } catch (err) {
+      console.error(err);
+      setModalError('Không thể kết nối đến máy chủ.');
+    } finally {
+      setSubmittingEditCourse(false);
+    }
+  };
+
+  // Handler: Xóa học phần
+  const handleDeleteCourse = async (courseId: number, courseName: string) => {
+    if (!confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xóa học phần "${courseName}" và toàn bộ nhóm, bài tập liên quan không?` : `Are you sure you want to delete course "${courseName}" and all associated data?`)) {
+      return;
+    }
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/courses/${courseId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? `Đã xóa học phần "${courseName}" thành công!` : `Course "${courseName}" deleted!`);
+        if (selectedCourseId === courseId) {
+          setSelectedCourseId(null);
+        }
+        await fetchData();
+        setTimeout(() => setSuccessToast(''), 3500);
+      } else {
+        const d = await res.json();
+        alert(d.message || 'Lỗi khi xóa học phần');
+      }
+    } catch (err) {
+      console.error('Delete course error:', err);
+    }
+  };
+
+  // Handler: Mở modal chỉnh sửa nhóm
+  const handleOpenEditTeam = (team: TeamItem) => {
+    setEditingTeam(team);
+    setEditTeamName(team.team_name);
+    setEditTeamRepoUrl(team.repo_url);
+    setModalError('');
+    setShowEditTeamModal(true);
+  };
+
+  // Handler: Lưu chỉnh sửa nhóm
+  const handleUpdateTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTeam) return;
+    setModalError('');
+    if (!editTeamName.trim() || !editTeamRepoUrl.trim()) {
+      setModalError(lang === 'vi' ? 'Vui lòng nhập tên nhóm và link GitHub repo!' : 'Please fill in team name and GitHub repo!');
+      return;
+    }
+    setSubmittingEditTeam(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/teams/${editingTeam.team_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          team_name: editTeamName.trim(),
+          repo_url: editTeamRepoUrl.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? `Cập nhật nhóm "${editTeamName}" thành công!` : `Team "${editTeamName}" updated!`);
+        setShowEditTeamModal(false);
+        setEditingTeam(null);
+        await fetchData();
+        setTimeout(() => setSuccessToast(''), 3500);
+      } else {
+        setModalError(data.message || 'Lỗi khi cập nhật nhóm');
+      }
+    } catch (err) {
+      console.error(err);
+      setModalError('Không thể kết nối đến máy chủ.');
+    } finally {
+      setSubmittingEditTeam(false);
     }
   };
 
@@ -1070,7 +1224,7 @@ export default function LecturerDashboard() {
           moderationStatus: 'FINALIZED',
           grade: aiScoreVal,
           final_score: aiScoreVal,
-          reviewer_1_name: currentUser?.fullName || 'Dr. Nguyen Van Giang',
+          reviewer_1_name: currentUser?.fullName || 'Yen12 Yen',
           reviewer_1_score: aiScoreVal,
           reviewer_1_notes: 'Đã phê duyệt điểm sơ bộ từ AI model.',
           consensus_notes: 'Giảng viên đồng thuận điểm đánh giá tự động của AI.'
@@ -1108,7 +1262,7 @@ export default function LecturerDashboard() {
           ...s,
           moderationStatus: 'PENDING_SECOND_REVIEW',
           needs_second_review: true,
-          reviewer_1_name: currentUser?.fullName || 'Dr. Nguyen Van Giang',
+          reviewer_1_name: currentUser?.fullName || 'Yen12 Yen',
           reviewer_1_score: Number(reviewer1Score),
           reviewer_1_notes: reviewer1Notes,
           reviewer_2_name: assignedReviewer2,
@@ -1431,32 +1585,9 @@ export default function LecturerDashboard() {
 
           {/* Bên phải: Cụm nút Thao tác thông minh theo từng Tab (Contextual Action Bar) */}
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginLeft: 'auto' }}>
-            {activeTab === 'courses' && (
-              <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowCourseModal(true)}>
-                <Plus size={16} /> {lang === 'vi' ? 'Thêm Học Phần Mới' : 'Add New Course'}
-              </button>
-            )}
-
-            {activeTab === 'teams' && (
-              <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowTeamModal(true)}>
-                <Plus size={16} /> {lang === 'vi' ? 'Tạo Nhóm Mới' : 'New Team'}
-              </button>
-            )}
-
             {activeTab === 'overview' && (
-              <>
-                <button className="btn-secondary" style={{ padding: '8px 15px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => { if(courses.length > 0) setAssignmentCourseId(courses[0].course_id); setShowAssignmentModal(true); }}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Bài Tập' : 'New Assignment'}
-                </button>
-                <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleExportCSV}>
-                  <Download size={16} /> {lang === 'vi' ? 'Xuất CSV Bảng Điểm' : 'Export CSV'}
-                </button>
-              </>
-            )}
-
-            {activeTab === 'config' && (
-              <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setShowAddTestCaseModal(true)}>
-                <Plus size={16} /> {lang === 'vi' ? 'Thêm Tiêu Chí Rubric' : 'Add Rubric'}
+              <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleExportCSV}>
+                <Download size={16} /> {lang === 'vi' ? 'Xuất CSV Bảng Điểm' : 'Export CSV'}
               </button>
             )}
 
@@ -1534,35 +1665,101 @@ export default function LecturerDashboard() {
                       }}
                     >
                       <div>
-                        {/* Header của thẻ: Mã môn + Học kỳ */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: 'rgba(56, 189, 248, 0.14)',
-                            color: '#38bdf8',
-                            border: '1px solid rgba(56, 189, 248, 0.35)',
-                            borderRadius: '9999px',
-                            padding: '3px 12px',
-                            fontSize: '0.8rem',
-                            fontWeight: 800,
-                            letterSpacing: '0.04em'
-                          }}>
-                            {course.course_code}
-                          </span>
-                          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                            Học kỳ: <strong style={{ color: 'var(--text-main)' }}>{course.semester}</strong>
-                          </span>
+                        {/* Header của thẻ: Mã môn + Học kỳ & Nút Sửa / Xóa */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'nowrap', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: 'rgba(56, 189, 248, 0.14)',
+                              color: '#38bdf8',
+                              border: '1px solid rgba(56, 189, 248, 0.35)',
+                              borderRadius: '9999px',
+                              padding: '3px 12px',
+                              fontSize: '0.8rem',
+                              fontWeight: 800,
+                              letterSpacing: '0.04em',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {course.course_code}
+                            </span>
+                            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                              Học kỳ: <strong style={{ color: 'var(--text-main)' }}>{course.semester}</strong>
+                            </span>
+                          </div>
+
+                          {/* Quyền Giảng viên: Chỉnh sửa & Xóa học phần */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              title={lang === 'vi' ? 'Chỉnh sửa thông tin học phần' : 'Edit course'}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditCourse(course);
+                              }}
+                              style={{
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                color: '#38bdf8',
+                                borderRadius: '8px',
+                                padding: '4px 9px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <Edit3 size={12} /> {lang === 'vi' ? 'Sửa' : 'Edit'}
+                            </button>
+                            <button
+                              type="button"
+                              title={lang === 'vi' ? 'Xóa học phần này' : 'Delete course'}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCourse(course.course_id, course.course_name);
+                              }}
+                              style={{
+                                background: 'rgba(244, 63, 94, 0.1)',
+                                border: '1px solid rgba(244, 63, 94, 0.25)',
+                                color: '#fda4af',
+                                borderRadius: '8px',
+                                padding: '4px 9px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <Trash2 size={12} /> {lang === 'vi' ? 'Xóa' : 'Delete'}
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Tên môn học */}
-                        <h4 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--text-main)', lineHeight: 1.35 }}>
+                        {/* Tên môn học: minHeight 3.4rem để dù 1 dòng hay 2 dòng cũng thẳng hàng tăm tắp */}
+                        <h4 style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 800,
+                          marginBottom: '0.5rem',
+                          color: 'var(--text-main)',
+                          lineHeight: 1.35,
+                          minHeight: '3.4rem',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
                           {course.course_name}
                         </h4>
 
                         {/* Giảng viên */}
-                        <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '1.4rem' }}>
+                        <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '1.4rem', minHeight: '1.25rem' }}>
                           👨‍🏫 Giảng viên: <strong style={{ color: 'var(--text-main)' }}>{course.lecturer_name || currentUser?.fullName || 'Ánh Mai Lê Nguyễn'}</strong>
                         </p>
 
@@ -2223,9 +2420,6 @@ export default function LecturerDashboard() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setShowCourseModal(true)}>
-                  <BookOpen size={16} /> {lang === 'vi' ? 'Thêm Học Phần' : 'New Course'}
-                </button>
                 <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem' }} onClick={() => setShowTeamModal(true)}>
                   <Plus size={16} /> {lang === 'vi' ? 'Tạo Nhóm Mới' : 'Create New Team'}
                 </button>
@@ -2302,45 +2496,71 @@ export default function LecturerDashboard() {
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            title={lang === 'vi' ? 'Xóa nhóm này' : 'Delete this team'}
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xóa nhóm "${team.team_name}" không?` : `Are you sure you want to delete team "${team.team_name}"?`)) {
-                                try {
-                                  const token = await getToken();
-                                  const res = await fetch(`http://localhost:5000/api/teams/${team.team_id}`, {
-                                    method: 'DELETE',
-                                    headers: { Authorization: `Bearer ${token}` }
-                                  });
-                                  if (res.ok) {
-                                    fetchData();
-                                  } else {
-                                    const d = await res.json();
-                                    alert(d.message || 'Lỗi khi xóa nhóm');
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              title={lang === 'vi' ? 'Chỉnh sửa thông tin nhóm' : 'Edit team'}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditTeam(team);
+                              }}
+                              style={{
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                color: '#38bdf8',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.74rem',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <Edit3 size={12} /> {lang === 'vi' ? 'Sửa nhóm' : 'Edit'}
+                            </button>
+
+                            <button
+                              type="button"
+                              title={lang === 'vi' ? 'Xóa nhóm này' : 'Delete this team'}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xóa nhóm "${team.team_name}" không?` : `Are you sure you want to delete team "${team.team_name}"?`)) {
+                                  try {
+                                    const token = await getToken();
+                                    const res = await fetch(`http://localhost:5000/api/teams/${team.team_id}`, {
+                                      method: 'DELETE',
+                                      headers: { Authorization: `Bearer ${token}` }
+                                    });
+                                    if (res.ok) {
+                                      fetchData();
+                                    } else {
+                                      const d = await res.json();
+                                      alert(d.message || 'Lỗi khi xóa nhóm');
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
                                   }
-                                } catch (err) {
-                                  console.error(err);
                                 }
-                              }
-                            }}
-                            style={{
-                              background: 'rgba(244, 63, 94, 0.1)',
-                              border: '1px solid rgba(244, 63, 94, 0.25)',
-                              color: '#fda4af',
-                              borderRadius: '8px',
-                              padding: '4px 8px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              fontSize: '0.74rem',
-                              transition: 'all 0.2s'
-                            }}
-                          >
-                            <Trash2 size={12} /> {lang === 'vi' ? 'Xóa nhóm' : 'Delete'}
-                          </button>
+                              }}
+                              style={{
+                                background: 'rgba(244, 63, 94, 0.1)',
+                                border: '1px solid rgba(244, 63, 94, 0.25)',
+                                color: '#fda4af',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.74rem',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <Trash2 size={12} /> {lang === 'vi' ? 'Xóa nhóm' : 'Delete'}
+                            </button>
+                          </div>
                         </div>
 
                         {/* Team Name */}
@@ -3894,6 +4114,246 @@ export default function LecturerDashboard() {
                   <button type="submit" disabled={submittingTeam} className="btn-primary" style={{ fontSize: '0.82rem', padding: '7px 16px', gap: '6px' }}>
                     {submittingTeam ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                     <span>{lang === 'vi' ? 'Tạo nhóm' : 'Create Team'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: CHỈNH SỬA HỌC PHẦN */}
+        {showEditCourseModal && editingCourse && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            padding: '1rem'
+          }}>
+            <div className="glass-card" style={{
+              width: '100%',
+              maxWidth: '460px',
+              padding: '1.75rem',
+              borderRadius: '16px',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    color: '#38bdf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Edit3 size={16} />
+                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
+                    {lang === 'vi' ? 'Chỉnh sửa học phần' : 'Edit Course'}
+                  </h3>
+                </div>
+                <button onClick={() => { setShowEditCourseModal(false); setEditingCourse(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              {modalError && (
+                <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                  {modalError}
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Mã học phần' : 'Course Code'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: SWD392, PRJ301..."
+                    value={editCourseCode}
+                    onChange={(e) => setEditCourseCode(e.target.value.toUpperCase())}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Tên môn học' : 'Course Name'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Software Architecture & Design"
+                    value={editCourseName}
+                    onChange={(e) => setEditCourseName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Học kỳ' : 'Semester'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="FA26"
+                    value={editCourseSemester}
+                    onChange={(e) => setEditCourseSemester(e.target.value.toUpperCase())}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                  <button type="button" onClick={() => { setShowEditCourseModal(false); setEditingCourse(null); }} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '7px 14px' }}>
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  </button>
+                  <button type="submit" disabled={submittingEditCourse} className="btn-primary" style={{ fontSize: '0.82rem', padding: '7px 16px', gap: '6px' }}>
+                    {submittingEditCourse ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    <span>{lang === 'vi' ? 'Lưu thay đổi' : 'Save Changes'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: CHỈNH SỬA THÔNG TIN NHÓM */}
+        {showEditTeamModal && editingTeam && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            padding: '1rem'
+          }}>
+            <div className="glass-card" style={{
+              width: '100%',
+              maxWidth: '460px',
+              padding: '1.75rem',
+              borderRadius: '16px',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    color: '#38bdf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Edit3 size={16} />
+                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
+                    {lang === 'vi' ? 'Chỉnh sửa thông tin nhóm' : 'Edit Team'}
+                  </h3>
+                </div>
+                <button onClick={() => { setShowEditTeamModal(false); setEditingTeam(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              {modalError && (
+                <div style={{ padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                  {modalError}
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Tên nhóm' : 'Team Name'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Group 1, Nhóm 2..."
+                    value={editTeamName}
+                    onChange={(e) => setEditTeamName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.88rem'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'GitHub Repo URL' : 'GitHub Repo URL'}
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://github.com/organization/repo.git"
+                    value={editTeamRepoUrl}
+                    onChange={(e) => setEditTeamRepoUrl(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: '#60a5fa',
+                      fontSize: '0.88rem'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem' }}>
+                  <button type="button" onClick={() => { setShowEditTeamModal(false); setEditingTeam(null); }} className="btn-secondary" style={{ fontSize: '0.82rem', padding: '7px 14px' }}>
+                    {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                  </button>
+                  <button type="submit" disabled={submittingEditTeam} className="btn-primary" style={{ fontSize: '0.82rem', padding: '7px 16px', gap: '6px' }}>
+                    {submittingEditTeam ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    <span>{lang === 'vi' ? 'Lưu thay đổi' : 'Save Changes'}</span>
                   </button>
                 </div>
               </form>
