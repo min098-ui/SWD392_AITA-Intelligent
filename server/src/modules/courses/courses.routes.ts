@@ -43,8 +43,8 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/courses - Giảng viên (hoặc Admin) tạo môn học mới
-router.post('/', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
+// POST /api/courses - Chỉ Giảng viên mới có quyền tạo môn học mới
+router.post('/', authenticateJWT, requireRole('LECTURER'), async (req: Request, res: Response) => {
   const { course_code, course_name, semester, lecturer_id } = req.body;
 
   if (!course_code || !course_name || !semester) {
@@ -278,6 +278,129 @@ router.get('/:id/teams', authenticateJWT, async (req: Request, res: Response) =>
     return res.json({ teams: result.rows });
   } catch (error) {
     console.error('Error fetching teams:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// PUT /api/courses/:id - Giảng viên (hoặc Admin) cập nhật thông tin học phần
+router.put('/:id', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
+  const courseId = parseInt(req.params.id, 10);
+  const { course_code, course_name, semester } = req.body;
+
+  if (isNaN(courseId)) {
+    return res.status(400).json({ message: 'Mã môn học không hợp lệ.' });
+  }
+
+  if (!course_code || !course_name || !semester) {
+    return res.status(400).json({ message: 'Vui lòng cung cấp mã môn học, tên môn học và học kỳ.' });
+  }
+
+  try {
+    const courseRes = await pool.query('SELECT * FROM courses WHERE course_id = $1', [courseId]);
+    if (courseRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy môn học.' });
+    }
+
+    const course = courseRes.rows[0];
+    if (req.user!.role === 'LECTURER' && course.lecturer_id !== req.user!.userId) {
+      return res.status(403).json({ message: 'Bạn chỉ có quyền chỉnh sửa môn học do mình giảng dạy.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE courses 
+       SET course_code = $1, course_name = $2, semester = $3 
+       WHERE course_id = $4 
+       RETURNING *`,
+      [course_code.trim(), course_name.trim(), semester.trim(), courseId]
+    );
+
+    return res.json({
+      message: 'Cập nhật môn học thành công',
+      course: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Error updating course:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// DELETE /api/courses/:id - Giảng viên (hoặc Admin) xóa học phần và dữ liệu liên quan
+router.delete('/:id', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
+  const courseId = parseInt(req.params.id, 10);
+  if (isNaN(courseId)) {
+    return res.status(400).json({ message: 'Mã môn học không hợp lệ.' });
+  }
+
+  try {
+    const courseRes = await pool.query('SELECT * FROM courses WHERE course_id = $1', [courseId]);
+    if (courseRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy môn học.' });
+    }
+
+    const course = courseRes.rows[0];
+    if (req.user!.role === 'LECTURER' && course.lecturer_id !== req.user!.userId) {
+      return res.status(403).json({ message: 'Bạn chỉ có quyền xóa môn học do mình giảng dạy.' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Lấy danh sách nhóm thuộc môn học
+      const teamsRes = await client.query('SELECT team_id FROM teams WHERE course_id = $1', [courseId]);
+      const teamIds = teamsRes.rows.map((r: any) => r.team_id);
+
+      if (teamIds.length > 0) {
+        await client.query('DELETE FROM peer_audits WHERE team_id = ANY($1)', [teamIds]);
+        await client.query('DELETE FROM git_commits WHERE team_id = ANY($1)', [teamIds]);
+
+        const subRes = await client.query('SELECT submission_id FROM submissions WHERE team_id = ANY($1)', [teamIds]);
+        const subIds = subRes.rows.map((r: any) => r.submission_id);
+
+        if (subIds.length > 0) {
+          const jobsRes = await client.query('SELECT grading_job_id FROM grading_jobs WHERE submission_id = ANY($1)', [subIds]);
+          const jobIds = jobsRes.rows.map((r: any) => r.grading_job_id);
+
+          if (jobIds.length > 0) {
+            await client.query('DELETE FROM grading_results WHERE grading_job_id = ANY($1)', [jobIds]);
+            await client.query('DELETE FROM grading_jobs WHERE grading_job_id = ANY($1)', [jobIds]);
+          }
+
+          await client.query('DELETE FROM tutor_chat_messages WHERE submission_id = ANY($1)', [subIds]);
+          await client.query('DELETE FROM submissions WHERE submission_id = ANY($1)', [subIds]);
+        }
+
+        await client.query('DELETE FROM team_members WHERE team_id = ANY($1)', [teamIds]);
+        await client.query('DELETE FROM teams WHERE course_id = $1', [courseId]);
+      }
+
+      // 2. Xóa các bài tập và rubric của môn học
+      const assignRes = await client.query('SELECT assignment_id FROM assignments WHERE course_id = $1', [courseId]);
+      const assignIds = assignRes.rows.map((r: any) => r.assignment_id);
+
+      if (assignIds.length > 0) {
+        await client.query('DELETE FROM rubric_rules WHERE assignment_id = ANY($1)', [assignIds]);
+        await client.query('DELETE FROM tutor_chat_sessions WHERE assignment_id = ANY($1)', [assignIds]);
+        await client.query('DELETE FROM assignments WHERE course_id = $1', [courseId]);
+      }
+
+      // 3. Xóa ghi danh
+      await client.query('DELETE FROM course_enrollments WHERE course_id = $1', [courseId]);
+
+      // 4. Xóa môn học
+      await client.query('DELETE FROM courses WHERE course_id = $1', [courseId]);
+
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+
+    return res.json({ message: 'Đã xóa học phần và toàn bộ dữ liệu liên quan thành công.' });
+  } catch (error) {
+    console.error('Error deleting course:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
