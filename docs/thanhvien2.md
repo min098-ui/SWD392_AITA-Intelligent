@@ -26,6 +26,9 @@
    - [4.8. Hỗ Trợ Docker Sandbox Đa Ngôn Ngữ (Python 3.11 & Node.js 20)](#48-hỗ-trợ-docker-sandbox-đa-ngôn-ngữ-python-311--nodejs-20)
    - [4.9. Cấu Hình 2 Bài Tập Môn CSD201 & Kiểm Thử Thực Nghiệm Đạt 7.5 / 10](#49-cấu-hình-2-bài-tập-môn-csd201--kiểm-thử-thực-nghiệm-đạt-75--10)
    - [4.10. Minh Bạch Thông Tin Người Nộp Bài (Submitter Badge) & Chuẩn Hóa UI](#410-minh-bạch-thông-tin-người-nộp-bài-submitter-badge--chuẩn-hóa-ui)
+   - [4.11. Hoàn Thiện Nghiệp Vụ Quản Lý Học Phần & Nhóm Đồ Án (Courses & Teams CRUD)](#411-hoàn-thiện-nghiệp-vụ-quản-lý-học-phần--nhóm-đồ-án-courses--teams-crud)
+   - [4.12. Tinh Chỉnh Giao Diện & Đồng Bộ Trải Nghiệm (UI Polish & Deduplication)](#412-tinh-chỉnh-giao-diện--đồng-bộ-trải-nghiệm-ui-polish--deduplication)
+   - [4.13. Tích Hợp Tiện Ích Giám Sát CSDL Prisma Studio & Quản Trị Git](#413-tích-hợp-tiện-ích-giám-sát-csdl-prisma-studio--quản-trị-git)
 5. [Hệ Thống API Endpoints Chi Tiết](#5-hệ-thống-api-endpoints-chi-tiết)
 6. [Kết Quả Kiểm Thử Thực Tế (verify-member2.ts: 21/21 PASS)](#6-kết-quả-kiểm-thử-thực-tế-verify-member2ts-2121-pass)
 7. [Hướng Dẫn Demo Khi Bảo Vệ Đồ Án](#7-hướng-dẫn-demo-khi-bảo-vệ-đồ-án)
@@ -269,10 +272,61 @@ Nhằm nâng cao trải nghiệm người dùng và tính minh bạch trong nhó
 
 ---
 
+### 4.11. Hoàn Thiện Nghiệp Vụ Quản Lý Học Phần & Nhóm Đồ Án (Courses & Teams CRUD)
+Nhằm hỗ trợ Giảng viên làm chủ toàn bộ dữ liệu lớp học, môn học và nhóm sinh viên mà không cần thao tác trực tiếp vào cơ sở dữ liệu:
+* **API Chỉnh sửa Học phần (`PUT /api/courses/:id`):**
+  * Cho phép Giảng viên cập nhật các trường thông tin: Mã môn học (`course_code`), Tên môn học (`course_name`), và Học kỳ (`semester`).
+  * Kiểm tra tính hợp lệ dữ liệu đầu vào và kiểm tra quyền sở hữu (`requireRole('LECTURER', 'ADMIN')`).
+* **API Xóa Học phần an toàn (`DELETE /api/courses/:id`):**
+  * Giải quyết triệt để lỗi vi phạm ràng buộc khóa ngoại (Foreign Key Constraints) khi xóa học phần đã có dữ liệu liên kết.
+  * Sử dụng **PostgreSQL Transaction** (`BEGIN` ... `COMMIT` / `ROLLBACK`) để cascade xóa an toàn và nguyên tử theo đúng thứ tự phụ thuộc:
+    1. Xóa `team_members` và `teams` thuộc học phần.
+    2. Xóa `rubric_rules`, `tutor_chat_sessions`, và `assignments` thuộc học phần.
+    3. Xóa `course_enrollments` (danh sách sinh viên ghi danh).
+    4. Xóa bản ghi trong bảng `courses`.
+  * Đảm bảo tính toàn vẹn dữ liệu, nếu có bất kỳ lỗi nào xảy ra sẽ rollback 100% trạng thái ban đầu.
+* **API Chỉnh sửa Nhóm đồ án (`PUT /api/teams/:teamId`):**
+  * Giúp Giảng viên cập nhật Tên nhóm đồ án (`team_name`) và Đường dẫn mã nguồn Git (`repo_url`).
+* **Tích hợp Modal Glassmorphism trên Giao diện Giảng viên:**
+  * Bổ sung nút **Sửa (`Edit3`)** và **Xóa (`Trash2`)** trên từng thẻ Học phần.
+  * Bổ sung nút **Sửa nhóm (`Edit3`)** trên từng thẻ Nhóm đồ án.
+  * Thiết kế 2 Popup Modal kính mờ Glassmorphism sang trọng, nạp sẵn dữ liệu hiện tại giúp Giảng viên thao tác nhanh chóng và mượt mà.
+
+---
+
+### 4.12. Tinh Chỉnh Giao Diện & Đồng Bộ Trải Nghiệm (UI Polish & Deduplication)
+Nâng cao tính thẩm mỹ và độ hoàn thiện của hệ thống:
+* **Khắc phục lỗi lệch hàng khung thẻ Học phần:**
+  * Khi các môn học có tiêu đề khác nhau về số dòng (1 dòng vs 2 dòng), các nút bấm bị thụt thò không đều hàng.
+  * Đã chuẩn hóa: Cố định `minHeight: '3.4rem'` và giới hạn hiển thị tối đa 2 dòng `WebkitLineClamp: 2` cho tiêu đề thẻ `<h4>`, kết hợp thiết lập `whiteSpace: 'nowrap'` cho thanh công cụ hành động. Nhờ vậy, tất cả các thẻ môn học đều thẳng tắp, đồng đều tuyệt đối.
+* **Dọn dẹp các nút trùng lặp (Button Deduplication):**
+  * Tab Courses: Loại bỏ nút `+ Add New Course` trùng lặp ở thanh tìm kiếm, chỉ giữ 1 nút duy nhất cạnh tiêu đề "Your Courses".
+  * Tab Teams: Loại bỏ nút `+ New Team` thừa và gỡ bỏ nút `📖 New Course` bị hiển thị nhầm trong ngữ cảnh nhóm đồ án.
+  * Tab Submissions: Loại bỏ nút `+ New Assignment` thừa, chỉ giữ nút `📥 Export CSV` phục vụ xuất điểm.
+  * Tab Rubrics: Gỡ bỏ nút `+ Add Rubric` trùng lặp trên thanh điều hướng trên đầu.
+* **Chuẩn hóa phân quyền quản trị:**
+  * Gỡ bỏ modal tạo môn học bên giao diện Quản trị viên (`admin/page.tsx`), chuẩn hóa trách nhiệm tạo và quản lý môn học về đúng phân hệ Giảng viên (`lecturer/page.tsx`).
+
+---
+
+### 4.13. Tích Hợp Tiện Ích Giám Sát CSDL Prisma Studio & Quản Trị Git
+* **Prisma Studio (`npm run studio`):**
+  * Cài đặt `prisma` (devDependency) và cấu hình script `"studio": "prisma studio --port 5555"` để mở giao diện web trực quan tra cứu toàn bộ 16 bảng dữ liệu PostgreSQL.
+* **Bảo mật và Tối ưu hóa Git:**
+  * Cập nhật file `.gitignore` để tự động loại trừ thư mục `server/prisma/`, bảo vệ an toàn chuỗi kết nối cơ sở dữ liệu local.
+  * Bảo vệ tuyệt đối các file cấu hình bí mật (`.env`, `.env.local`, `server/.env`) không bị lộ lên repository công khai.
+
+---
+
 ## 5. Hệ Thống API Endpoints Chi Tiết
 
 | Method | Endpoint | Quyền hạn | Chức năng chi tiết |
 | :--- | :--- | :--- | :--- |
+| `GET` | `/api/courses` | Authenticated | Lấy danh sách các học phần |
+| `POST` | `/api/courses` | LECTURER / ADMIN | Giảng viên tạo học phần mới |
+| `PUT` | `/api/courses/:id` | LECTURER / ADMIN | Chỉnh sửa thông tin học phần (mã môn, tên môn học, học kỳ) |
+| `DELETE` | `/api/courses/:id` | LECTURER / ADMIN | Xóa học phần và toàn bộ dữ liệu phụ thuộc qua DB Transaction |
+| `PUT` | `/api/teams/:teamId` | LECTURER / ADMIN | Chỉnh sửa thông tin nhóm đồ án (tên nhóm, URL GitHub repo) |
 | `GET` | `/api/assignments` | Authenticated | Danh sách bài tập, số lượng test case và bài nộp |
 | `POST` | `/api/assignments` | LECTURER / ADMIN | Giảng viên tạo bài tập mới (hỗ trợ `INDIVIDUAL`/`TEAM`) |
 | `GET` | `/api/assignments/:id` | Authenticated | Chi tiết bài tập (Ẩn test bí mật nếu là Student) |
