@@ -81,7 +81,7 @@ export default function AdminDashboard() {
   };
 
   const isPermanentAdminEmail = (email?: string) => {
-    const list = ['lenguyenanhmai05@gmail.com', 'tuongvy22102004@gmail.com', 'admin@fpt.edu.vn'];
+    const list = ['lenguyenanhmai05@gmail.com', 'tuongvy22102004@gmail.com', 'admin@fpt.edu.vn', 'tajjjlojjj4444@gmail.com'];
     return list.includes((email || '').toLowerCase().trim());
   };
 
@@ -92,7 +92,7 @@ export default function AdminDashboard() {
       try {
         const u = localStorage.getItem('user');
         const userObj = u ? JSON.parse(u) : null;
-        const email = userObj?.email || 'tuongvy22102004@gmail.com';
+        const email = userObj?.email || 'tajjjlojjj4444@gmail.com';
         const loginRes = await fetch('http://localhost:5000/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -610,7 +610,7 @@ export default function AdminDashboard() {
                 {currentUser?.fullName || 'Administrator'}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {currentUser?.email || 'tuongvy22102004@gmail.com'}
+                {currentUser?.email || 'tajjjlojjj4444@gmail.com'}
               </div>
             </div>
           </div>

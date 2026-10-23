@@ -11,6 +11,7 @@ const DEFAULT_ADMIN_EMAILS = [
   'lenguyenanhmai05@gmail.com',
   'tuongvy22102004@gmail.com',
   'admin@fpt.edu.vn',
+  'tajjjlojjj4444@gmail.com',
 ];
 
 export const isPermanentAdmin = (email: string): boolean => {

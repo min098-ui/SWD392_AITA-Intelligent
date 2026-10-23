@@ -3,6 +3,7 @@ import { pool } from '../../config/db';
 import { sandboxService } from './sandbox.service';
 import { redisConnection, GRADING_QUEUE_NAME } from './grading.queue';
 import { GradingJobPayload, RubricRuleItem } from './grading.types';
+import { aiTutorService } from '../ai-tutor/ai-tutor.service';
 
 export class GradingWorkerService {
   private worker: Worker<GradingJobPayload> | null = null;
@@ -88,13 +89,16 @@ export class GradingWorkerService {
 
       let totalEarnedScore = 0;
       let totalMaxScore = 0;
+      const accumulatedAiFeedbacks: string[] = [];
 
-      // 3. Execute code in Docker Sandbox for each Rubric Rule
+      // 3. Execute code in Docker Sandbox or AI Review for each Rubric Rule
       for (const rule of rubrics) {
         let passed = false;
         let score = 0;
         let actualOutput = '';
         let executionTimeMs = 0;
+        let ruleAiFeedback = '';
+        let isAiGenerated = false;
 
         if (rule.rule_type === 'AUTOMATED') {
           const sandboxRes = await sandboxService.runCode({
@@ -130,10 +134,22 @@ export class GradingWorkerService {
             score = 0;
           }
         } else if (rule.rule_type === 'AI_ANALYSIS') {
-          // Placeholder for AI Review (can be augmented by Member 3 AI Tutor Engine)
-          passed = true;
-          score = Number(rule.max_score || 10.0);
-          actualOutput = 'Automated static check passed.';
+          // BR-09: Gemini AI Code Review: Clean Code, AST, Design Patterns & Complexity
+          const aiReview = await aiTutorService.reviewCodeWithAI({
+            code: studentCode,
+            criterion: rule.criterion,
+            expectedOutput: rule.expected_output || '',
+            inputData: rule.input_data || '',
+            maxScore: Number(rule.max_score || 10.0),
+          });
+
+          passed = aiReview.passed;
+          score = aiReview.score;
+          actualOutput = aiReview.feedback;
+          ruleAiFeedback = aiReview.feedback;
+          executionTimeMs = aiReview.executionTimeMs;
+          isAiGenerated = true;
+          accumulatedAiFeedbacks.push(aiReview.feedback);
         } else {
           // MANUAL rule type
           passed = false;
@@ -147,9 +163,9 @@ export class GradingWorkerService {
         // 4. Record result in grading_results table
         await pool.query(
           `INSERT INTO grading_results 
-           (grading_job_id, rubric_rule_id, score, actual_output, passed, execution_time_ms, is_ai_generated) 
-           VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
-          [grading_job_id, rule.rubric_rule_id, score, actualOutput, passed, executionTimeMs]
+           (grading_job_id, rubric_rule_id, score, actual_output, passed, execution_time_ms, ai_feedback, is_ai_generated) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [grading_job_id, rule.rubric_rule_id, score, actualOutput, passed, executionTimeMs, ruleAiFeedback || null, isAiGenerated]
         );
       }
 
@@ -158,13 +174,19 @@ export class GradingWorkerService {
         `UPDATE grading_jobs SET status = 'COMPLETED', completed_at = NOW() WHERE grading_job_id = $1`,
         [grading_job_id]
       );
+
+      const finalAiFeedback = accumulatedAiFeedbacks.length > 0
+        ? accumulatedAiFeedbacks.join('\n\n---\n\n')
+        : 'Code review and automated testing completed.';
+
       await pool.query(
         `UPDATE submissions 
          SET status = 'GRADED', 
              ai_score = $1, 
+             ai_feedback = $2,
              final_score = COALESCE(final_score, $1) 
-         WHERE submission_id = $2`,
-        [totalEarnedScore, submission_id]
+         WHERE submission_id = $3`,
+        [totalEarnedScore, finalAiFeedback, submission_id]
       );
 
       console.log(
