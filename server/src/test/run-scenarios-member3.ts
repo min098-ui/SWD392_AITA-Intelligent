@@ -99,14 +99,18 @@ async function runRealScenarios() {
 
   try {
     // Ensure assignment and submission exist for relational integrity
+    const cRes = await pool.query('SELECT course_id FROM courses LIMIT 1');
+    const validCourse = cRes.rows[0]?.course_id || 3;
+    const tRes = await pool.query('SELECT team_id FROM teams LIMIT 1');
+    const validTeam = tRes.rows[0]?.team_id || 4;
     await pool.query(
       `INSERT INTO assignments (assignment_id, course_id, title, max_score) 
-       VALUES (1, 1, 'Two Sum & Clean Code Challenge', 10.0) 
+       VALUES (1, ${validCourse}, 'Two Sum & Clean Code Challenge', 10.0) 
        ON CONFLICT (assignment_id) DO NOTHING`
     );
     await pool.query(
-      `INSERT INTO submissions (submission_id, assignment_id, team_id, submitted_by_user_id, artifact_url, git_commit_hash, status)
-       VALUES (1, 1, 1, 10, 'https://github.com/min098-ui/SWD392_AITA-Intelligent', 'commit123456', 'SUBMITTED')
+      `INSERT INTO submissions (submission_id, assignment_id, team_id, artifact_url, git_commit_hash, status)
+       VALUES (1, 1, ${validTeam}, 'https://github.com/min098-ui/SWD392_AITA-Intelligent', 'commit123456', 'SUBMITTED')
        ON CONFLICT (submission_id) DO NOTHING`
     );
 
