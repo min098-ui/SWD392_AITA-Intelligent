@@ -9,6 +9,7 @@
     "test:member3": "npm --prefix server run test:member3",
     "test:member4": "npm --prefix server run test:member4",
     "db:reset": "npm --prefix server run db:reset",
+    "studio": "npm --prefix server run studio",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "dev:all": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
