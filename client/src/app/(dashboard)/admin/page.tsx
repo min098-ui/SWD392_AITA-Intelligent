@@ -48,9 +48,7 @@ export default function AdminDashboard() {
   // Key Pool State (UC-15)
   const [keys, setKeys] = useState<AIKeyItem[]>([
     { id: 1, provider: 'Google Gemini 1.5 Pro', mask: 'AIzaSyB...9KjA', status: 'Active', statusColor: 'var(--accent-success)', usage: '4,521', last: '2 mins ago' },
-    { id: 2, provider: 'Google Gemini 1.5 Flash', mask: 'AIzaSyX...2MwQ', status: 'Rate Limited (Cooldown)', statusColor: 'var(--accent-error)', usage: '1,200', last: '15 mins ago' },
-    { id: 3, provider: 'OpenAI GPT-4o', mask: 'sk-proj...7T3A', status: 'Active', statusColor: 'var(--accent-success)', usage: '8,922', last: 'Just now' },
-    { id: 4, provider: 'Anthropic Claude 3.5', mask: 'sk-ant...9Lq1', status: 'Standby / Fallback', statusColor: 'var(--text-muted)', usage: '450', last: '1 hour ago' },
+    { id: 2, provider: 'Google Gemini 1.5 Flash', mask: 'AIzaSyX...2MwQ', status: 'Active', statusColor: 'var(--accent-success)', usage: '1,200', last: '15 mins ago' },
   ]);
 
   // Users State (UC-13)
