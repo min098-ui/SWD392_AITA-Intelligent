@@ -145,7 +145,7 @@ export default function AdminDashboard() {
             code: c.course_code,
             name: c.course_name,
             semester: c.semester,
-            lecturer: c.lecturer_name || 'Dr. Nguyen Van Giang',
+            lecturer: c.lecturer_name || 'Yen12 Yen',
             teamsCount: c.teamsCount || 1
           })));
         }
@@ -693,9 +693,6 @@ export default function AdminDashboard() {
                       : 'All API keys are encrypted with AES-256 at-rest. System dynamically failovers to fallback keys upon HTTP 429 rate limit.'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => alert(lang === 'vi' ? 'Modal thêm khóa AI mới sẵn sàng!' : 'Add Key modal ready!')}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Khóa AI Mới' : 'Add New Key'}
-                </button>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
@@ -747,9 +744,6 @@ export default function AdminDashboard() {
                     {lang === 'vi' ? 'Định hình phong cách chấm bài của AI và gợi ý Socratic cho sinh viên với quản lý phiên bản (v1.0, v2.1).' : 'Version-controlled prompts for automated grading and Socratic tutoring.'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Tạo mẫu Prompt mới' : 'Create Template'}
-                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
@@ -796,9 +790,6 @@ export default function AdminDashboard() {
                     {lang === 'vi' ? 'Quản trị viên phân định các vai trò: ADMIN, LECTURER (Giảng viên) và STUDENT (Sinh viên).' : 'Manage system users and access control roles (ADMIN, LECTURER, STUDENT).'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => alert('Thêm người dùng mới')}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Người Dùng' : 'Add User'}
-                </button>
               </div>
 
               {/* Cảnh báo Giảng viên chờ duyệt */}
@@ -986,29 +977,39 @@ export default function AdminDashboard() {
                     {lang === 'vi' ? 'Học phần & Phân công Giảng viên phụ trách' : 'Courses & Instructor Assignments'}
                   </h3>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {lang === 'vi' ? 'Khởi tạo các môn học trong học kỳ và chỉ định giảng viên quản lý.' : 'Initialize courses and assign designated lecturers.'}
+                    {lang === 'vi' ? 'Danh sách các môn học đang hoạt động trong học kỳ và giảng viên phụ trách (Chế độ giám sát).' : 'Active academic courses and designated instructors in current semester.'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setShowCourseModal(true)}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Học Phần Mới' : 'Create Course'}
-                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
                 {courses.map(c => (
-                  <div key={c.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                      <div>
-                        <span className="badge badge-info" style={{ marginBottom: '6px' }}>{c.code}</span>
-                        <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{c.name}</h4>
+                  <div 
+                    key={c.id} 
+                    style={{ 
+                      background: 'rgba(255,255,255,0.02)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '14px', 
+                      padding: '1.5rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      height: '100%'
+                    }}
+                  >
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
+                        <div>
+                          <span className="badge badge-info" style={{ marginBottom: '8px', display: 'inline-block' }}>{c.code}</span>
+                          <h4 style={{ fontSize: '1.05rem', fontWeight: 700, minHeight: '2.8rem', lineHeight: '1.4', display: 'flex', alignItems: 'center' }}>{c.name}</h4>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.2rem', marginTop: 'auto' }}>
+                        <p>{lang === 'vi' ? 'Học kỳ:' : 'Semester:'} <strong style={{ color: 'var(--text-main)' }}>{c.semester}</strong></p>
+                        <p>{lang === 'vi' ? 'Giảng viên phụ trách:' : 'Lecturer:'} <strong style={{ color: '#34d399' }}>{c.lecturer}</strong></p>
+                        <p>{lang === 'vi' ? 'Số nhóm đồ án:' : 'Active Teams:'} <strong style={{ color: '#60a5fa' }}>{c.teamsCount} Teams</strong></p>
                       </div>
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1rem' }}>
-                      <p>{lang === 'vi' ? 'Học kỳ:' : 'Semester:'} <strong style={{ color: 'var(--text-main)' }}>{c.semester}</strong></p>
-                      <p>{lang === 'vi' ? 'Giảng viên phụ trách:' : 'Lecturer:'} <strong style={{ color: '#34d399' }}>{c.lecturer}</strong></p>
-                      <p>{lang === 'vi' ? 'Số nhóm đồ án:' : 'Active Teams:'} <strong style={{ color: '#60a5fa' }}>{c.teamsCount} Teams</strong></p>
-                    </div>
-                    <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem' }}>
+                    <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem', marginTop: 'auto' }}>
                       {lang === 'vi' ? 'Đổi Giảng viên phụ trách' : 'Reassign Lecturer'}
                     </button>
                   </div>
@@ -1243,154 +1244,6 @@ export default function AdminDashboard() {
 
         </div>
       </main>
-
-      {/* MODAL: TẠO HỌC PHẦN MỚI (CREATE COURSE FOR ADMIN) */}
-      {showCourseModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          backdropFilter: 'blur(8px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1100,
-          padding: '1rem'
-        }}>
-          <div className="glass-card" style={{
-            width: '100%',
-            maxWidth: '520px',
-            padding: '2rem',
-            borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171' }}>
-                  <BookOpen size={20} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-                    {lang === 'vi' ? 'Thêm Học Phần Mới' : 'Create New Course'}
-                  </h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {lang === 'vi' ? 'Ghi trực tiếp vào bảng `courses` trong PostgreSQL' : 'Insert into PostgreSQL `courses` table'}
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => setShowCourseModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                  {lang === 'vi' ? 'Mã môn học (Course Code):' : 'Course Code:'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: SWD392, PRJ301, EXE201"
-                  value={newCode}
-                  onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.9rem'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                  {lang === 'vi' ? 'Tên môn học (Course Name):' : 'Course Name:'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: Software Architecture & Design Project"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.9rem'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                  {lang === 'vi' ? 'Học kỳ (Semester):' : 'Semester:'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: FA26, SP26, SU26"
-                  value={newSemester}
-                  onChange={(e) => setNewSemester(e.target.value.toUpperCase())}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.9rem'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                  {lang === 'vi' ? 'Chỉ định Giảng viên phụ trách:' : 'Assigned Lecturer:'}
-                </label>
-                <select
-                  value={newLecturerId}
-                  onChange={(e) => setNewLecturerId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  {users
-                    .filter((u) => u.role === 'LECTURER' || u.role === 'ADMIN')
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.role}) - {u.email}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
-                <button type="button" onClick={() => setShowCourseModal(false)} className="btn-secondary" style={{ fontSize: '0.85rem' }}>
-                  {lang === 'vi' ? 'Hủy bỏ' : 'Cancel'}
-                </button>
-                <button type="submit" disabled={submittingCourse} className="btn-primary" style={{ fontSize: '0.85rem', gap: '8px' }}>
-                  {submittingCourse ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
-                  <span>{lang === 'vi' ? 'Lưu Học Phần' : 'Save Course'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
