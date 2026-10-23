@@ -380,4 +380,52 @@ router.delete('/:teamId', authenticateJWT, requireRole('ADMIN', 'LECTURER'), asy
   }
 });
 
+// PUT /api/teams/:teamId - Giảng viên (hoặc Admin) chỉnh sửa thông tin nhóm (Tên nhóm, GitHub Repo)
+router.put('/:teamId', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
+  const teamId = parseInt(req.params.teamId, 10);
+  const { team_name, repo_url } = req.body;
+
+  if (isNaN(teamId)) {
+    return res.status(400).json({ message: 'teamId không hợp lệ.' });
+  }
+
+  if (!team_name && !repo_url) {
+    return res.status(400).json({ message: 'Vui lòng cung cấp ít nhất tên nhóm hoặc đường dẫn repo Git.' });
+  }
+
+  try {
+    const teamRes = await pool.query(
+      `SELECT t.*, c.lecturer_id 
+       FROM teams t 
+       JOIN courses c ON t.course_id = c.course_id 
+       WHERE t.team_id = $1`,
+      [teamId]
+    );
+
+    if (teamRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy nhóm tương ứng.' });
+    }
+
+    const currentTeam = teamRes.rows[0];
+    const newTeamName = team_name ? team_name.trim() : currentTeam.team_name;
+    const newRepoUrl = repo_url ? repo_url.trim() : currentTeam.repo_url;
+
+    const updateRes = await pool.query(
+      `UPDATE teams 
+       SET team_name = $1, repo_url = $2 
+       WHERE team_id = $3 
+       RETURNING *`,
+      [newTeamName, newRepoUrl, teamId]
+    );
+
+    return res.json({
+      message: 'Cập nhật thông tin nhóm thành công',
+      team: updateRes.rows[0],
+    });
+  } catch (error) {
+    console.error('Error updating team:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 export default router;
