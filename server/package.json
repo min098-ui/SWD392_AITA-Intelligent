@@ -11,7 +11,8 @@
     "test:member2": "tsc && node dist/test/verify-member2.js",
     "test:member3": "tsc && node dist/test/verify-member3.js",
     "test:member4": "tsc && node dist/test/verify-member4.js",
-    "db:reset": "npx ts-node src/scripts/reset-db.ts"
+    "db:reset": "npx ts-node src/scripts/reset-db.ts",
+    "studio": "prisma studio --port 5555"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
@@ -36,6 +37,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.14.9",
     "@types/pg": "^8.11.6",
+    "prisma": "^5.22.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.2"
   }

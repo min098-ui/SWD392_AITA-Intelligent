@@ -245,10 +245,15 @@ async function runMember3Tests() {
     // -------------------------------------------------------------------------
     console.log('\n🤖 4. KIỂM THỬ TRỢ GIẢNG AI SOCRATIC & CHAT SESSIONS');
 
+    // Dynamically retrieve an existing valid submission & assignment
+    const subCheck = await pool.query('SELECT submission_id, assignment_id FROM submissions LIMIT 1');
+    const validSubId = subCheck.rows[0]?.submission_id || 36;
+    const validAssignId = subCheck.rows[0]?.assignment_id || 3;
+
     // Test 4.1: Create chat session
     const createSessionRes = await makeRequest(testPort, 'POST', '/api/ai-tutor/sessions', studentToken, {
-      submission_id: 1,
-      assignment_id: 1,
+      submission_id: validSubId,
+      assignment_id: validAssignId,
       session_title: 'Hỏi bài tập vòng lặp và đệ quy',
     });
     assert(
@@ -291,7 +296,7 @@ async function runMember3Tests() {
     );
 
     // Test 4.4: Backwards compatible submission chat
-    const subChatRes = await makeRequest(testPort, 'POST', '/api/ai-tutor/1/chat', studentToken, {
+    const subChatRes = await makeRequest(testPort, 'POST', `/api/ai-tutor/${validSubId}/chat`, studentToken, {
       content: 'Em bị dính lỗi Timeout trong Docker Sandbox, xử lý sao?',
     });
     assert(
@@ -339,9 +344,14 @@ function twoSum(nums, target) {
 
     // Test 5.2: AI Code Review integration in Grading Worker
     // Ensure submissions and rubric_rules exist for test
-    await pool.query(`INSERT INTO assignments (assignment_id, course_id, title, max_score) VALUES (999, 1, 'AI Review Assignment', 10.0) ON CONFLICT DO NOTHING`);
+    const courseRow = await pool.query('SELECT course_id FROM courses LIMIT 1');
+    const validCourseId = courseRow.rows[0]?.course_id || 3;
+    await pool.query(`INSERT INTO assignments (assignment_id, course_id, title, max_score) VALUES (999, ${validCourseId}, 'AI Review Assignment', 10.0) ON CONFLICT DO NOTHING`);
     await pool.query(`INSERT INTO rubric_rules (rubric_rule_id, assignment_id, rule_type, criterion, max_score) VALUES (999, 999, 'AI_ANALYSIS', 'Code Style & Design Patterns', 10.0) ON CONFLICT DO NOTHING`);
-    await pool.query(`INSERT INTO submissions (submission_id, assignment_id, artifact_url, git_commit_hash, status) VALUES (999, 999, '${sampleStudentCode.replace(/'/g, "''")}', 'commithash999', 'SUBMITTED') ON CONFLICT DO NOTHING`);
+    const teamRow = await pool.query('SELECT team_id FROM teams LIMIT 1');
+    const validTeamId = teamRow.rows[0]?.team_id || 4;
+    await pool.query(`INSERT INTO submissions (submission_id, assignment_id, team_id, artifact_url, git_commit_hash, status) VALUES (999, 999, ${validTeamId}, 'https://github.com/aita-demo/repo.git', 'commithash999', 'SUBMITTED') ON CONFLICT DO NOTHING`);
+    await pool.query(`INSERT INTO grading_jobs (grading_job_id, submission_id, status) VALUES (999, 999, 'QUEUED') ON CONFLICT DO NOTHING`);
 
     const gradingJobResult = await gradingWorkerService.processJob({
       id: 'job-member3-test-1',

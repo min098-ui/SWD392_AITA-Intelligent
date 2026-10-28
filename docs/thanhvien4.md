@@ -1,10 +1,12 @@
-﻿# BÁO CÁO CHI TIẾT CÔNG VIỆC THÀNH VIÊN 4 (THANHVIEN4.MD)
+# BÁO CÁO TOÀN DIỆN CÔNG VIỆC THÀNH VIÊN 4 (THANHVIEN4.MD)
 
-> **Dự Án:** AITA-INTELLIGENT — AI-Powered Teaching Assistant & AST Code Analytics Platform  
-> **Môn học:** SWD392 — Software Architecture & Design Project (FPT University Quy Nhơn)  
+> **Dự án:** AITA-INTELLIGENT — AI-Powered Teaching Assistant & AST Code Analytics Platform  
+> **Môn học:** SWD392 – Software Architecture & Design Project (FPT University Quy Nhơn)  
 > **Nhóm thực hiện:** Group 4  
+> **Họ và tên sinh viên:** **Đinh Gia Huy** (`dinhgiahuylol12345@gmail.com`)  
+> **GitHub Username:** `dinhgiahuy140905`  
 > **Vai trò:** **Thành Viên 4 — Git Analytics & Peer Audit Engineer**  
-> **Nhánh Git phụ trách:** `feature/git-analytics-peer-audit`  
+> **Nhánh Git phụ trách:** `Huy` / `feature/git-analytics-peer-audit`  
 > **Các bảng Database phụ trách:** `git_commits`, `peer_audits`  
 
 ---
@@ -12,36 +14,38 @@
 ## 📑 MỤC LỤC
 
 1. [Tổng Quan Vai Trò & Trách Nhiệm](#1-tổng-quan-vai-trò--trách-nhiệm)
-2. [Các Quy Tắc Nghiệp Vụ (Business Rules Phụ Trách)](#2-các-quy-tắc-nghiệp-vụ-business-rules-phụ-trách)
+2. [Các Quy Tắc Nghiệp Vụ Phụ Trách (Business Rules: BR-07, BR-08, BR-09)](#2-các-quy-tắc-nghiệp-vụ-phụ-trách-business-rules)
 3. [Kiến Trúc Pipeline Git Analytics & Peer Audit](#3-kiến-trúc-pipeline-git-analytics--peer-audit)
-4. [Chi Tiết Triển Khai Kỹ Thuật](#4-chi-tiết-triển-khai-kỹ-thuật)
-   - [Module 1: Git Telemetry Sync & Noise Filter](#module-1-git-telemetry-sync--noise-filter)
-   - [Module 2: Thuật Toán Phát Hiện Free-Rider](#module-2-thuật-toán-phát-hiện-free-rider)
-   - [Module 3: Hệ Thống Đánh Giá Chéo Nội Bộ (Peer Audit)](#module-3-hệ-thống-đánh-giá-chéo-nội-bộ-peer-audit)
-   - [Module 4: Tích Hợp Hỗ Trợ Đánh Giá Đa Tầng (Dual-Lecturer BR-09)](#module-4-tích-hợp-hỗ-trợ-đánh-giá-đa-tầng-dual-lecturer-br-09)
-5. [Hệ Thống API Endpoints Phụ Trách](#5-hệ-thống-api-endpoints-phụ-trách)
-6. [Kịch Bản Kiểm Thử & Xác Minh Nghiệp Vụ](#6-kịch-bản-kiểm-thử--xác-minh-nghiệp-vụ)
+4. [Chi Tiết Triển Khai Kỹ Thuật (4 Trọng Tâm)](#4-chi-tiết-triển-khai-kỹ-thuật)
+   - [4.1. Module Git Telemetry Sync & Thuật Toán Lọc Nhiễu Noise Filter (BR-07)](#41-module-git-telemetry-sync--thuật-toán-lọc-nhiễu-noise-filter-br-07)
+   - [4.2. Thuật Toán Định Lượng Đóng Góp & Tự Động Cảnh Báo Free-Rider (BR-07)](#42-thuật-toán-định-lượng-đóng-góp--tự-động-cảnh-báo-free-rider-br-07)
+   - [4.3. Hệ Thống Đánh Giá Chéo Nội Bộ & Ràng Buộc Liêm Chính Học Thuật (BR-08)](#43-hệ-thống-đánh-giá-chéo-nội-bộ--ràng-buộc-liêm-chính-học-thuật-br-08)
+   - [4.4. Tích Hợp Dữ Liệu Đóng Góp Vào Quy Trình Chấm Đa Tầng Dual-Lecturer (BR-09)](#44-tích-hợp-dữ-liệu-đóng-góp-vào-quy-trình-chấm-đa-tầng-dual-lecturer-br-09)
+5. [Danh Mục API Endpoints Phụ Trách](#5-danh-mục-api-endpoints-phụ-trách)
+6. [Kết Quả Kiểm Thử Thực Tế (verify-member4.ts & run-scenarios-member4.ts)](#6-kết-quả-kiểm-thử-thực-tế)
 7. [Hướng Dẫn Demo Khi Bảo Vệ Đồ Án](#7-hướng-dẫn-demo-khi-bảo-vệ-đồ-án)
+8. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs)](#8-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs)
 
 ---
 
 ## 1. Tổng Quan Vai Trò & Trách Nhiệm
 
-Thành Viên 4 phụ trách **"Hệ thống Minh bạch Đóng góp & Trọng tài Nội bộ"** của nền tảng AITA-INTELLIGENT:
-* Xây dựng module **Git Telemetry Analytics** đồng bộ lịch sử commit từ GitHub, định lượng đóng góp thực chất của từng sinh viên trong nhóm đồ án.
-* Thiết kế bộ lọc nhiễu LOC (**Noise Filter**) loại bỏ các thư mục sinh tự động (`node_modules/`, `dist/`, `build/`, `package-lock.json`, `.next/`) để tránh tình trạng "gian lận dòng code".
-* Phát triển thuật toán tự động phát hiện thành viên ỷ lại (**Free-Rider Detection**) để cảnh báo sớm cho Giảng viên.
-* Xây dựng hệ thống **Đánh giá chéo nội bộ (Peer Audit)** bảo vệ tính liêm chính học thuật bằng các ràng buộc cứng ở tầng cơ sở dữ liệu (`CHECK reviewer <> reviewee`).
-* Cung cấp dữ liệu đo lường đóng góp hỗ trợ Hội đồng và Giảng viên trong quy trình chấm điểm đa tầng (**Dual-Lecturer Moderation BR-09**).
+Thành Viên 4 (**Đinh Gia Huy**) đảm nhiệm vai trò **"Hệ thống Minh bạch Đóng góp & Trọng tài Nội bộ"** của nền tảng AITA-INTELLIGENT:
+* Xây dựng module **Git Telemetry Analytics** kết nối GitHub API qua thư viện `@octokit/rest`, đồng bộ lịch sử commit, phân tích chi tiết từng lần thay đổi mã nguồn của từng thành viên trong nhóm đồ án.
+* Thiết kế và kiểm thử thuật toán lọc nhiễu **LOC Noise Filter**: Tự động nhận diện và loại trừ các thư mục auto-generated (`node_modules/`, `dist/`, `.next/`, `build/`), các file lockfile (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`) và minified code nhằm ngăn chặn triệt để hành vi "gian lận dòng code".
+* Phát triển thuật toán tự động gắn cờ **Free-Rider Detection**: Xác định các thành viên có đóng góp ròng dưới ngưỡng cho phép (< 5% tổng LOC nhóm), chủ động gửi tín hiệu cảnh báo `FREE_RIDER_WARNING` lên Dashboard của Giảng viên.
+* Xây dựng hệ thống **Đánh giá chéo nội bộ (Peer Audit)** bảo vệ tính liêm chính học thuật bằng các ràng buộc cứng ở tầng cơ sở dữ liệu (`CHECK reviewer_id <> reviewee_id` và `UNIQUE (assignment_id, reviewer_id, reviewee_id, audit_round)`).
+* Cung cấp dữ liệu đo lường đóng góp hỗ trợ Giảng viên và Hội đồng chấm thi trong **Quy trình Chấm Điểm Đa Tầng (Dual-Lecturer Moderation BR-09)** nhằm đảm bảo sự công bằng, chính xác khi phân hóa điểm cá nhân trong bài tập nhóm.
 
 ---
 
-## 2. Các Quy Tắc Nghiệp Vụ (Business Rules Phụ Trách)
+## 2. Các Quy Tắc Nghiệp Vụ Phụ Trách (Business Rules)
 
 | Mã BR | Tên Quy Tắc | Yêu Cầu Kỹ Thuật & Giải Pháp Triển Khai |
 | :--- | :--- | :--- |
 | **BR-07** | **Lọc Nhiễu LOC & Tự Động Cảnh Báo Free-Rider** | • **Thuật toán tính LOC:** Tính toán dựa trên `lines_added` và `lines_deleted` thực tế từ GitHub API.<br>• **Bộ lọc Noise Filter:** Loại trừ các file thư viện và build artifacts (`package-lock.json`, `yarn.lock`, `dist/`, `.next/`, minified bundle).<br>• **Ngưỡng Free-Rider:** Thành viên có tỷ lệ đóng góp ròng < 5% tổng LOC của cả nhóm sẽ bị gắn cờ cảnh báo `FREE_RIDER_WARNING` trên Dashboard Giảng viên. |
 | **BR-08** | **Liêm Chính Đánh Giá Chéo (Non-Self Evaluation & Uniqueness)** | • **Ràng buộc cấm tự chấm điểm:** Constraint DB `CONSTRAINT chk_peer_not_self CHECK (reviewer_id <> reviewee_id)`.<br>• **Chống trùng lặp đánh giá:** Constraint DB `CONSTRAINT uq_peer_audit_round UNIQUE (assignment_id, reviewer_id, reviewee_id, audit_round)`.<br>• **Phạm vi nhóm:** Chỉ sinh viên cùng thuộc `team_id` mới có quyền đánh giá chéo nhau trong cùng đợt Sprint. |
+| **BR-09** | **Hỗ Trợ Phân Hóa Điểm Đa Tầng (Dual-Lecturer Moderation)** | • Cung cấp telemetry thực tế (tỷ lệ LOC, số commit hợp lệ, điểm peer audit trung bình) trực tiếp cho giao diện Review của Giảng viên 1 và Giảng viên 2.<br>• Giúp giảng viên phát hiện kịp thời các trường hợp bài nộp nhóm đạt điểm cao nhưng có thành viên không đóng góp code. |
 
 ---
 
@@ -58,29 +62,29 @@ sequenceDiagram
     participant GitHub as GitHub REST API (Octokit)
 
     Note over GiangVien, GitHub: 1. LUỒNG ĐỒNG BỘ TELEMETRY & PHÁT HIỆN FREE-RIDER (BR-07)
-    GiangVien->>API: POST /api/git/:teamId/sync (Kích hoạt đồng bộ repo)
+    GiangVien->>Client: Bấm "Đồng bộ Git Telemetry"
+    Client->>API: POST /api/git/:teamId/sync (JWT LECTURER)
+    API->>DB: Lấy repo_url của nhóm (teams)
     API->>GitHub: GET /repos/{owner}/{repo}/commits
-    GitHub-->>API: Trả về Commit Trees, Stats (Additions, Deletions)
-    API->>API: Áp dụng Noise Filter (Loại bỏ build/deps)
-    API->>DB: UPSERT git_commits (lines_added, lines_deleted, committed_at)
-    GiangVien->>API: GET /api/git/:teamId/commits
-    API->>DB: SELECT SUM(lines_added) GROUP BY author_user_id
-    API->>API: Tính LOC% từng thành viên -> Gắn cờ < 5%
-    API-->>GiangVien: Trả về Biểu đồ đóng góp & Cảnh báo Free-Rider
+    GitHub-->>API: Trả về Commit List (SHA, Author, Files Changed, Stats)
+    loop Xử lý từng file trong commit
+        API->>API: Áp dụng isNoiseFile(filename)
+        Note over API: Bỏ qua package-lock.json, node_modules, dist/
+    end
+    API->>DB: Lưu các commit sạch vào bảng git_commits
+    API->>DB: Tính tổng LOC từng sinh viên & tỷ lệ %
+    API-->>Client: Trả về Bảng đóng góp & Cờ FREE_RIDER_WARNING nếu < 5%
 
-    Note over SinhVien, DB: 2. LUỒNG ĐÁNH GIÁ CHÉO NỘI BỘ (BR-08)
-    SinhVien->>Client: Mở phiếu Peer Audit đợt nộp bài
-    Client->>API: POST /api/peer-audits (reviewer_id, reviewee_id, score, comments)
-    API->>DB: INSERT peer_audits
-    alt Vi phạm tự chấm điểm (reviewer_id == reviewee_id)
-        DB-->>API: Lỗi Constraint chk_peer_not_self
-        API-->>SinhVien: HTTP 400 "You cannot audit yourself"
-    else Đã đánh giá trong round này
-        DB-->>API: Lỗi Constraint uq_peer_audit_round
-        API-->>SinhVien: HTTP 409 "Duplicate audit submission"
+    Note over SinhVien, DB: 2. LUỒNG ĐÁNH GIÁ CHÉO NỘI BỘ (PEER AUDIT - BR-08)
+    SinhVien->>Client: Chọn bạn cùng nhóm, nhập điểm & nhận xét
+    Client->>API: POST /api/peer-audits (JWT STUDENT)
+    API->>API: Kiểm tra reviewer_id === reviewee_id (Tự chấm điểm?)
+    alt Vi phạm: Tự chấm bản thân
+        API-->>Client: HTTP 400 "You cannot audit yourself"
     else Hợp lệ
-        DB-->>API: HTTP 201 Created
-        API-->>SinhVien: Lưu đánh giá thành công
+        API->>DB: INSERT INTO peer_audits (reviewer_id, reviewee_id, score, feedback)
+        DB-->>API: Ghi nhận thành công
+        API-->>Client: HTTP 201 Created
     end
 ```
 
@@ -88,99 +92,112 @@ sequenceDiagram
 
 ## 4. Chi Tiết Triển Khai Kỹ Thuật
 
-### 🔹 Module 1: Git Telemetry Sync & Noise Filter (`server/src/modules/git-analytics/`)
-* **File triển khai:** `server/src/modules/git-analytics/git.routes.ts`
-* **Cơ chế hoạt động:**
-  * Truy vấn danh sách commit gắn với `team_id` từ bảng `git_commits`.
-  * Thực hiện phép JOIN giữa `git_commits`, `team_members` và `users` để liên kết GitHub committer email với mã định danh `user_id` trong hệ thống.
-  * Phân tách riêng biệt số lượng `total_lines_added`, `total_lines_deleted` và `total_commits` của từng thành viên.
-  * Index tối ưu hóa `idx_git_commits_team` trên cột `git_commits(team_id)` tăng tốc độ truy vấn tổng hợp trên tập dữ liệu hàng nghìn commit.
+### 4.1. Module Git Telemetry Sync & Thuật Toán Lọc Nhiễu Noise Filter (BR-07)
+Khi sinh viên làm bài, việc thêm các thư viện NPM hoặc commit file build (`dist/`, `.next/`) có thể tạo ra hàng chục nghìn dòng code "ảo", làm sai lệch nghiêm trọng báo cáo đóng góp.
+Hàm `isNoiseFile` được cài đặt với Regex nhận diện chính xác:
+```typescript
+export function isNoiseFile(filename: string): boolean {
+  const noisePatterns = [
+    /(^|\/)node_modules\//i,
+    /(^|\/)dist\//i,
+    /(^|\/)build\//i,
+    /(^|\/)\.next\//i,
+    /package-lock\.json$/i,
+    /yarn\.lock$/i,
+    /pnpm-lock\.yaml$/i,
+    /\.min\.(js|css)$/i,
+  ];
+  return noisePatterns.some((pattern) => pattern.test(filename));
+}
+```
 
-### 🔹 Module 2: Thuật Toán Phát Hiện Free-Rider (`BR-07`)
-* **Nguyên lý tính toán:**
-  $$\text{Contribution Ratio (\%)} = \frac{\text{Member Net LOC}}{\text{Team Total Net LOC}} \times 100\%$$
-* **Quy tắc phân loại:**
-  * Ratio >= 15%: Đóng góp tích cực (**Active Contributor**).
-  * 5% <= Ratio < 15%: Cần theo dõi thêm (**Moderate Effort**).
-  * Ratio < 5%: Bị hệ thống tự động cảnh báo cờ đỏ (**FREE_RIDER_WARNING**). Giảng viên có bằng chứng số liệu rõ ràng để trừ điểm cá nhân khi nghiệm thu Milestone.
+### 4.2. Thuật Toán Định Lượng Đóng Góp & Tự Động Cảnh Báo Free-Rider (BR-07)
+* Công thức tính LOC đóng góp ròng:
+  $$\text{Net LOC} = \max(0, \sum \text{lines\_added} - \sum \text{lines\_deleted})$$
+* Tỷ lệ phần trăm đóng góp của sinh viên $i$:
+  $$P_i = \frac{\text{Net LOC}_i}{\sum_{k=1}^N \text{Net LOC}_k} \times 100\%$$
+* Nếu $P_i < 5.0\%$ và tổng LOC cả nhóm $> 100$, hệ thống tự động đánh dấu:
+  `isFreeRider: true` và gắn cờ cảnh báo `FREE_RIDER_WARNING`.
 
-### 🔹 Module 3: Hệ Thống Đánh Giá Chéo Nội Bộ (`server/src/modules/peer-audits/`)
-* **File triển khai:** `server/src/modules/peer-audits/peer-audits.routes.ts`
-* **Cơ chế an toàn & Liêm chính (BR-08):**
-  * Kiểm tra chặt chẽ `reviewer_id !== reviewee_id` ngay từ tầng Controller và chặn lần thứ hai bằng Database Constraint `chk_peer_not_self`.
-  * Đánh giá theo từng vòng Sprint / Milestone (`audit_round = 1, 2, 3`).
-  * Lưu trữ điểm số (`score`: thang điểm 1–10), nhận xét định tính (`comments`) và trạng thái đồng thuận (`passed`).
-  * Index `idx_peer_audits_team_round` trên `(team_id, audit_round)` phục vụ tính toán trung bình điểm cộng tác (`AVG(score)`) tức thời cho Giảng viên.
+### 4.3. Hệ Thống Đánh Giá Chéo Nội Bộ & Ràng Buộc Liêm Chính Học Thuật (BR-08)
+Để đảm bảo kết quả đánh giá không thể bị thao túng:
+1. **Kiểm tra nghiệp vụ tầng API:** Middleware xác thực sinh viên đăng nhập, đối chiếu `reviewer_id` với `reviewee_id`.
+2. **Ràng buộc an toàn tầng Cơ sở dữ liệu:**
+   ```sql
+   CONSTRAINT chk_peer_not_self CHECK (reviewer_id <> reviewee_id),
+   CONSTRAINT uq_peer_audit_round UNIQUE (assignment_id, reviewer_id, reviewee_id, audit_round)
+   ```
+3. Đảm bảo mỗi thành viên chỉ được chấm điểm đồng đội một lần duy nhất trong mỗi vòng Sprint.
 
-### 🔹 Module 4: Tích Hợp Hỗ Trợ Đánh Giá Đa Tầng (`Dual-Lecturer BR-09`)
-* Dữ liệu đóng góp LOC và điểm Peer Audit đóng vai trò là **tập số liệu đối chiếu khách quan** (Audit Trail) khi Giảng viên 1 và Giảng viên 2 tiến hành hội chẩn (`Consensus`):
-  * Giúp phân biệt rõ: Điểm bài nộp chung của nhóm (Team Submission Grade) vs. Điểm thực tế của từng cá nhân (Individual Calibrated Grade).
-  * Hạn chế tối đa tranh chấp điểm số giữa các thành viên sau khi công bố kết quả.
+### 4.4. Tích Hợp Dữ Liệu Đóng Góp Vào Quy Trình Chấm Đa Tầng Dual-Lecturer (BR-09)
+* Kết hợp số liệu Git và điểm đánh giá chéo hiển thị trực quan trong modal chấm điểm của Giảng viên.
+* Khi Giảng viên 1 và Giảng viên 2 hội ý thống nhất điểm cuối cùng, các trường hợp Free-Rider sẽ bị trừ điểm cá nhân tương ứng theo quy chế học phần SWD392.
 
 ---
 
-## 5. Hệ Thống API Endpoints Phụ Trách
+## 5. Danh Mục API Endpoints Phụ Trách
 
 | Method | Endpoint | Mô Tả Chức Năng | Phân Quyền RBAC |
 | :--- | :--- | :--- | :--- |
-| **GET** | `/api/git/:teamId/commits` | Lấy danh sách commits và bảng tổng hợp đóng góp LOC từng thành viên | `STUDENT`, `LECTURER`, `ADMIN` |
+| **GET** | `/api/git/:teamId/commits` | Lấy danh sách commits sạch và bảng tổng hợp đóng góp LOC từng thành viên | `STUDENT`, `LECTURER`, `ADMIN` |
 | **POST** | `/api/git/:teamId/sync` | Kích hoạt quét và đồng bộ dữ liệu commit mới từ GitHub Repo | `LECTURER`, `ADMIN` |
 | **GET** | `/api/peer-audits/:teamId` | Lấy lịch sử các phiếu đánh giá chéo của nhóm theo vòng audit | `STUDENT`, `LECTURER`, `ADMIN` |
 | **POST** | `/api/peer-audits` | Sinh viên nộp phiếu đánh giá chéo thành viên cùng nhóm (`BR-08`) | `STUDENT` (Đã đăng nhập) |
 
 ---
 
-## 6. Kịch Bản Kiểm Thử & Xác Minh Nghiệp Vụ
+## 6. Kết Quả Kiểm Thử Thực Tế
 
-Nhóm đã thiết lập dữ liệu mẫu chuẩn trong `database/seed.sql` để kiểm thử toàn diện các luồng nghiệp vụ của Thành viên 4:
+Hệ thống cung cấp hai bộ công cụ kiểm thử tự động độc lập dành riêng cho Member 4:
+1. **Automated Test Suite:** `server/src/test/verify-member4.ts` (Kiểm thử unit test, API endpoints, status codes).
+2. **Real Demonstration Scenarios:** `server/src/test/run-scenarios-member4.ts` (Chạy kịch bản trực quan chứng minh 5 tình huống thực tế cho Hội đồng chấm thi).
 
-### Test Case 1: Thống Kê Đóng Góp Git & Phát Hiện Free-Rider
-1. Gọi API `GET /api/git/1/commits` với tài khoản Giảng viên.
-2. Hệ thống trả về danh sách commit của nhóm, tổng hợp LOC cho từng sinh viên:
-   * Sinh viên A: 1200 lines added (Chiếm 65% - Đóng góp chính).
-   * Sinh viên B: 550 lines added (Chiếm 30% - Đóng góp đạt yêu cầu).
-   * Sinh viên C: 15 lines added (Chiếm 2.5% - < 5% -> **Kích hoạt cờ cảnh báo Free-Rider**).
-3. **Kết quả:** Giảng viên nhìn thấy biểu đồ trực quan và danh sách cảnh báo trên Dashboard.
+### Lệnh thực thi:
+```bash
+cd server
+# Chạy bộ kịch bản demo trực quan của Thành viên 4:
+npx ts-node src/test/run-scenarios-member4.ts
 
-### Test Case 2: Kiểm Thử Liêm Chính Đánh Giá Chéo (Chống Tự Chấm Điểm)
-1. Sinh viên có `user_id = 4` gửi request `POST /api/peer-audits` với `reviewee_id = 4`.
-2. Hệ thống bắt lỗi `reviewer_id === reviewee_id` và trả về mã lỗi HTTP 400:
-   ```json
-   {
-     "message": "You cannot audit yourself"
-   }
-   ```
-3. **Kết quả:** Hành vi tự đánh giá bị chặn đứng, thỏa mãn quy tắc **BR-08**.
-
-### Test Case 3: Đánh Giá Chéo Hợp Lệ & Tổng Hợp Điểm
-1. Sinh viên có `user_id = 4` đánh giá `reviewee_id = 5` với điểm số 9.0 và nhận xét: *"Làm việc tích cực, hoàn thành đúng hạn"*.
-2. Database ghi nhận thành công (HTTP 201).
-3. Giảng viên mở màn hình tổng hợp `GET /api/peer-audits/1` thấy điểm trung bình cộng tác hiển thị minh bạch.
+# Hoặc chạy kiểm thử tự động toàn diện:
+npm run test:member4
+```
 
 ---
 
 ## 7. Hướng Dẫn Demo Khi Bảo Vệ Đồ Án
 
-### 1. Khởi động hệ thống
+### Bước 1: Khởi động hệ thống
 ```bash
-# 1. Khởi động Database PostgreSQL & Redis
+# 1. Khởi động DB và Redis
 docker compose up -d
 
-# 2. Khởi động Backend Server
+# 2. Khởi động Server
 cd server
 npm run dev
 
-# 3. Khởi động Frontend Client
+# 3. Khởi động Client
 cd client
 npm run dev
 ```
 
-### 2. Các màn hình trực quan trình chiếu cho Hội đồng
-* **Màn hình Giảng viên (`localhost:3000/lecturer`):**
-  * Mục **Git Contribution Analytics**: Show bảng phân tích số lượng commit, dòng code thêm/xóa của từng sinh viên trong nhóm, chỉ rõ cờ cảnh báo Free-Rider.
-  * Mục **Peer Audit Summary**: Show bảng tổng hợp đánh giá chéo giữa các sinh viên theo từng Sprint.
-* **Màn hình Sinh viên (`localhost:3000/student`):**
-  * Form đánh giá chéo: Chọn thành viên trong nhóm, nhập điểm và lời nhận xét (chứng minh hệ thống loại bỏ chính bản thân sinh viên khỏi danh sách được đánh giá).
+### Bước 2: Kịch bản trình diễn trước Giảng viên phản biện
+1. **Demo Phát hiện Free-Rider:**
+   - Mở Dashboard Giảng viên: `http://localhost:3000/lecturer` ➔ Tab **Git Telemetry**.
+   - Trình bày bảng phân tích LOC, chỉ rõ các file lockfile bị lọc bỏ và cờ cảnh báo đối với thành viên đóng góp dưới 5%.
+2. **Demo Chống Gian Lận Đánh Giá Chéo:**
+   - Đăng nhập tài khoản sinh viên.
+   - Thử gửi request tự đánh giá chính mình ➔ Hệ thống lập tức trả về lỗi HTTP 400 `"You cannot audit yourself"`.
+   - Gửi phiếu đánh giá hợp lệ cho đồng đội ➔ Điểm số lập tức được ghi nhận và hiển thị trong báo cáo tổng kết của Giảng viên.
 
 ---
-*Tài liệu được cập nhật đồng bộ với cấu trúc kiến trúc và mã nguồn thực tế của dự án AITA-INTELLIGENT (Group 4 - SWD392).*
+
+## 8. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs)
+
+**Câu hỏi 1: Tại sao phải xây dựng bộ lọc nhiễu Noise Filter mà không lấy trực tiếp thống kê từ GitHub?**
+> *Trả lời:* GitHub thống kê gộp tất cả các dòng thay đổi. Khi sinh viên chạy `npm install` hoặc build dự án, các file như `package-lock.json` có thể sinh ra hơn 20,000 dòng code. Nếu không có bộ lọc `isNoiseFile`, sinh viên chỉ cần commit 1 file lockfile là sẽ chiếm 90% đóng góp của cả nhóm, dẫn đến bất công bằng nghiêm trọng. AITA-INTELLIGENT giải quyết triệt để vấn đề này.
+
+**Câu hỏi 2: Nếu sinh viên cố tình đổi tác giả commit trong Git thì hệ thống xử lý thế nào?**
+> *Trả lời:* Hệ thống đối chiếu cả Git author email và tài khoản sinh viên đã liên kết trong bảng `users` và `team_members`. Đồng thời, kết quả Git Analytics được kết hợp chặt chẽ với hệ thống **Peer Audit nội bộ** để tạo thành cơ chế kiểm chứng chéo 2 chiều (Telemetric Proof + Peer Consensus).
+
+---
+*Báo cáo được hoàn thiện và kiểm thử toàn diện bởi sinh viên Đinh Gia Huy (Member 4 - Group 4 - SWD392).*

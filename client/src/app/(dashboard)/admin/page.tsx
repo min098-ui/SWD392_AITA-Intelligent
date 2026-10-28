@@ -48,9 +48,7 @@ export default function AdminDashboard() {
   // Key Pool State (UC-15)
   const [keys, setKeys] = useState<AIKeyItem[]>([
     { id: 1, provider: 'Google Gemini 1.5 Pro', mask: 'AIzaSyB...9KjA', status: 'Active', statusColor: 'var(--accent-success)', usage: '4,521', last: '2 mins ago' },
-    { id: 2, provider: 'Google Gemini 1.5 Flash', mask: 'AIzaSyX...2MwQ', status: 'Rate Limited (Cooldown)', statusColor: 'var(--accent-error)', usage: '1,200', last: '15 mins ago' },
-    { id: 3, provider: 'OpenAI GPT-4o', mask: 'sk-proj...7T3A', status: 'Active', statusColor: 'var(--accent-success)', usage: '8,922', last: 'Just now' },
-    { id: 4, provider: 'Anthropic Claude 3.5', mask: 'sk-ant...9Lq1', status: 'Standby / Fallback', statusColor: 'var(--text-muted)', usage: '450', last: '1 hour ago' },
+    { id: 2, provider: 'Google Gemini 1.5 Flash', mask: 'AIzaSyX...2MwQ', status: 'Active', statusColor: 'var(--accent-success)', usage: '1,200', last: '15 mins ago' },
   ]);
 
   // Users State (UC-13)
@@ -147,7 +145,7 @@ export default function AdminDashboard() {
             code: c.course_code,
             name: c.course_name,
             semester: c.semester,
-            lecturer: c.lecturer_name || 'Dr. Nguyen Van Giang',
+            lecturer: c.lecturer_name || 'Yen12 Yen',
             teamsCount: c.teamsCount || 1
           })));
         }
@@ -695,9 +693,6 @@ export default function AdminDashboard() {
                       : 'All API keys are encrypted with AES-256 at-rest. System dynamically failovers to fallback keys upon HTTP 429 rate limit.'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => alert(lang === 'vi' ? 'Modal thêm khóa AI mới sẵn sàng!' : 'Add Key modal ready!')}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Khóa AI Mới' : 'Add New Key'}
-                </button>
               </div>
 
               <div style={{ overflowX: 'auto' }}>
@@ -749,9 +744,6 @@ export default function AdminDashboard() {
                     {lang === 'vi' ? 'Định hình phong cách chấm bài của AI và gợi ý Socratic cho sinh viên với quản lý phiên bản (v1.0, v2.1).' : 'Version-controlled prompts for automated grading and Socratic tutoring.'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Tạo mẫu Prompt mới' : 'Create Template'}
-                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
@@ -798,9 +790,6 @@ export default function AdminDashboard() {
                     {lang === 'vi' ? 'Quản trị viên phân định các vai trò: ADMIN, LECTURER (Giảng viên) và STUDENT (Sinh viên).' : 'Manage system users and access control roles (ADMIN, LECTURER, STUDENT).'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => alert('Thêm người dùng mới')}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Người Dùng' : 'Add User'}
-                </button>
               </div>
 
               {/* Cảnh báo Giảng viên chờ duyệt */}
@@ -988,12 +977,9 @@ export default function AdminDashboard() {
                     {lang === 'vi' ? 'Học phần & Phân công Giảng viên phụ trách' : 'Courses & Instructor Assignments'}
                   </h3>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {lang === 'vi' ? 'Khởi tạo các môn học trong học kỳ và chỉ định giảng viên quản lý.' : 'Initialize courses and assign designated lecturers.'}
+                    {lang === 'vi' ? 'Danh sách các môn học đang hoạt động trong học kỳ và giảng viên phụ trách (Chế độ giám sát).' : 'Active academic courses and designated instructors in current semester.'}
                   </p>
                 </div>
-                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setShowCourseModal(true)}>
-                  <Plus size={16} /> {lang === 'vi' ? 'Thêm Học Phần Mới' : 'Create Course'}
-                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
@@ -1006,7 +992,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1rem' }}>
-                      <p>{lang === 'vi' ? 'Học kỳ:' : 'Semester:'} <strong style={{ color: 'var(--text-main)' }}>{c.semester}</strong></p>
+                      <p>{lang === 'vi' ? 'Học kỳ:' : 'Semester:'} <strong style={{ color: '#fff' }}>{c.semester}</strong></p>
                       <p>{lang === 'vi' ? 'Giảng viên phụ trách:' : 'Lecturer:'} <strong style={{ color: '#34d399' }}>{c.lecturer}</strong></p>
                       <p>{lang === 'vi' ? 'Số nhóm đồ án:' : 'Active Teams:'} <strong style={{ color: '#60a5fa' }}>{c.teamsCount} Teams</strong></p>
                     </div>
@@ -1301,9 +1287,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'var(--bg-card)',
+                    background: 'rgba(0, 0, 0, 0.3)',
                     border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
+                    color: '#fff',
                     fontSize: '0.9rem'
                   }}
                 />
@@ -1323,9 +1309,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'var(--bg-card)',
+                    background: 'rgba(0, 0, 0, 0.3)',
                     border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
+                    color: '#fff',
                     fontSize: '0.9rem'
                   }}
                 />
@@ -1345,9 +1331,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'var(--bg-card)',
+                    background: 'rgba(0, 0, 0, 0.3)',
                     border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
+                    color: '#fff',
                     fontSize: '0.9rem'
                   }}
                 />
@@ -1364,9 +1350,9 @@ export default function AdminDashboard() {
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    background: 'var(--bg-card)',
+                    background: 'rgba(15, 23, 42, 0.9)',
                     border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
+                    color: '#fff',
                     fontSize: '0.9rem'
                   }}
                 >
