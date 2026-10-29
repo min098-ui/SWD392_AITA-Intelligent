@@ -44,7 +44,7 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
 });
 
 // POST /api/courses - Chỉ Giảng viên mới có quyền tạo môn học mới
-router.post('/', authenticateJWT, requireRole('LECTURER'), async (req: Request, res: Response) => {
+router.post('/', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
   const { course_code, course_name, semester, lecturer_id } = req.body;
 
   if (!course_code || !course_name || !semester) {

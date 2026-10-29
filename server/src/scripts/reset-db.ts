@@ -90,6 +90,12 @@ async function runReset() {
       ALTER TABLE ai_api_keys ADD COLUMN IF NOT EXISTS api_key_encrypted VARCHAR(255);
       ALTER TABLE ai_api_keys ADD COLUMN IF NOT EXISTS key_value_encrypted VARCHAR(255);
       UPDATE ai_api_keys SET key_value_encrypted = api_key_encrypted WHERE key_value_encrypted IS NULL AND api_key_encrypted IS NOT NULL;
+
+      -- Git Commits & Peer Audits safeguards (Member 4)
+      ALTER TABLE git_commits ADD COLUMN IF NOT EXISTS commit_message TEXT;
+      ALTER TABLE git_commits ADD COLUMN IF NOT EXISTS assignment_id INT;
+      ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS assignment_id INT;
+      ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS evaluated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
     `);
 
     // Run schema.sql
