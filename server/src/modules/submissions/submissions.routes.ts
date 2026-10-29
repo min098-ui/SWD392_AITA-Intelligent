@@ -8,6 +8,7 @@ const router = Router();
 // GET /api/submissions - Get submissions for team or assignment
 router.get('/', authenticateJWT, async (req: Request, res: Response) => {
   const { assignment_id, team_id } = req.query;
+  const user = req.user!;
 
   try {
     let query = `
@@ -17,12 +18,18 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
         COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score
       FROM submissions s
       JOIN assignments a ON s.assignment_id = a.assignment_id
-      JOIN teams t ON s.team_id = t.team_id
+      LEFT JOIN teams t ON s.team_id = t.team_id
       LEFT JOIN users u ON s.submitted_by_user_id = u.user_id
       LEFT JOIN grading_jobs gj ON s.submission_id = gj.submission_id
     `;
     const params: any[] = [];
     const conditions: string[] = [];
+
+    // Phân quyền: Sinh viên chỉ xem bài nộp của chính mình hoặc nhóm mình
+    if (user && user.role === 'STUDENT') {
+      params.push(user.userId);
+      conditions.push(`(s.submitted_by_user_id = $${params.length} OR s.team_id IN (SELECT tm.team_id FROM team_members tm WHERE tm.user_id = $${params.length}))`);
+    }
 
     if (assignment_id) {
       params.push(assignment_id);
@@ -87,6 +94,30 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
 
   const client = await pool.connect();
   try {
+    // Validate assignment exists
+    const assignCheck = await client.query('SELECT assignment_id FROM assignments WHERE assignment_id = $1', [assignment_id]);
+    if (assignCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Assignment not found' });
+    }
+
+    // Validate team exists if provided
+    if (team_id) {
+      const teamCheck = await client.query('SELECT team_id FROM teams WHERE team_id = $1', [team_id]);
+      if (teamCheck.rows.length === 0) {
+        return res.status(404).json({ message: 'Team not found' });
+      }
+
+      if (user.role === 'STUDENT') {
+        const memberCheck = await client.query('SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2', [team_id, user.userId]);
+        if (memberCheck.rows.length === 0) {
+          const teamHasMembers = await client.query('SELECT 1 FROM team_members WHERE team_id = $1 LIMIT 1', [team_id]);
+          if (teamHasMembers.rows.length > 0) {
+            return res.status(403).json({ message: 'Bạn không phải là thành viên của nhóm này' });
+          }
+        }
+      }
+    }
+
     await client.query('BEGIN');
 
     // 1. Insert submission
