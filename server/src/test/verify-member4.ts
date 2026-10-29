@@ -1,9 +1,10 @@
 process.env.NODE_ENV = 'test';
 import jwt from 'jsonwebtoken';
 import http from 'http';
+import { Pool } from 'pg';
 import app from '../index';
 import { pool } from '../config/db';
-import { isNoiseFile, parseGitHubUrl } from '../modules/git-analytics/git.routes';
+import { isNoiseFile, parseGitHubUrl } from '../modules/git-analytics/noise-filter.service';
 
 /**
  * Automated Verification Test Suite for Member 4:
@@ -13,6 +14,76 @@ import { isNoiseFile, parseGitHubUrl } from '../modules/git-analytics/git.routes
 
 let passedTests = 0;
 let failedTests = 0;
+
+const TEAM_ID = 990001;
+const COURSE_ID = 990001;
+const STUDENT1_ID = 990001;
+const STUDENT2_ID = 990002;
+const FREE_RIDER_ID = 990003;
+const LECTURER_ID = 990004;
+let fixturesCreated = false;
+
+async function createFixtures() {
+  // Integration fixtures require PostgreSQL; the application's mock fallback
+  // cannot verify transactions, foreign keys, or preservation of real data.
+  const probe = new Pool({
+    connectionString: process.env.DATABASE_URL || 'postgresql://aita_user:aita_password_123@localhost:5432/aita_db',
+    connectionTimeoutMillis: 2000,
+  });
+  try {
+    await probe.query('SELECT 1');
+  } catch {
+    throw new Error('Member 4 integration tests require a running PostgreSQL database');
+  } finally {
+    await probe.end();
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Reject collisions so cleanup can never delete pre-existing records.
+    await client.query(`INSERT INTO users (user_id, full_name, email, password_hash, role) VALUES
+      ($1, 'Test Student One', 'member4.990001@example.test', 'hash', 'STUDENT'),
+      ($2, 'Test Student Two', 'member4.990002@example.test', 'hash', 'STUDENT'),
+      ($3, 'Test Free Rider', 'member4.990003@example.test', 'hash', 'STUDENT'),
+      ($4, 'Test Lecturer', 'member4.990004@example.test', 'hash', 'LECTURER')`,
+      [STUDENT1_ID, STUDENT2_ID, FREE_RIDER_ID, LECTURER_ID]);
+    await client.query(`INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id)
+      VALUES ($1, 'MEMBER4_TEST_990001', 'Member 4 Test', 'FA26', $2)`, [COURSE_ID, LECTURER_ID]);
+    await client.query(`INSERT INTO teams (team_id, team_name, course_id, repo_url)
+      VALUES ($1, 'Member 4 Test', $2, 'offline-test-fixture')`, [TEAM_ID, COURSE_ID]);
+    await client.query(`INSERT INTO team_members (team_id, user_id, assigned_module)
+      VALUES ($1, $2, 'Backend'), ($1, $3, 'Frontend')`, [TEAM_ID, STUDENT1_ID, STUDENT2_ID]);
+    await client.query('COMMIT');
+    fixturesCreated = true;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function cleanupFixtures() {
+  if (!fixturesCreated) return;
+  const statements: [string, any[]][] = [
+    ['DELETE FROM peer_audits WHERE team_id = $1', [TEAM_ID]],
+    ['DELETE FROM git_commits WHERE team_id = $1', [TEAM_ID]],
+    ['DELETE FROM team_members WHERE team_id = $1', [TEAM_ID]],
+    ['DELETE FROM submissions WHERE team_id = $1', [TEAM_ID]],
+    ['DELETE FROM users WHERE user_id = ANY($1::int[])', [[STUDENT1_ID, STUDENT2_ID, FREE_RIDER_ID]]],
+    ['DELETE FROM teams WHERE team_id = $1', [TEAM_ID]],
+    ['DELETE FROM courses WHERE course_id = $1', [COURSE_ID]],
+    ['DELETE FROM users WHERE user_id = $1', [LECTURER_ID]],
+  ];
+  for (const [sql, params] of statements) {
+    try {
+      await pool.query(sql, params);
+    } catch (error) {
+      failedTests++;
+      console.error('Fixture cleanup failed:', sql, error);
+    }
+  }
+}
 
 function assert(condition: boolean, testName: string, failureDetail?: string) {
   if (condition) {
@@ -24,23 +95,23 @@ function assert(condition: boolean, testName: string, failureDetail?: string) {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'aita_jwt_secret_dev_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_aita_project_swd392_2026';
 
 // Mock JWT Tokens
 const student1Token = jwt.sign(
-  { userId: 3, email: 'student1@fpt.edu.vn', role: 'STUDENT' },
+  { userId: STUDENT1_ID, email: 'student1@fpt.edu.vn', role: 'STUDENT' },
   JWT_SECRET,
   { expiresIn: '1h' }
 );
 
 const student2Token = jwt.sign(
-  { userId: 4, email: 'student2@fpt.edu.vn', role: 'STUDENT' },
+  { userId: STUDENT2_ID, email: 'student2@fpt.edu.vn', role: 'STUDENT' },
   JWT_SECRET,
   { expiresIn: '1h' }
 );
 
 const lecturerToken = jwt.sign(
-  { userId: 2, email: 'giangnv@fe.edu.vn', role: 'LECTURER' },
+  { userId: LECTURER_ID, email: 'giangnv@fe.edu.vn', role: 'LECTURER' },
   JWT_SECRET,
   { expiresIn: '1h' }
 );
@@ -160,21 +231,18 @@ async function runMember4Tests() {
     // -------------------------------------------------------------------------
     console.log('\n👥 2. KIỂM THỬ HỆ THỐNG ĐÁNH GIÁ CHÉO NỘI BỘ (PEER AUDIT - BR-08)');
 
-    // Đảm bảo dữ liệu test độc lập cho môn học và nhóm 1
-    await pool.query(`INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id) VALUES (1, 'SWD392', 'Software Architecture & Design Project', 'FA26', 2) ON CONFLICT (course_id) DO NOTHING`);
-    await pool.query(`INSERT INTO teams (team_id, team_name, course_id, repo_url) VALUES (1, 'Group 4 - AITA Project', 1, 'https://github.com/min098-ui/SWD392_AITA-Intelligent') ON CONFLICT (team_id) DO NOTHING`);
-    await pool.query(`INSERT INTO users (user_id, full_name, email, password_hash, role) VALUES (3, 'Student One', 'student1@fpt.edu.vn', 'hash', 'STUDENT'), (4, 'Student Two', 'student2@fpt.edu.vn', 'hash', 'STUDENT') ON CONFLICT (user_id) DO NOTHING`);
-    await pool.query(`INSERT INTO team_members (team_id, user_id, assigned_module, role) VALUES (1, 3, 'Backend', 'MEMBER'), (1, 4, 'Frontend', 'MEMBER') ON CONFLICT DO NOTHING`);
+    // Tạo dữ liệu riêng, không sử dụng dữ liệu seed.
+    await createFixtures();
 
     // Test 2.1: Sinh viên 1 cố tình tự chấm điểm chính mình -> Phải bị từ chối HTTP 400
     const selfAuditRes = await makeRequest(
       testPort,
       'POST',
       '/api/peer-audits',
-      student1Token, // user_id = 3
+      student1Token,
       {
-        team_id: 1,
-        reviewee_id: 3, // Cố tình chọn chính mình
+        team_id: TEAM_ID,
+        reviewee_id: STUDENT1_ID, // Cố tình chọn chính mình
         audit_round: 1,
         score: 10.0,
         comments: 'Tự khen mình làm tốt nhất nhóm',
@@ -191,10 +259,10 @@ async function runMember4Tests() {
       testPort,
       'POST',
       '/api/peer-audits',
-      student1Token, // user_id = 3
+      student1Token,
       {
-        team_id: 1,
-        reviewee_id: 4, // Đánh giá Sinh viên 2
+        team_id: TEAM_ID,
+        reviewee_id: STUDENT2_ID, // Đánh giá Sinh viên 2
         audit_round: 1,
         score: 9.5,
         comments: 'Bạn Khoa làm việc chăm chỉ, hoàn thành xuất sắc Docker Sandbox',
@@ -212,10 +280,10 @@ async function runMember4Tests() {
       testPort,
       'POST',
       '/api/peer-audits',
-      student2Token, // user_id = 4
+      student2Token,
       {
-        team_id: 1,
-        reviewee_id: 3, // Đánh giá Sinh viên 1
+        team_id: TEAM_ID,
+        reviewee_id: STUDENT1_ID, // Đánh giá Sinh viên 1
         audit_round: 1,
         score: 9.0,
         comments: 'Bạn Mai thiết kế kiến trúc rõ ràng, hỗ trợ nhóm nhiệt tình',
@@ -229,7 +297,7 @@ async function runMember4Tests() {
     );
 
     // Test 2.4: Lấy danh sách đánh giá chéo theo team
-    const teamAuditsRes = await makeRequest(testPort, 'GET', '/api/peer-audits/1', lecturerToken);
+    const teamAuditsRes = await makeRequest(testPort, 'GET', `/api/peer-audits/${TEAM_ID}`, lecturerToken);
     assert(
       teamAuditsRes.status === 200 && Array.isArray(teamAuditsRes.data.audits),
       'GET /api/peer-audits/:teamId: Trả về danh sách phiếu đánh giá chéo của nhóm',
@@ -237,7 +305,7 @@ async function runMember4Tests() {
     );
 
     // Test 2.5: Tổng hợp điểm trung bình Peer Audit Summary
-    const summaryRes = await makeRequest(testPort, 'GET', '/api/peer-audits/team/1/summary', lecturerToken);
+    const summaryRes = await makeRequest(testPort, 'GET', `/api/peer-audits/team/${TEAM_ID}/summary`, lecturerToken);
     assert(
       summaryRes.status === 200 && Array.isArray(summaryRes.data.member_summaries),
       'GET /api/peer-audits/team/:id/summary: Tính điểm trung bình AVG(score) cho từng thành viên',
@@ -250,7 +318,7 @@ async function runMember4Tests() {
     console.log('\n🐙 3. KIỂM THỬ ĐỒNG BỘ TELEMETRY GIT & PHÁT HIỆN FREE-RIDER (BR-07)');
 
     // Test 3.1: Trigger đồng bộ commit history
-    const syncRes = await makeRequest(testPort, 'POST', '/api/git/1/sync', lecturerToken);
+    const syncRes = await makeRequest(testPort, 'POST', `/api/git/${TEAM_ID}/sync`, lecturerToken);
     assert(
       syncRes.status === 200 && syncRes.data.synced_commits_count > 0,
       'POST /api/git/:teamId/sync: Đồng bộ commit thành công và áp dụng Noise Filter',
@@ -258,7 +326,7 @@ async function runMember4Tests() {
     );
 
     // Test 3.2: Lấy thống kê commits và đóng góp dòng code
-    const commitsRes = await makeRequest(testPort, 'GET', '/api/git/1/commits', lecturerToken);
+    const commitsRes = await makeRequest(testPort, 'GET', `/api/git/${TEAM_ID}/commits`, lecturerToken);
     assert(
       commitsRes.status === 200 && Array.isArray(commitsRes.data.member_contributions),
       'GET /api/git/:teamId/commits: Trả về bảng thống kê đóng góp LOC theo từng thành viên',
@@ -268,41 +336,27 @@ async function runMember4Tests() {
     // Test 3.3: Kiểm tra công thức phát hiện Free-Rider (BR-07)
     // Thêm một thành viên đóng góp cực thấp (< 5% LOC) để kiểm tra thuật toán gắn cờ Free-Rider
     await pool.query(
-      `INSERT INTO users (user_id, full_name, email, password_hash, role)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [99, 'Sinh Viên Ý Lại (Test Free-Rider)', 'ylai.test@fpt.edu.vn', 'hash_test', 'STUDENT']
-    );
-    await pool.query(
       `INSERT INTO team_members (team_id, user_id, assigned_module)
        VALUES ($1, $2, $3)
        ON CONFLICT DO NOTHING`,
-      [1, 99, 'Documentation Support']
+      [TEAM_ID, FREE_RIDER_ID, 'Documentation Support']
     );
-    await pool.query('DELETE FROM git_commits WHERE author_user_id = $1 AND team_id = $2', [99, 1]);
+    await pool.query('DELETE FROM git_commits WHERE author_user_id = $1 AND team_id = $2', [FREE_RIDER_ID, TEAM_ID]);
     await pool.query(
-      `INSERT INTO git_commits (team_id, author_user_id, commit_hash, message, lines_added, lines_deleted, committed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       ON CONFLICT (commit_hash) DO UPDATE SET lines_added = 3`,
-      [1, 99, 'hash_freerider_test_sample', 'fix typo in comment', 3, 0]
+      `INSERT INTO git_commits (team_id, author_user_id, commit_hash, commit_message, lines_added, lines_deleted, committed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      [TEAM_ID, FREE_RIDER_ID, 'member4_990001_freerider', 'fix typo in comment', 3, 0]
     );
 
-    const freeRiderCheckRes = await makeRequest(testPort, 'GET', '/api/git/1/commits', lecturerToken);
+    const freeRiderCheckRes = await makeRequest(testPort, 'GET', `/api/git/${TEAM_ID}/commits`, lecturerToken);
     const contributions = freeRiderCheckRes.data.member_contributions || [];
-    const freeRiderMember = contributions.find((m: any) => m.user_id === 99 || (m.contribution_percentage < 5.0 && m.total_lines_added > 0));
+    const freeRiderMember = contributions.find((m: any) => m.user_id === FREE_RIDER_ID);
 
     assert(
       freeRiderMember !== undefined && freeRiderMember.is_free_rider === true,
       'BR-07 Free-Rider Detection: Tự động phát hiện và gắn cờ FREE_RIDER_WARNING khi LOC% < 5%',
       `Thành viên bị cờ: ${freeRiderMember?.full_name} (${freeRiderMember?.contribution_percentage}%)`
     );
-
-    // Dọn dẹp dữ liệu test ngay sau khi kiểm thử xong để không ảnh hưởng dữ liệu thật
-    await pool.query('DELETE FROM peer_audits WHERE team_id = 1');
-    await pool.query('DELETE FROM git_commits WHERE author_user_id IN (3, 4, 99) OR commit_hash = $1', ['hash_freerider_test_sample']);
-    await pool.query('DELETE FROM team_members WHERE user_id IN (3, 4, 99)');
-    await pool.query('DELETE FROM users WHERE user_id IN (3, 4, 99) OR email = $1', ['ylai.test@fpt.edu.vn']);
-    await pool.query('DELETE FROM teams WHERE team_id = 1');
 
     // -------------------------------------------------------------------------
     // TỔNG KẾT KẾT QUẢ
@@ -317,19 +371,13 @@ async function runMember4Tests() {
     }
     console.log('================================================================\n');
   } finally {
-    try {
-      await pool.query('DELETE FROM peer_audits WHERE team_id = 1');
-      await pool.query('DELETE FROM git_commits WHERE author_user_id IN (3, 4, 99) OR commit_hash = $1', ['hash_freerider_test_sample']);
-      await pool.query('DELETE FROM team_members WHERE user_id IN (3, 4, 99)');
-      await pool.query('DELETE FROM users WHERE user_id IN (3, 4, 99) OR email = $1', ['ylai.test@fpt.edu.vn']);
-      await pool.query('DELETE FROM teams WHERE team_id = 1');
-    } catch (e) {}
+    await cleanupFixtures();
     server.close();
   }
 }
 
 runMember4Tests()
-  .then(() => process.exit(0))
+  .then(() => process.exit(failedTests > 0 ? 1 : 0))
   .catch((err) => {
     console.error('Fatal Test Runner Error:', err);
     process.exit(1);
