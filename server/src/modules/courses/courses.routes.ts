@@ -24,15 +24,17 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
     } else {
       // Sinh viên xem các môn học mình tham gia (qua teams) hoặc tất cả môn đang mở
       query = `
-        SELECT DISTINCT c.*, u.full_name as lecturer_name, u.email as lecturer_email
+        SELECT DISTINCT c.*, u.full_name as lecturer_name, u.email as lecturer_email,
+               (ce.user_id IS NOT NULL OR tm.user_id IS NOT NULL) as is_enrolled
         FROM courses c
         JOIN users u ON c.lecturer_id = u.user_id
         LEFT JOIN teams t ON c.course_id = t.course_id
-        LEFT JOIN team_members tm ON t.team_id = tm.team_id
-        WHERE tm.user_id = $1 OR tm.user_id IS NULL
+        LEFT JOIN team_members tm ON t.team_id = tm.team_id AND tm.user_id = $1
+        LEFT JOIN course_enrollments ce ON c.course_id = ce.course_id AND ce.user_id = $1
+        WHERE (ce.user_id = $1 OR tm.user_id = $1 OR $2 = true)
         ORDER BY c.course_id DESC
       `;
-      params = [user.userId];
+      params = [user.userId, req.query.all === 'true'];
     }
 
     const result = await pool.query(query, params);
