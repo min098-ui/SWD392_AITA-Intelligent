@@ -13,9 +13,7 @@ router.get('/:teamId', authenticateJWT, async (req: Request, res: Response) => {
 
   try {
     const result = await pool.query(
-      `SELECT pa.*, 
-        r1.full_name as reviewer_name, 
-        r1.email as reviewer_email,
+      `SELECT pa.reviewee_id, pa.score, pa.comments, pa.audit_round,
         r2.full_name as reviewee_name,
         r2.email as reviewee_email
        FROM peer_audits pa
@@ -25,7 +23,7 @@ router.get('/:teamId', authenticateJWT, async (req: Request, res: Response) => {
        ORDER BY pa.audit_round ASC, pa.created_at DESC`,
       [teamId]
     );
-    return res.json({ audits: result.rows });
+    return res.json({ audits: result.rows.map(({ reviewer_id, reviewer_name, reviewer_email, ...audit }) => audit) });
   } catch (error: any) {
     console.error('Error fetching peer audits:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
@@ -51,7 +49,6 @@ router.get('/team/:teamId/summary', authenticateJWT, async (req: Request, res: R
         COALESCE(bool_and(pa.passed), true) as peer_consensus_passed,
         json_agg(
           json_build_object(
-            'reviewer_name', r.full_name,
             'score', pa.score,
             'comments', pa.comments,
             'audit_round', pa.audit_round,
@@ -61,7 +58,6 @@ router.get('/team/:teamId/summary', authenticateJWT, async (req: Request, res: R
        FROM team_members tm
        JOIN users u ON tm.user_id = u.user_id
        LEFT JOIN peer_audits pa ON pa.reviewee_id = u.user_id AND pa.team_id = tm.team_id
-       LEFT JOIN users r ON pa.reviewer_id = r.user_id
        WHERE tm.team_id = $1
        GROUP BY u.user_id, u.full_name, u.email, tm.assigned_module
        ORDER BY average_score DESC`,
@@ -71,7 +67,7 @@ router.get('/team/:teamId/summary', authenticateJWT, async (req: Request, res: R
     const summaries = summaryRes.rows.map((row) => ({
       ...row,
       average_score: Number(row.average_score),
-      feedback_comments: row.feedback_comments || [],
+      feedback_comments: (row.feedback_comments || []).map(({ reviewer_name, reviewer_id, reviewer_email, ...feedback }: any) => feedback),
       needs_attention: row.total_reviews_received > 0 && Number(row.average_score) < 5.0,
     }));
 
@@ -92,10 +88,14 @@ router.get('/team/:teamId/summary', authenticateJWT, async (req: Request, res: R
  */
 router.post('/', authenticateJWT, async (req: Request, res: Response) => {
   const reviewer_id = req.user!.userId;
-  const { team_id, reviewee_id, audit_round, comments, passed, score } = req.body;
+  const { team_id, reviewee_id, audit_round, comments, passed, score, assignment_id } = req.body;
 
   if (!team_id || !reviewee_id) {
     return res.status(400).json({ message: 'team_id and reviewee_id are required' });
+  }
+
+  if (assignment_id !== undefined && (!Number.isInteger(assignment_id) || assignment_id <= 0)) {
+    return res.status(400).json({ message: 'assignment_id must be a positive integer' });
   }
 
   // BR-08: Strictly prevent self-evaluation
@@ -107,13 +107,17 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
   }
 
   // Validate score range
-  const numScore = score !== undefined ? parseFloat(score) : 10.0;
-  if (isNaN(numScore) || numScore < 0 || numScore > 10) {
+  const numScore = typeof score === 'number' ? score : NaN;
+  if (!Number.isFinite(numScore) || numScore < 0 || numScore > 10) {
     return res.status(400).json({ message: 'Score must be between 0 and 10' });
   }
 
+  const round = audit_round === undefined ? 1 : audit_round;
+  if (round !== 1 && round !== 2) return res.status(400).json({ message: 'audit_round must be 1 or 2' });
+  if (!Number.isInteger(team_id) || team_id <= 0 || !Number.isInteger(reviewee_id) || reviewee_id <= 0) return res.status(400).json({ message: 'Invalid team_id or reviewee_id' });
   try {
-    const round = audit_round ? Number(audit_round) : 1;
+    const members = await pool.query('SELECT u.user_id FROM team_members tm JOIN users u ON tm.user_id = u.user_id WHERE tm.team_id = $1', [team_id]);
+    if (![reviewer_id, reviewee_id].every(id => members.rows.some(m => Number(m.user_id) === Number(id)))) return res.status(403).json({ message: 'Reviewer and reviewee must belong to the same team', rule: 'BR-08' });
     const isPassed = passed !== undefined ? Boolean(passed) : numScore >= 5.0;
 
     // Check duplicate evaluation in same round
@@ -127,10 +131,10 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
       // Update existing audit
       const updated = await pool.query(
         `UPDATE peer_audits 
-         SET score = $1, comments = $2, passed = $3
+         SET score = $1, comments = $2, passed = $3, assignment_id = $5
          WHERE audit_id = $4
          RETURNING *`,
-        [numScore, comments || '', isPassed, existing.rows[0].audit_id]
+        [numScore, comments || '', isPassed, existing.rows[0].audit_id, assignment_id ?? null]
       );
       return res.status(200).json({
         message: 'Peer audit updated successfully for this round',
@@ -141,9 +145,9 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
 
     // Insert new audit record
     const result = await pool.query(
-      `INSERT INTO peer_audits (team_id, reviewer_id, reviewee_id, audit_round, comments, passed, score)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [Number(team_id), reviewer_id, Number(reviewee_id), round, comments || '', isPassed, numScore]
+      `INSERT INTO peer_audits (team_id, reviewer_id, reviewee_id, audit_round, comments, passed, score, assignment_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [Number(team_id), reviewer_id, Number(reviewee_id), round, comments || '', isPassed, numScore, assignment_id ?? null]
     );
 
     return res.status(201).json({
