@@ -1,43 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../../config/db';
-import { authenticateJWT } from '../../common/auth.middleware';
+import { authenticateJWT, requireRole } from '../../common/auth.middleware';
 import { Octokit } from '@octokit/rest';
 
 const router = Router();
 
-// Regex patterns to filter out generated/noise files from LOC analytics (BR-07)
-const NOISE_PATTERNS = [
-  /node_modules[\\\/]/i,
-  /package-lock\.json$/i,
-  /yarn\.lock$/i,
-  /pnpm-lock\.yaml$/i,
-  /dist[\\\/]/i,
-  /build[\\\/]/i,
-  /\.next[\\\/]/i,
-  /\.min\.(js|css)$/i,
-  /\.map$/i,
-  /\.git[\\\/]/i,
-];
-
-// Helper to check if a file path is considered "noise"
-export function isNoiseFile(filename: string): boolean {
-  return NOISE_PATTERNS.some((pattern) => pattern.test(filename));
-}
-
-// Helper to parse GitHub owner and repo from various Git URL formats
-export function parseGitHubUrl(repoUrl: string): { owner: string; repo: string } | null {
-  if (!repoUrl) return null;
-  const cleaned = repoUrl.trim().replace(/\.git$/, '');
-  const httpsMatch = cleaned.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-  if (httpsMatch) {
-    return { owner: httpsMatch[1], repo: httpsMatch[2] };
-  }
-  const sshMatch = cleaned.match(/github\.com:([^\/]+)\/([^\/]+)/);
-  if (sshMatch) {
-    return { owner: sshMatch[1], repo: sshMatch[2] };
-  }
-  return null;
-}
+import { isSourceCodeFile, parseGitHubUrl } from './noise-filter.service';
+export { isNoiseFile, isSourceCodeFile, parseGitHubUrl } from './noise-filter.service';
 
 /**
  * POST /api/git/:teamId/sync
@@ -122,18 +91,14 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
 
             if (detail.files && detail.files.length > 0) {
               for (const file of detail.files) {
-                if (!isNoiseFile(file.filename)) {
+                if (isSourceCodeFile(file.filename)) {
                   linesAdded += file.additions || 0;
                   linesDeleted += file.deletions || 0;
                 }
               }
-            } else if (detail.stats) {
-              linesAdded = detail.stats.additions || 0;
-              linesDeleted = detail.stats.deletions || 0;
             }
           } catch (fileErr) {
-            linesAdded = 15;
-            linesDeleted = 5;
+            throw fileErr;
           }
 
           commitsToUpsert.push({
@@ -180,17 +145,17 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
       }
     }
 
-    // 3. Upsert commits into database (using message column)
+    // 3. Upsert commits into database (using commit_message column)
     let insertedCount = 0;
     for (const c of commitsToUpsert) {
       await pool.query(
-        `INSERT INTO git_commits (team_id, author_user_id, commit_hash, message, lines_added, lines_deleted, committed_at)
+        `INSERT INTO git_commits (team_id, author_user_id, commit_hash, commit_message, lines_added, lines_deleted, committed_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (commit_hash) DO UPDATE SET
            author_user_id = EXCLUDED.author_user_id,
            lines_added = EXCLUDED.lines_added,
            lines_deleted = EXCLUDED.lines_deleted,
-           message = EXCLUDED.message,
+           commit_message = EXCLUDED.commit_message,
            committed_at = EXCLUDED.committed_at`,
         [teamId, c.authorUserId, c.hash, c.message, c.linesAdded, c.linesDeleted, c.committedAt]
       );
@@ -215,7 +180,7 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
  * GET /api/git/:teamId/commits
  * Retrieve commit list and aggregated member contributions with Free-Rider Detection (BR-07)
  */
-router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Response) => {
+const getContributions = async (req: Request, res: Response) => {
   const teamId = Number(req.params.teamId);
 
   try {
@@ -257,7 +222,7 @@ router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Respon
     const memberContributions = rawMembers.map((m) => {
       const linesAdded = Number(m.total_lines_added);
       const percentage = teamTotalLinesAdded > 0 ? (linesAdded / teamTotalLinesAdded) * 100 : 0;
-      const isFreeRider = teamTotalLinesAdded >= 50 && percentage < FREE_RIDER_THRESHOLD_PERCENT;
+      const isFreeRider = teamTotalLinesAdded >= 50 && (percentage < FREE_RIDER_THRESHOLD_PERCENT || Number(m.total_commits) === 0);
 
       return {
         user_id: m.user_id,
@@ -271,11 +236,12 @@ router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Respon
         is_free_rider: isFreeRider,
         status: isFreeRider ? 'FREE_RIDER_WARNING' : 'NORMAL',
         warning_message: isFreeRider 
-          ? `Cảnh báo BR-07: Đóng góp (${percentage.toFixed(1)}%) thấp hơn ngưỡng tối thiểu 5% của nhóm!` 
+          ? `Cảnh báo BR-07: Đóng góp thấp hơn ngưỡng tối thiểu 5% của nhóm!` 
           : null,
       };
     });
 
+    if (req.path.endsWith('/free-riders')) return res.json({ team_id: teamId, team_total_lines_added: teamTotalLinesAdded, free_riders: memberContributions.filter(m => m.is_free_rider) });
     return res.json({
       team_id: teamId,
       team_total_lines_added: teamTotalLinesAdded,
@@ -288,6 +254,8 @@ router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Respon
     console.error('Error fetching git commits:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
-});
+};
+router.get('/:teamId/commits', authenticateJWT, getContributions);
+router.get('/:teamId/free-riders', authenticateJWT, requireRole('LECTURER', 'ADMIN'), getContributions);
 
 export default router;
