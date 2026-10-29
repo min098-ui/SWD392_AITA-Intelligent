@@ -29,6 +29,7 @@
    - [4.11. Hoàn Thiện Nghiệp Vụ Quản Lý Học Phần & Nhóm Đồ Án (Courses & Teams CRUD)](#411-hoàn-thiện-nghiệp-vụ-quản-lý-học-phần--nhóm-đồ-án-courses--teams-crud)
    - [4.12. Tinh Chỉnh Giao Diện & Đồng Bộ Trải Nghiệm (UI Polish & Deduplication)](#412-tinh-chỉnh-giao-diện--đồng-bộ-trải-nghiệm-ui-polish--deduplication)
    - [4.13. Tích Hợp Tiện Ích Giám Sát CSDL Prisma Studio & Quản Trị Git](#413-tích-hợp-tiện-ích-giám-sát-csdl-prisma-studio--quản-trị-git)
+    - [4.14. Chuẩn Hóa Phân Quyền Sinh Viên – Giảng Viên, Toàn Vẹn Bài Nộp & Bảo Toàn Quy Trình Chấm Chéo BR-09](#414-chuẩn-hóa-phân-quyền-sinh-viên--giảng-viên-toàn-vẹn-bài-nộp--bảo-toàn-quy-trình-chấm-chéo-br-09)
 5. [Hệ Thống API Endpoints Chi Tiết](#5-hệ-thống-api-endpoints-chi-tiết)
 6. [Kết Quả Kiểm Thử Thực Tế (verify-member2.ts: 21/21 PASS)](#6-kết-quả-kiểm-thử-thực-tế-verify-member2ts-2121-pass)
 7. [Hướng Dẫn Demo Khi Bảo Vệ Đồ Án](#7-hướng-dẫn-demo-khi-bảo-vệ-đồ-án)
@@ -318,11 +319,28 @@ Nâng cao tính thẩm mỹ và độ hoàn thiện của hệ thống:
 
 ---
 
+### 4.14. Chuẩn Hóa Phân Quyền Sinh Viên – Giảng Viên, Toàn Vẹn Bài Nộp & Bảo Toàn Quy Trình Chấm Chéo BR-09
+Nhằm củng cố độ tin cậy và tính bảo mật ở cấp độ Production cho hệ thống phân hệ Chấm bài & Học phần:
+* **Hiển thị đầy đủ bài nộp cá nhân & Thắt chặt RBAC Sinh viên (`GET /api/submissions`):**
+  * *Khắc phục sót bài cá nhân:* Trước đây dùng `INNER JOIN teams` khiến các bài nộp thuộc bài tập cá nhân (`submission_type = 'INDIVIDUAL'` có `team_id IS NULL`) bị biến mất khỏi danh sách tra cứu điểm. Đã chuyển sang `LEFT JOIN teams` để bảo toàn 100% tất cả các bài nộp cá nhân lẫn bài nộp nhóm.
+  * *Bảo vệ quyền riêng tư (Data Isolation):* Tích hợp bộ lọc phân quyền: Sinh viên (`STUDENT`) chỉ được phép xem bài nộp của chính mình hoặc bài nộp của nhóm mình tham gia (`s.submitted_by_user_id = user.userId OR s.team_id IN (SELECT tm.team_id FROM team_members tm WHERE tm.user_id = user.userId)`), loại bỏ hoàn toàn nguy cơ rò rỉ mã nguồn và điểm số giữa các sinh viên/nhóm khác nhau.
+* **Xác thực toàn vẹn bài nộp & Ngăn ngừa rò rỉ kết nối (`POST /api/submissions`):**
+  * *Xác thực dữ liệu bài nộp (Input Integrity):* Bổ sung kiểm tra sự tồn tại của bài tập (`404 Assignment not found`) và nhóm đồ án (`404 Team not found`).
+  * *Chống nộp bài mạo danh:* Ràng buộc sinh viên chỉ được quyền nộp bài cho nhóm mà mình thực sự là thành viên chính thức; nếu nộp thay nhóm khác sẽ bị hệ thống từ chối (`HTTP 403 Forbidden`).
+  * *Chống rò rỉ kết nối Database (Connection Leak Safeguard):* Bổ sung khối `finally { client.release(); }` sau khi thực hiện giao dịch PostgreSQL, đảm bảo các kết nối connection pool luôn được trả về pool an toàn ngay cả khi gặp sự cố, ngăn ngừa treo server khi hàng nghìn sinh viên nộp bài đồng thời trước hạn chót (Deadline).
+* **Bảo vệ tính khách quan Quy trình Chấm chéo Đa tầng BR-09 (`POST /api/grading/review/second-opinion/:id`):**
+  * Ràng buộc chặt chẽ nghiệp vụ: Giảng viên 2 chấm chéo độc lập bắt buộc phải là người khác với Giảng viên 1 (`sub.reviewer_1_id !== reviewerId`).
+  * Ngăn chặn trường hợp một giảng viên vừa đóng vai trò người đề xuất vừa tự chấm chéo lần 2, bảo vệ tính trung thực và khách quan tuyệt đối của quy tắc BR-09 trong hội đồng bảo vệ đồ án.
+* **Chuẩn hóa truy vấn môn học Sinh viên (`GET /api/courses`):**
+  * Khắc phục câu truy vấn môn học của sinh viên bằng `LEFT JOIN course_enrollments` và `team_members`, giúp sinh viên thấy đúng các môn đã ghi danh thông qua cờ `is_enrolled`, đồng thời hỗ trợ tham số `?all=true` để sinh viên tra cứu danh mục môn học đang mở để ghi danh.
+
+---
+
 ## 5. Hệ Thống API Endpoints Chi Tiết
 
 | Method | Endpoint | Quyền hạn | Chức năng chi tiết |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/courses` | Authenticated | Lấy danh sách các học phần |
+| `GET` | `/api/courses` | Authenticated | Lấy danh sách học phần (SV xem môn đã ghi danh / tất cả môn với `?all=true`) |
 | `POST` | `/api/courses` | LECTURER / ADMIN | Giảng viên tạo học phần mới |
 | `PUT` | `/api/courses/:id` | LECTURER / ADMIN | Chỉnh sửa thông tin học phần (mã môn, tên môn học, học kỳ) |
 | `DELETE` | `/api/courses/:id` | LECTURER / ADMIN | Xóa học phần và toàn bộ dữ liệu phụ thuộc qua DB Transaction |
@@ -331,13 +349,14 @@ Nâng cao tính thẩm mỹ và độ hoàn thiện của hệ thống:
 | `POST` | `/api/assignments` | LECTURER / ADMIN | Giảng viên tạo bài tập mới (hỗ trợ `INDIVIDUAL`/`TEAM`) |
 | `GET` | `/api/assignments/:id` | Authenticated | Chi tiết bài tập (Ẩn test bí mật nếu là Student) |
 | `POST` | `/api/assignments/:id/rubrics` | LECTURER / ADMIN | Thêm tiêu chí Rubric / Test case (công khai hoặc ẩn) |
-| `POST` | `/api/submissions` | STUDENT | Nộp bài (`artifact_url`, `git_commit_hash`) $\rightarrow$ Đẩy vào BullMQ |
+| `GET` | `/api/submissions` | Authenticated | Danh sách bài nộp (Hỗ trợ bài cá nhân, phân quyền SV chỉ xem bài của mình) |
+| `POST` | `/api/submissions` | STUDENT | Nộp bài (`artifact_url`, `git_commit_hash`) $\rightarrow$ Validate nhóm/bài tập, giải phóng pool & Đẩy vào BullMQ |
 | `GET` | `/api/submissions/:id` | Authenticated | Tra cứu trạng thái chấm bài thời gian thực |
 | `GET` | `/api/submissions/my` | STUDENT | Lấy lịch sử tất cả bài nộp của bản thân/nhóm |
 | `GET` | `/api/grading/:jobId/results` | Authenticated | Kết quả chấm chi tiết từng tiêu chí Rubric (**BR-06**) |
 | `POST` | `/api/grading/review/approve-ai/:id` | LECTURER / ADMIN | Giảng viên 1 phê duyệt điểm AI sơ bộ (**BR-09**) |
 | `POST` | `/api/grading/review/request-second-opinion/:id` | LECTURER / ADMIN | Giảng viên 1 tự chấm lại & yêu cầu GV2 chấm chéo |
-| `POST` | `/api/grading/review/second-opinion/:id` | LECTURER / ADMIN | Giảng viên 2 chấm độc lập & so sánh độ lệch điểm |
+| `POST` | `/api/grading/review/second-opinion/:id` | LECTURER / ADMIN | GV2 chấm độc lập (**Bảo đảm GV2 khác GV1 theo BR-09**) & đối soát lệch điểm |
 | `POST` | `/api/grading/review/consensus/:id` | LECTURER / ADMIN | Thống nhất điểm chung khi có sự chênh lệch lớn |
 
 ---
