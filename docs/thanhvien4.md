@@ -201,3 +201,22 @@ npm run dev
 
 ---
 *Báo cáo được hoàn thiện và kiểm thử toàn diện bởi sinh viên Đinh Gia Huy (Member 4 - Group 4 - SWD392).*
+## Cập nhật BR-07 / BR-08 (29/10/2026)
+
+Phần cập nhật này thay thế các mô tả ngưỡng và công thức LOC cũ ở trên.
+
+- Service mới: `server/src/modules/git-analytics/noise-filter.service.ts`, gồm `NOISE_PATTERNS`, `isNoiseFile`, `isSourceCodeFile`, `parseGitHubUrl`.
+- Loại node_modules/, dist/, build/, .next/, coverage/, .git/; package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb; *.min.js, *.min.css, *.map; .env, .env.local, .DS_Store. Hỗ trợ đường dẫn Windows và Unix.
+- Chỉ tính LOC của .ts, .tsx, .js, .jsx, .py, .java, .sql, .html, .css sau khi lọc nhiễu. Không lấy thống kê gộp chưa lọc khi thiếu danh sách file.
+- LOC cá nhân = SUM(lines_added). Tỷ lệ = LOC cá nhân / tổng LOC các thành viên × 100. Không dùng Net LOC trừ lines_deleted.
+- BR-07: tổng LOC nhóm >= 50 và (tỷ lệ < 5% hoặc 0 commit) thì `is_free_rider = true`, `status = FREE_RIDER_WARNING`. Nhóm dưới 50 LOC chưa gắn cờ.
+- Cảnh báo: "Cảnh báo BR-07: Đóng góp thấp hơn ngưỡng tối thiểu 5% của nhóm!".
+- GET `/api/git/:teamId/free-riders`: trả `free_riders`, yêu cầu LECTURER hoặc ADMIN, dùng chung thuật toán với GET commits.
+- POST `/api/peer-audits`: reviewer lấy từ JWT; cấm tự chấm; score bắt buộc là số hữu hạn trong [0, 10]; hai người phải cùng team_id.
+- `audit_round`: chỉ 1 (giữa kỳ) hoặc 2 (cuối kỳ), mặc định 1. Gửi lại cùng vòng cập nhật phiếu hiện có.
+- GET `/api/peer-audits/team/:teamId/summary`: AVG(score) theo thành viên qua các vòng, làm tròn hai chữ số; không trả ID/tên/email người chấm. Danh sách phiếu cũng ẩn danh người chấm.
+- `verify-member4.ts`: truy vấn lecturer_id động, sửa JWT mặc định khớp middleware và exit code khi test thất bại.
+- `run-scenarios-member4.ts`: truy vấn team_id đang có và hai thành viên thực tế, báo lỗi nếu thiếu dữ liệu.
+- Kiểm tra: `npm.cmd run build --prefix server`; kiểm tra trực tiếp noise filter, đuôi mã nguồn và URL parser.
+- Chưa chạy bộ test tích hợp cũ trên DB hiện có vì script xóa user cố định 3, 4, 99. Chỉ chạy trên DB kiểm thử riêng.
+- Sync vẫn có fallback `simulated_offline` sẵn có; dữ liệu mô phỏng không phải bằng chứng đóng góp thực tế.
