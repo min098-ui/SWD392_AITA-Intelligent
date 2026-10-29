@@ -273,6 +273,14 @@ router.post(
       }
 
       const sub = subRes.rows[0];
+
+      // BR-09: Giảng viên 2 chấm chéo độc lập phải là người khác với Giảng viên 1 (trừ ADMIN)
+      if (sub.reviewer_1_id && Number(sub.reviewer_1_id) === Number(reviewerId) && req.user!.role !== 'ADMIN') {
+        return res.status(400).json({
+          message: 'Quy tắc BR-09: Giảng viên 2 chấm chéo độc lập phải là giảng viên khác với Giảng viên 1.',
+          rule: 'BR-09',
+        });
+      }
       const score1 = Number(sub.reviewer_1_score || 0);
       const score2 = Number(reviewer_2_score);
       const difference = Math.abs(score1 - score2);
