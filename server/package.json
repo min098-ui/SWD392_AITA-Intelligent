@@ -11,6 +11,7 @@
     "test:member2": "tsc && node dist/test/verify-member2.js",
     "test:member3": "tsc && node dist/test/verify-member3.js",
     "test:member4": "tsc && node dist/test/verify-member4.js",
+    "test:noise-filter": "ts-node src/test/test-noise-filter.ts",
     "db:reset": "npx ts-node src/scripts/reset-db.ts",
     "studio": "prisma studio --port 5555"
   },
