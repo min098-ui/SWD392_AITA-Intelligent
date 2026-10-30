@@ -168,7 +168,13 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
       source,
       synced_commits_count: insertedCount,
       noise_filter_applied: true,
-      filtered_patterns: ['node_modules/', 'package-lock.json', 'dist/', '.next/'],
+      filtered_patterns: [
+        'node_modules/', 'dist/', 'build/', '.next/', 'coverage/',
+        'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb',
+        '*.min.js', '*.map', '.env*', '.DS_Store',
+        '.eslintrc*', '.prettierrc*', 'tsconfig*.json', 'vite.config.*', 'tailwind.config.*',
+        '*.png', '*.jpg', '*.jpeg', '*.svg', '*.ico', '*.webp', '*.woff2',
+      ],
     });
   } catch (error: any) {
     console.error('Error in POST /api/git/:teamId/sync:', error);
@@ -216,11 +222,13 @@ const getContributions = async (req: Request, res: Response) => {
     // 3. Compute Free-Rider metric (BR-07: LOC contribution < 5%)
     const rawMembers = statsRes.rows;
     const teamTotalLinesAdded = rawMembers.reduce((sum, m) => sum + Number(m.total_lines_added), 0);
+    const teamTotalLinesDeleted = rawMembers.reduce((sum, m) => sum + Number(m.total_lines_deleted), 0);
     const teamTotalCommits = rawMembers.reduce((sum, m) => sum + Number(m.total_commits), 0);
     const FREE_RIDER_THRESHOLD_PERCENT = 5.0;
 
     const memberContributions = rawMembers.map((m) => {
       const linesAdded = Number(m.total_lines_added);
+      const linesDeleted = Number(m.total_lines_deleted);
       const percentage = teamTotalLinesAdded > 0 ? (linesAdded / teamTotalLinesAdded) * 100 : 0;
       const isFreeRider = teamTotalLinesAdded >= 50 && (percentage < FREE_RIDER_THRESHOLD_PERCENT || Number(m.total_commits) === 0);
 
@@ -231,7 +239,8 @@ const getContributions = async (req: Request, res: Response) => {
         assigned_module: m.assigned_module,
         total_commits: m.total_commits,
         total_lines_added: linesAdded,
-        total_lines_deleted: Number(m.total_lines_deleted),
+        total_lines_deleted: linesDeleted,
+        net_loc: linesAdded - linesDeleted,
         contribution_percentage: Number(percentage.toFixed(1)),
         is_free_rider: isFreeRider,
         status: isFreeRider ? 'FREE_RIDER_WARNING' : 'NORMAL',
@@ -245,6 +254,8 @@ const getContributions = async (req: Request, res: Response) => {
     return res.json({
       team_id: teamId,
       team_total_lines_added: teamTotalLinesAdded,
+      team_total_lines_deleted: teamTotalLinesDeleted,
+      team_total_net_loc: teamTotalLinesAdded - teamTotalLinesDeleted,
       team_total_commits: teamTotalCommits,
       free_rider_threshold_percent: FREE_RIDER_THRESHOLD_PERCENT,
       member_contributions: memberContributions,
