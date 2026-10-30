@@ -153,6 +153,17 @@ router.get('/team/:teamId/my-reviews', authenticateJWT, async (req: Request, res
     return res.status(400).json({ message: 'teamId must be a positive integer' });
   }
 
+  // Bộ lọc tùy chọn để modal sinh viên kiểm tra theo từng bài / từng vòng
+  const assignmentId = req.query.assignment_id !== undefined ? Number(req.query.assignment_id) : null;
+  const auditRound = req.query.audit_round !== undefined ? Number(req.query.audit_round) : null;
+
+  if (assignmentId !== null && (!Number.isInteger(assignmentId) || assignmentId <= 0)) {
+    return res.status(400).json({ message: 'assignment_id must be a positive integer' });
+  }
+  if (auditRound !== null && auditRound !== 1 && auditRound !== 2) {
+    return res.status(400).json({ message: 'audit_round must be 1 or 2' });
+  }
+
   try {
     const memberCheck = await pool.query(
       'SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2',
@@ -162,25 +173,45 @@ router.get('/team/:teamId/my-reviews', authenticateJWT, async (req: Request, res
       return res.status(403).json({ message: 'You are not a member of this team', rule: 'BR-08' });
     }
 
+    const filters = ['pa.team_id = $1', 'pa.reviewer_id = $2'];
+    const params: Array<number> = [teamId, reviewerId];
+    if (assignmentId !== null) {
+      params.push(assignmentId);
+      filters.push(`pa.assignment_id = $${params.length}`);
+    }
+    if (auditRound !== null) {
+      params.push(auditRound);
+      filters.push(`pa.audit_round = $${params.length}`);
+    }
+
     const result = await pool.query(
       `SELECT pa.audit_id, pa.assignment_id, pa.reviewee_id,
               reviewee.full_name AS reviewee_name,
               pa.audit_round, pa.score, pa.comments, pa.passed, pa.created_at
        FROM peer_audits pa
        JOIN users reviewee ON pa.reviewee_id = reviewee.user_id
-       WHERE pa.team_id = $1 AND pa.reviewer_id = $2
+       WHERE ${filters.join(' AND ')}
        ORDER BY pa.assignment_id ASC NULLS FIRST, pa.audit_round ASC, pa.created_at DESC`,
-      [teamId, reviewerId]
+      params
     );
 
-    // Danh sách đồng đội (trừ chính mình) để Frontend biết còn ai chưa chấm
-    const teammatesRes = await pool.query(
+    // Đồng đội chưa được chấm trong đúng phạm vi (assignment/round) đang xét
+    const pendingRes = await pool.query(
       `SELECT tm.user_id, u.full_name, tm.assigned_module
        FROM team_members tm
        JOIN users u ON tm.user_id = u.user_id
-       WHERE tm.team_id = $1 AND tm.user_id <> $2
+       WHERE tm.team_id = $1
+         AND tm.user_id <> $2
+         AND NOT EXISTS (
+           SELECT 1 FROM peer_audits pa
+           WHERE pa.team_id = tm.team_id
+             AND pa.reviewer_id = $2
+             AND pa.reviewee_id = tm.user_id
+             AND ($3::int IS NULL OR pa.assignment_id = $3)
+             AND ($4::int IS NULL OR pa.audit_round = $4)
+         )
        ORDER BY u.full_name ASC`,
-      [teamId, reviewerId]
+      [teamId, reviewerId, assignmentId, auditRound]
     );
 
     const reviewedIds = new Set(result.rows.map((r) => Number(r.reviewee_id)));
@@ -188,11 +219,14 @@ router.get('/team/:teamId/my-reviews', authenticateJWT, async (req: Request, res
     return res.json({
       team_id: teamId,
       reviewer_id: reviewerId,
+      filter: { assignment_id: assignmentId, audit_round: auditRound },
       total_reviews: result.rows.length,
       reviewed_reviewee_ids: [...reviewedIds],
-      pending_teammates: teammatesRes.rows
-        .filter((t) => !reviewedIds.has(Number(t.user_id)))
-        .map((t) => ({ user_id: t.user_id, full_name: t.full_name, assigned_module: t.assigned_module })),
+      pending_teammates: pendingRes.rows.map((t) => ({
+        user_id: t.user_id,
+        full_name: t.full_name,
+        assigned_module: t.assigned_module,
+      })),
       reviews: result.rows,
     });
   } catch (error: any) {
