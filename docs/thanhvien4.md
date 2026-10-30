@@ -146,7 +146,7 @@ export function isNoiseFile(filename: string): boolean {
 | **GET** | `/api/peer-audits/:teamId` | Lấy lịch sử các phiếu đánh giá chéo của nhóm theo vòng audit | `STUDENT`, `LECTURER`, `ADMIN` |
 | **GET** | `/api/peer-audits/team/:teamId/summary` | Tổng hợp điểm đánh giá chéo trung bình từng thành viên (ẩn danh người chấm) | `STUDENT`, `LECTURER`, `ADMIN` |
 | **GET** | `/api/peer-audits/team/:teamId/assignment/:assignmentId` | Lấy phiếu đánh giá chéo của nhóm theo đúng một Assignment (Giảng viên chấm theo từng bài) | `STUDENT`, `LECTURER`, `ADMIN` |
-| **GET** | `/api/peer-audits/team/:teamId/my-reviews` | Phiếu do chính người dùng hiện tại đã chấm + danh sách đồng đội còn chưa chấm (phục vụ modal đánh giá) | `STUDENT` (thành viên nhóm) |
+| **GET** | `/api/peer-audits/team/:teamId/my-reviews` | Phiếu do chính người dùng hiện tại đã chấm + đồng đội còn chưa chấm; lọc tùy chọn `?assignment_id=&audit_round=` cho modal đánh giá | `STUDENT` (thành viên nhóm) |
 | **POST** | `/api/peer-audits` | Sinh viên nộp phiếu đánh giá chéo thành viên cùng nhóm (`BR-08`) | `STUDENT` (Đã đăng nhập) |
 
 ---
@@ -247,6 +247,7 @@ Bốn lỗi do reviewer (Codex) phát hiện đã được sửa và kiểm ch�
 3. **Làm tròn trước khi so ngưỡng BR-07:** `team-health` từng làm tròn 4,99% thành 5,0% rồi mới so với ngưỡng 5%, khiến kết quả lệch với `/commits`. Nay phân loại bằng tỷ lệ gốc, chỉ làm tròn khi hiển thị → hai endpoint luôn cùng kết luận.
 4. **Ghi đè `assignment_id` khi nộp lại phiếu:** POST `/api/peer-audits` tìm phiếu trùng mà bỏ qua `assignment_id` rồi cập nhật cả `assignment_id`, có thể "chuyển" phiếu từ bài này sang bài khác. Nay khóa trùng là `(team_id, reviewer_id, reviewee_id, audit_round, assignment_id IS NOT DISTINCT FROM ...)`; nhánh update chỉ sửa `score`, `comments`, `passed`, không đổi `assignment_id`.
 5. **Noise filter (bổ sung):** thư mục `dist/build/out` chỉ bị coi là nhiễu khi không nằm dưới `src/`, `app/`, `lib/`, `modules/`... nên `src/build/Builder.java` vẫn được tính LOC; thêm `vendor/`, `.env.*`, `.min.mjs/.min.cjs`; build output của workspace con (`client/dist/...`) vẫn bị lọc.
+6. **`my-reviews` lọc theo bài/vòng:** thêm query tùy chọn `?assignment_id=` và `?audit_round=`; `pending_teammates` dùng `NOT EXISTS` theo đúng phạm vi nên modal sinh viên biết chính xác ai còn chưa chấm trong bài đang mở (trước đây gộp mọi assignment và vòng). Tham số sai trả 400.
 
-Kết quả sau bản vá: build 0 lỗi · `test:noise-filter` 72/72 · `test:member4` 15/15 · 24/24 check API cũ · 19/19 check bản vá · DB trả về nguyên trạng (6 users, 1 team, 3 team_members, 0 peer_audits, 0 git_commits).
+Kết quả sau bản vá: build 0 lỗi · `test:noise-filter` 72/72 · `test:member4` 15/15 · 24/24 check API cũ · 19/19 check 4 lỗi Codex · 11/11 check bộ lọc `my-reviews` · DB trả về nguyên trạng (6 users, 1 team, 3 team_members, 0 peer_audits, 0 git_commits).
 - Sync vẫn có fallback `simulated_offline` sẵn có; dữ liệu mô phỏng không phải bằng chứng đóng góp thực tế.
