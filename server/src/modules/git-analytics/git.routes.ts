@@ -269,4 +269,151 @@ const getContributions = async (req: Request, res: Response) => {
 router.get('/:teamId/commits', authenticateJWT, getContributions);
 router.get('/:teamId/free-riders', authenticateJWT, requireRole('LECTURER', 'ADMIN'), getContributions);
 
+/**
+ * GET /api/git/:teamId/team-health
+ * Scorecard "Team Health" hợp nhất Git LOC và điểm đánh giá chéo (BR-09).
+ * Giảng viên 1 và Giảng viên 2 chỉ cần một lời gọi API để thấy toàn cảnh nhóm.
+ */
+const EXCELLENT_LOC_PERCENT = 20;
+const FREE_RIDER_LOC_PERCENT = 5;
+const EXCELLENT_PEER_SCORE = 8;
+const POOR_PEER_SCORE = 5;
+const MIN_TEAM_LOC = 50;
+
+const classifyMember = (
+  contributionPercentage: number,
+  totalCommits: number,
+  averagePeerScore: number | null,
+  teamLocEnough: boolean,
+) => {
+  const hasPeerReviews = averagePeerScore !== null;
+  if (teamLocEnough && (contributionPercentage < FREE_RIDER_LOC_PERCENT || totalCommits === 0)) {
+    return 'FREE_RIDER_WARNING';
+  }
+  if (hasPeerReviews && (averagePeerScore as number) < POOR_PEER_SCORE) return 'POOR_PEER_RATING';
+  if (contributionPercentage >= EXCELLENT_LOC_PERCENT && hasPeerReviews && (averagePeerScore as number) >= EXCELLENT_PEER_SCORE) {
+    return 'EXCELLENT';
+  }
+  return 'NORMAL';
+};
+
+const getTeamHealth = async (req: Request, res: Response) => {
+  const teamId = Number(req.params.teamId);
+
+  if (!Number.isInteger(teamId) || teamId <= 0) {
+    return res.status(400).json({ message: 'teamId must be a positive integer' });
+  }
+
+  try {
+    const teamRes = await pool.query('SELECT team_id, team_name FROM teams WHERE team_id = $1', [teamId]);
+    if (teamRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    const [statsRes, peerRes] = await Promise.all([
+      pool.query(
+        `SELECT
+           u.user_id,
+           u.full_name,
+           u.email,
+           tm.assigned_module,
+           COUNT(c.commit_id)::int AS total_commits,
+           COALESCE(SUM(c.lines_added), 0)::int AS total_lines_added,
+           COALESCE(SUM(c.lines_deleted), 0)::int AS total_lines_deleted
+         FROM team_members tm
+         JOIN users u ON tm.user_id = u.user_id
+         LEFT JOIN git_commits c ON c.author_user_id = u.user_id AND c.team_id = tm.team_id
+         WHERE tm.team_id = $1
+         GROUP BY u.user_id, u.full_name, u.email, tm.assigned_module
+         ORDER BY total_lines_added DESC`,
+        [teamId]
+      ),
+      pool.query(
+        `SELECT reviewee_id,
+                COUNT(audit_id)::int AS total_reviews,
+                ROUND(AVG(score)::numeric, 2) AS average_score
+         FROM peer_audits
+         WHERE team_id = $1
+         GROUP BY reviewee_id`,
+        [teamId]
+      ),
+    ]);
+
+    const peerStats = new Map<number, { total_reviews: number; average_score: number }>();
+    for (const row of peerRes.rows) {
+      peerStats.set(Number(row.reviewee_id), {
+        total_reviews: Number(row.total_reviews),
+        average_score: Number(row.average_score),
+      });
+    }
+
+    const totalLinesAdded = statsRes.rows.reduce((sum, m) => sum + Number(m.total_lines_added), 0);
+    const totalLinesDeleted = statsRes.rows.reduce((sum, m) => sum + Number(m.total_lines_deleted), 0);
+    const teamLocEnough = totalLinesAdded >= MIN_TEAM_LOC;
+
+    const members = statsRes.rows.map((m) => {
+      const linesAdded = Number(m.total_lines_added);
+      const linesDeleted = Number(m.total_lines_deleted);
+      const totalCommits = Number(m.total_commits);
+      const contributionPercentage = totalLinesAdded > 0 ? Number(((linesAdded / totalLinesAdded) * 100).toFixed(1)) : 0;
+      const peer = peerStats.get(Number(m.user_id));
+      const averagePeerScore = peer ? peer.average_score : null;
+      const isFreeRider = teamLocEnough && (contributionPercentage < FREE_RIDER_LOC_PERCENT || totalCommits === 0);
+      const label = classifyMember(contributionPercentage, totalCommits, averagePeerScore, teamLocEnough);
+
+      return {
+        user_id: m.user_id,
+        full_name: m.full_name,
+        email: m.email,
+        assigned_module: m.assigned_module,
+        total_commits: totalCommits,
+        total_lines_added: linesAdded,
+        total_lines_deleted: linesDeleted,
+        net_loc: linesAdded - linesDeleted,
+        contribution_percentage: contributionPercentage,
+        is_free_rider: isFreeRider,
+        average_peer_score: averagePeerScore,
+        peer_reviews_count: peer ? peer.total_reviews : 0,
+        health_label: label,
+      };
+    });
+
+    const freeRiderCount = members.filter((m) => m.health_label === 'FREE_RIDER_WARNING').length;
+    const poorPeerCount = members.filter((m) => m.health_label === 'POOR_PEER_RATING').length;
+    const excellentCount = members.filter((m) => m.health_label === 'EXCELLENT').length;
+
+    return res.json({
+      team_id: teamId,
+      team_name: teamRes.rows[0].team_name,
+      generated_at: new Date().toISOString(),
+      thresholds: {
+        min_team_loc: MIN_TEAM_LOC,
+        free_rider_loc_percent: FREE_RIDER_LOC_PERCENT,
+        excellent_loc_percent: EXCELLENT_LOC_PERCENT,
+        excellent_peer_score: EXCELLENT_PEER_SCORE,
+        poor_peer_score: POOR_PEER_SCORE,
+      },
+      team_totals: {
+        total_lines_added: totalLinesAdded,
+        total_lines_deleted: totalLinesDeleted,
+        net_loc: totalLinesAdded - totalLinesDeleted,
+        total_commits: members.reduce((sum, m) => sum + m.total_commits, 0),
+      },
+      team_status: freeRiderCount > 0 || poorPeerCount > 0 ? 'AT_RISK' : 'HEALTHY',
+      summary: {
+        member_count: members.length,
+        free_rider_count: freeRiderCount,
+        poor_peer_rating_count: poorPeerCount,
+        excellent_count: excellentCount,
+      },
+      members,
+    });
+  } catch (error: any) {
+    console.error('Error building team health scorecard:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+router.get('/:teamId/team-health', authenticateJWT, requireRole('LECTURER', 'ADMIN', 'STUDENT'), getTeamHealth);
+
 export default router;
