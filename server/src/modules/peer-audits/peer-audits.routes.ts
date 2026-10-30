@@ -82,6 +82,115 @@ router.get('/team/:teamId/summary', authenticateJWT, async (req: Request, res: R
 });
 
 /**
+ * GET /api/peer-audits/team/:teamId/assignment/:assignmentId
+ * Lấy danh sách phiếu đánh giá chéo của nhóm theo đúng một Assignment.
+ * Phục vụ Giảng viên xem kết quả đánh giá chéo theo từng bài tập cụ thể.
+ * Danh tính người chấm vẫn được ẩn (BR-08).
+ */
+router.get('/team/:teamId/assignment/:assignmentId', authenticateJWT, async (req: Request, res: Response) => {
+  const teamId = Number(req.params.teamId);
+  const assignmentId = Number(req.params.assignmentId);
+
+  if (!Number.isInteger(teamId) || teamId <= 0 || !Number.isInteger(assignmentId) || assignmentId <= 0) {
+    return res.status(400).json({ message: 'teamId and assignmentId must be positive integers' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT pa.audit_id, pa.assignment_id, pa.reviewee_id,
+              pa.audit_round, pa.score, pa.comments, pa.passed, pa.created_at,
+              reviewee.full_name AS reviewee_name,
+              reviewee.email    AS reviewee_email,
+              a.title           AS assignment_title
+       FROM peer_audits pa
+       JOIN users reviewee ON pa.reviewee_id = reviewee.user_id
+       LEFT JOIN assignments a ON pa.assignment_id = a.assignment_id
+       WHERE pa.team_id = $1 AND pa.assignment_id = $2
+       ORDER BY pa.audit_round ASC, pa.created_at DESC`,
+      [teamId, assignmentId]
+    );
+
+    const audits = result.rows.map(
+      ({ reviewer_id, reviewer_name, reviewer_email, ...audit }) => audit
+    );
+    const scores = audits.map((a) => Number(a.score));
+
+    return res.json({
+      team_id: teamId,
+      assignment_id: assignmentId,
+      assignment_title: result.rows[0]?.assignment_title ?? null,
+      total_audits: audits.length,
+      average_score: scores.length ? Number((scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(2)) : 0,
+      audits,
+    });
+  } catch (error: any) {
+    console.error('Error fetching peer audits by assignment:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
+
+/**
+ * GET /api/peer-audits/team/:teamId/my-reviews
+ * Danh sách phiếu mà chính người dùng hiện tại (lấy từ JWT) đã chấm trong nhóm.
+ * Dùng cho modal đánh giá chéo của sinh viên: biết đã chấm ai, tránh chấm trùng.
+ */
+router.get('/team/:teamId/my-reviews', authenticateJWT, async (req: Request, res: Response) => {
+  const teamId = Number(req.params.teamId);
+  const reviewerId = req.user!.userId;
+
+  if (!Number.isInteger(teamId) || teamId <= 0) {
+    return res.status(400).json({ message: 'teamId must be a positive integer' });
+  }
+
+  try {
+    const memberCheck = await pool.query(
+      'SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2',
+      [teamId, reviewerId]
+    );
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ message: 'You are not a member of this team', rule: 'BR-08' });
+    }
+
+    const result = await pool.query(
+      `SELECT pa.audit_id, pa.assignment_id, pa.reviewee_id,
+              reviewee.full_name AS reviewee_name,
+              pa.audit_round, pa.score, pa.comments, pa.passed, pa.created_at
+       FROM peer_audits pa
+       JOIN users reviewee ON pa.reviewee_id = reviewee.user_id
+       WHERE pa.team_id = $1 AND pa.reviewer_id = $2
+       ORDER BY pa.assignment_id ASC NULLS FIRST, pa.audit_round ASC, pa.created_at DESC`,
+      [teamId, reviewerId]
+    );
+
+    // Danh sách đồng đội (trừ chính mình) để Frontend biết còn ai chưa chấm
+    const teammatesRes = await pool.query(
+      `SELECT tm.user_id, u.full_name, tm.assigned_module
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.user_id
+       WHERE tm.team_id = $1 AND tm.user_id <> $2
+       ORDER BY u.full_name ASC`,
+      [teamId, reviewerId]
+    );
+
+    const reviewedIds = new Set(result.rows.map((r) => Number(r.reviewee_id)));
+
+    return res.json({
+      team_id: teamId,
+      reviewer_id: reviewerId,
+      total_reviews: result.rows.length,
+      reviewed_reviewee_ids: [...reviewedIds],
+      pending_teammates: teammatesRes.rows
+        .filter((t) => !reviewedIds.has(Number(t.user_id)))
+        .map((t) => ({ user_id: t.user_id, full_name: t.full_name, assigned_module: t.assigned_module })),
+      reviews: result.rows,
+    });
+  } catch (error: any) {
+    console.error('Error fetching my peer reviews:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
+
+/**
  * POST /api/peer-audits
  * Submit confidential peer audit for a teammate (BR-08)
  * Enforces non-self evaluation and round uniqueness.
