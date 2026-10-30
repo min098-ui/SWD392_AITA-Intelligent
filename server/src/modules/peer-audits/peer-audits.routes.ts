@@ -96,6 +96,17 @@ router.get('/team/:teamId/assignment/:assignmentId', authenticateJWT, async (req
   }
 
   try {
+    // Sinh viên chỉ được xem phiếu của chính nhóm mình (LECTURER/ADMIN xem mọi nhóm)
+    if (req.user!.role === 'STUDENT') {
+      const membership = await pool.query(
+        'SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2',
+        [teamId, req.user!.userId]
+      );
+      if (membership.rows.length === 0) {
+        return res.status(403).json({ message: 'You can only view peer audits of your own team', rule: 'BR-08' });
+      }
+    }
+
     const result = await pool.query(
       `SELECT pa.audit_id, pa.assignment_id, pa.reviewee_id,
               pa.audit_round, pa.score, pa.comments, pa.passed, pa.created_at,
@@ -229,21 +240,23 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
     if (![reviewer_id, reviewee_id].every(id => members.rows.some(m => Number(m.user_id) === Number(id)))) return res.status(403).json({ message: 'Reviewer and reviewee must belong to the same team', rule: 'BR-08' });
     const isPassed = passed !== undefined ? Boolean(passed) : numScore >= 5.0;
 
-    // Check duplicate evaluation in same round
+    // Check duplicate evaluation in the same round AND the same assignment
+    // (DB unique key la (assignment_id, reviewer_id, reviewee_id, audit_round))
     const existing = await pool.query(
-      `SELECT audit_id FROM peer_audits 
-       WHERE team_id = $1 AND reviewer_id = $2 AND reviewee_id = $3 AND audit_round = $4`,
-      [Number(team_id), reviewer_id, Number(reviewee_id), round]
+      `SELECT audit_id FROM peer_audits
+       WHERE team_id = $1 AND reviewer_id = $2 AND reviewee_id = $3 AND audit_round = $4
+         AND assignment_id IS NOT DISTINCT FROM $5`,
+      [Number(team_id), reviewer_id, Number(reviewee_id), round, assignment_id ?? null]
     );
 
     if (existing.rows.length > 0) {
-      // Update existing audit
+      // Update existing audit — KHONG doi assignment_id de tranh chuyen phieu sang bai khac
       const updated = await pool.query(
-        `UPDATE peer_audits 
-         SET score = $1, comments = $2, passed = $3, assignment_id = $5
+        `UPDATE peer_audits
+         SET score = $1, comments = $2, passed = $3
          WHERE audit_id = $4
          RETURNING *`,
-        [numScore, comments || '', isPassed, existing.rows[0].audit_id, assignment_id ?? null]
+        [numScore, comments || '', isPassed, existing.rows[0].audit_id]
       );
       return res.status(200).json({
         message: 'Peer audit updated successfully for this round',
