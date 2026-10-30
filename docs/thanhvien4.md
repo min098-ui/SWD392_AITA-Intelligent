@@ -139,18 +139,24 @@ export function isNoiseFile(filename: string): boolean {
 
 | Method | Endpoint | Mô Tả Chức Năng | Phân Quyền RBAC |
 | :--- | :--- | :--- | :--- |
-| **GET** | `/api/git/:teamId/commits` | Lấy danh sách commits sạch và bảng tổng hợp đóng góp LOC từng thành viên | `STUDENT`, `LECTURER`, `ADMIN` |
+| **GET** | `/api/git/:teamId/commits` | Lấy danh sách commits sạch và bảng tổng hợp đóng góp LOC từng thành viên (kèm `net_loc`) | `STUDENT`, `LECTURER`, `ADMIN` |
+| **GET** | `/api/git/:teamId/free-riders` | Chỉ trả về danh sách thành viên bị gắn cờ Free-Rider (`BR-07`) | `LECTURER`, `ADMIN` |
+| **GET** | `/api/git/:teamId/team-health` | Scorecard "Team Health" hợp nhất LOC% + điểm đánh giá chéo, gán nhãn `EXCELLENT` / `POOR_PEER_RATING` / `FREE_RIDER_WARNING` (`BR-09`) | `STUDENT`, `LECTURER`, `ADMIN` |
 | **POST** | `/api/git/:teamId/sync` | Kích hoạt quét và đồng bộ dữ liệu commit mới từ GitHub Repo | `LECTURER`, `ADMIN` |
 | **GET** | `/api/peer-audits/:teamId` | Lấy lịch sử các phiếu đánh giá chéo của nhóm theo vòng audit | `STUDENT`, `LECTURER`, `ADMIN` |
+| **GET** | `/api/peer-audits/team/:teamId/summary` | Tổng hợp điểm đánh giá chéo trung bình từng thành viên (ẩn danh người chấm) | `STUDENT`, `LECTURER`, `ADMIN` |
+| **GET** | `/api/peer-audits/team/:teamId/assignment/:assignmentId` | Lấy phiếu đánh giá chéo của nhóm theo đúng một Assignment (Giảng viên chấm theo từng bài) | `STUDENT`, `LECTURER`, `ADMIN` |
+| **GET** | `/api/peer-audits/team/:teamId/my-reviews` | Phiếu do chính người dùng hiện tại đã chấm + danh sách đồng đội còn chưa chấm (phục vụ modal đánh giá) | `STUDENT` (thành viên nhóm) |
 | **POST** | `/api/peer-audits` | Sinh viên nộp phiếu đánh giá chéo thành viên cùng nhóm (`BR-08`) | `STUDENT` (Đã đăng nhập) |
 
 ---
 
 ## 6. Kết Quả Kiểm Thử Thực Tế
 
-Hệ thống cung cấp hai bộ công cụ kiểm thử tự động độc lập dành riêng cho Member 4:
+Hệ thống cung cấp ba bộ công cụ kiểm thử tự động độc lập dành riêng cho Member 4:
 1. **Automated Test Suite:** `server/src/test/verify-member4.ts` (Kiểm thử unit test, API endpoints, status codes).
 2. **Real Demonstration Scenarios:** `server/src/test/run-scenarios-member4.ts` (Chạy kịch bản trực quan chứng minh 5 tình huống thực tế cho Hội đồng chấm thi).
+3. **Noise Filter Unit Test:** `server/src/test/test-noise-filter.ts` (61 assertion độc lập, không cần DB/Redis).
 
 ### Lệnh thực thi:
 ```bash
@@ -160,6 +166,9 @@ npx ts-node src/test/run-scenarios-member4.ts
 
 # Hoặc chạy kiểm thử tự động toàn diện:
 npm run test:member4
+
+# Kiểm thử riêng bộ lọc nhiễu (không cần Docker):
+npm run test:noise-filter
 ```
 
 ---
@@ -206,17 +215,23 @@ npm run dev
 Phần cập nhật này thay thế các mô tả ngưỡng và công thức LOC cũ ở trên.
 
 - Service mới: `server/src/modules/git-analytics/noise-filter.service.ts`, gồm `NOISE_PATTERNS`, `isNoiseFile`, `isSourceCodeFile`, `parseGitHubUrl`.
-- Loại node_modules/, dist/, build/, .next/, coverage/, .git/; package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb; *.min.js, *.min.css, *.map; .env, .env.local, .DS_Store. Hỗ trợ đường dẫn Windows và Unix.
-- Chỉ tính LOC của .ts, .tsx, .js, .jsx, .py, .java, .sql, .html, .css sau khi lọc nhiễu. Không lấy thống kê gộp chưa lọc khi thiếu danh sách file.
-- LOC cá nhân = SUM(lines_added). Tỷ lệ = LOC cá nhân / tổng LOC các thành viên × 100. Không dùng Net LOC trừ lines_deleted.
+- Loại node_modules/, dist/, build/, .next/, out/, coverage/, .git/; package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb; *.min.js, *.min.css, *.map; .env, .env.local, .DS_Store. Hỗ trợ đường dẫn Windows và Unix.
+- Bổ sung nhóm nhiễu cấu hình: `.eslintrc*`, `.prettierrc*`, `.editorconfig`, `tsconfig*.json`, `vite.config.*`, `tailwind.config.*`, `next.config.*`, `postcss.config.*`, `webpack.config.*`, `jest.config.*`, `babel.config.*`.
+- Bổ sung nhóm nhiễu asset: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.svg`, `.ico`, `.webp`, `.avif`, `.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`, `.mp4`, `.webm`, `.mp3`, `.pdf`.
+- Chỉ tính LOC của .ts, .tsx, .js, .jsx, .mjs, .cjs, .py, .java, .sql, .html, .css, .scss, .c, .h, .cpp, .hpp, .cs, .go, .rs, .php, .vue sau khi lọc nhiễu. Không lấy thống kê gộp chưa lọc khi thiếu danh sách file.
+- LOC cá nhân = SUM(lines_added). Tỷ lệ = LOC cá nhân / tổng LOC các thành viên × 100. Ngưỡng BR-07 vẫn tính trên LOC thêm mới (không trừ dòng xoá).
+- Mỗi thành viên có thêm `net_loc = total_lines_added - total_lines_deleted` để phản ánh khối lượng code thực chất; response nhóm có `team_total_net_loc`. Net LOC chỉ để tham khảo, KHÔNG dùng thay ngưỡng BR-07.
 - BR-07: tổng LOC nhóm >= 50 và (tỷ lệ < 5% hoặc 0 commit) thì `is_free_rider = true`, `status = FREE_RIDER_WARNING`. Nhóm dưới 50 LOC chưa gắn cờ.
 - Cảnh báo: "Cảnh báo BR-07: Đóng góp thấp hơn ngưỡng tối thiểu 5% của nhóm!".
 - GET `/api/git/:teamId/free-riders`: trả `free_riders`, yêu cầu LECTURER hoặc ADMIN, dùng chung thuật toán với GET commits.
+- GET `/api/git/:teamId/team-health`: scorecard hợp nhất cho BR-09, trả `team_status`, `summary` và `members[]` với `contribution_percentage`, `net_loc`, `average_peer_score`, `health_label`. Nhãn: `EXCELLENT` (LOC% >= 20 và điểm chéo >= 8), `FREE_RIDER_WARNING` (LOC% < 5 hoặc 0 commit, khi nhóm >= 50 LOC), `POOR_PEER_RATING` (điểm chéo < 5), còn lại `NORMAL`. `team_status = AT_RISK` nếu có ít nhất một thành viên bị hai cờ xấu.
 - POST `/api/peer-audits`: reviewer lấy từ JWT; cấm tự chấm; score bắt buộc là số hữu hạn trong [0, 10]; hai người phải cùng team_id.
 - `audit_round`: chỉ 1 (giữa kỳ) hoặc 2 (cuối kỳ), mặc định 1. Gửi lại cùng vòng cập nhật phiếu hiện có.
 - GET `/api/peer-audits/team/:teamId/summary`: AVG(score) theo thành viên qua các vòng, làm tròn hai chữ số; không trả ID/tên/email người chấm. Danh sách phiếu cũng ẩn danh người chấm.
+- GET `/api/peer-audits/team/:teamId/assignment/:assignmentId`: lọc phiếu theo đúng Assignment, trả `total_audits`, `average_score`, `assignment_title`; ẩn danh người chấm. Kiểm tra teamId/assignmentId phải là số nguyên dương (ngược lại 400).
+- GET `/api/peer-audits/team/:teamId/my-reviews`: reviewer lấy từ JWT; trả `reviews`, `reviewed_reviewee_ids` và `pending_teammates` để modal sinh viên biết còn ai chưa chấm. Người ngoài nhóm nhận 403.
 - `verify-member4.ts`: truy vấn lecturer_id động, sửa JWT mặc định khớp middleware và exit code khi test thất bại.
 - `run-scenarios-member4.ts`: truy vấn team_id đang có và hai thành viên thực tế, báo lỗi nếu thiếu dữ liệu.
-- Kiểm tra: `npm.cmd run build --prefix server`; kiểm tra trực tiếp noise filter, đuôi mã nguồn và URL parser.
-- Chưa chạy bộ test tích hợp cũ trên DB hiện có vì script xóa user cố định 3, 4, 99. Chỉ chạy trên DB kiểm thử riêng.
+- `test-noise-filter.ts` + `npm run test:noise-filter`: 61 assertion (file nhiễu, đuôi mã nguồn, config/asset không bị tính, `parseGitHubUrl`), không cần DB/Redis, exit code 1 khi fail.
+- Kiểm tra: `npm run build --prefix server` (0 lỗi); `npm run test:noise-filter` → 61/61 PASS; 24/24 check API thật trên server chạy local (commits `net_loc`, `team-health`, `my-reviews`, `assignment/:id`, các mã 400/401/403/404); `team-health` gán đúng 3 nhãn `POOR_PEER_RATING` / `EXCELLENT` / `FREE_RIDER_WARNING` trên dữ liệu thử.
 - Sync vẫn có fallback `simulated_offline` sẵn có; dữ liệu mô phỏng không phải bằng chứng đóng góp thực tế.
