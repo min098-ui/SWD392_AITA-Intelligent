@@ -156,7 +156,7 @@ export function isNoiseFile(filename: string): boolean {
 Hệ thống cung cấp ba bộ công cụ kiểm thử tự động độc lập dành riêng cho Member 4:
 1. **Automated Test Suite:** `server/src/test/verify-member4.ts` (Kiểm thử unit test, API endpoints, status codes).
 2. **Real Demonstration Scenarios:** `server/src/test/run-scenarios-member4.ts` (Chạy kịch bản trực quan chứng minh 5 tình huống thực tế cho Hội đồng chấm thi).
-3. **Noise Filter Unit Test:** `server/src/test/test-noise-filter.ts` (61 assertion độc lập, không cần DB/Redis).
+3. **Noise Filter Unit Test:** `server/src/test/test-noise-filter.ts` (72 assertion độc lập, không cần DB/Redis).
 
 ### Lệnh thực thi:
 ```bash
@@ -232,6 +232,21 @@ Phần cập nhật này thay thế các mô tả ngưỡng và công thức LOC
 - GET `/api/peer-audits/team/:teamId/my-reviews`: reviewer lấy từ JWT; trả `reviews`, `reviewed_reviewee_ids` và `pending_teammates` để modal sinh viên biết còn ai chưa chấm. Người ngoài nhóm nhận 403.
 - `verify-member4.ts`: truy vấn lecturer_id động, sửa JWT mặc định khớp middleware và exit code khi test thất bại.
 - `run-scenarios-member4.ts`: truy vấn team_id đang có và hai thành viên thực tế, báo lỗi nếu thiếu dữ liệu.
-- `test-noise-filter.ts` + `npm run test:noise-filter`: 61 assertion (file nhiễu, đuôi mã nguồn, config/asset không bị tính, `parseGitHubUrl`), không cần DB/Redis, exit code 1 khi fail.
-- Kiểm tra: `npm run build --prefix server` (0 lỗi); `npm run test:noise-filter` → 61/61 PASS; 24/24 check API thật trên server chạy local (commits `net_loc`, `team-health`, `my-reviews`, `assignment/:id`, các mã 400/401/403/404); `team-health` gán đúng 3 nhãn `POOR_PEER_RATING` / `EXCELLENT` / `FREE_RIDER_WARNING` trên dữ liệu thử.
+- `test-noise-filter.ts` + `npm run test:noise-filter`: 72 assertion (file nhiễu, đuôi mã nguồn, config/asset không bị tính, thư mục `src/build`, `src/out` không bị lọc nhầm, `parseGitHubUrl`), không cần DB/Redis, exit code 1 khi fail.
+- `getContributions` và `team-health` cùng dùng tỷ lệ LOC gốc (chưa làm tròn) để gắn cờ BR-07; chỉ làm tròn khi trả `contribution_percentage` cho giao diện.
+- Kiểm tra: `npm run build --prefix server` (0 lỗi); `npm run test:noise-filter` → 72/72 PASS; 24/24 check API thật trên server chạy local (commits `net_loc`, `team-health`, `my-reviews`, `assignment/:id`, các mã 400/401/403/404); `team-health` gán đúng 3 nhãn `POOR_PEER_RATING` / `EXCELLENT` / `FREE_RIDER_WARNING` trên dữ liệu thử.
+
+---
+
+## Bản vá sau review độc lập (30/10/2026)
+
+Bốn lỗi do reviewer (Codex) phát hiện đã được sửa và kiểm chứng lại bằng API thật (19/19 check):
+
+1. **Phân quyền `GET /api/git/:teamId/team-health`:** trước đây STUDENT đọc được email, LOC và điểm đánh giá chéo của nhóm khác. Nay STUDENT phải là thành viên `team_members` của đúng `teamId`, nếu không trả 403; LECTURER/ADMIN vẫn xem mọi nhóm.
+2. **Phân quyền `GET /api/peer-audits/team/:teamId/assignment/:assignmentId`:** áp dụng cùng quy tắc membership cho STUDENT (403 nếu ngoài nhóm). Ẩn danh người chấm vẫn giữ nguyên.
+3. **Làm tròn trước khi so ngưỡng BR-07:** `team-health` từng làm tròn 4,99% thành 5,0% rồi mới so với ngưỡng 5%, khiến kết quả lệch với `/commits`. Nay phân loại bằng tỷ lệ gốc, chỉ làm tròn khi hiển thị → hai endpoint luôn cùng kết luận.
+4. **Ghi đè `assignment_id` khi nộp lại phiếu:** POST `/api/peer-audits` tìm phiếu trùng mà bỏ qua `assignment_id` rồi cập nhật cả `assignment_id`, có thể "chuyển" phiếu từ bài này sang bài khác. Nay khóa trùng là `(team_id, reviewer_id, reviewee_id, audit_round, assignment_id IS NOT DISTINCT FROM ...)`; nhánh update chỉ sửa `score`, `comments`, `passed`, không đổi `assignment_id`.
+5. **Noise filter (bổ sung):** thư mục `dist/build/out` chỉ bị coi là nhiễu khi không nằm dưới `src/`, `app/`, `lib/`, `modules/`... nên `src/build/Builder.java` vẫn được tính LOC; thêm `vendor/`, `.env.*`, `.min.mjs/.min.cjs`; build output của workspace con (`client/dist/...`) vẫn bị lọc.
+
+Kết quả sau bản vá: build 0 lỗi · `test:noise-filter` 72/72 · `test:member4` 15/15 · 24/24 check API cũ · 19/19 check bản vá · DB trả về nguyên trạng (6 users, 1 team, 3 team_members, 0 peer_audits, 0 git_commits).
 - Sync vẫn có fallback `simulated_offline` sẵn có; dữ liệu mô phỏng không phải bằng chứng đóng góp thực tế.
