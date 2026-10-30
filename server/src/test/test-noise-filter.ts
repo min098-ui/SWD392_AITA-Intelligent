@@ -5,6 +5,7 @@
  */
 import {
   NOISE_PATTERNS,
+  NOISE_DIRECTORIES,
   isNoiseFile,
   isSourceCodeFile,
   parseGitHubUrl,
@@ -26,7 +27,8 @@ function check(name: string, actual: boolean, expected: boolean): void {
 }
 
 console.log('\n🧪 NOISE FILTER UNIT TESTS (BR-07)\n');
-console.log(`Số pattern đang cấu hình: ${NOISE_PATTERNS.length}`);
+console.log(`Số pattern thư mục đang cấu hình: ${NOISE_DIRECTORIES.length}`);
+console.log(`Số pattern file đang cấu hình: ${NOISE_PATTERNS.length}`);
 console.log(`Số đuôi mã nguồn được tính LOC: .ts .tsx .js .jsx .mjs .cjs .py .java .sql .html .css .scss .c .h .cpp .hpp .cs .go .rs .php .vue\n`);
 
 // ---------------------------------------------------------------------------
@@ -60,6 +62,11 @@ const noiseCases: Array<[string, string]> = [
   ['macOS metadata', '.DS_Store'],
   ['Đường dẫn Windows', 'C:\\project\\node_modules\\express\\index.js'],
   ['Đường dẫn Windows dist', 'C:\\project\\dist\\app.js'],
+  ['Vendor third-party', 'vendor/library.js'],
+  ['Env production', '.env.production'],
+  ['Env server con', 'server/.env.staging'],
+  ['Bundle minify mjs', 'public/bundle.min.mjs'],
+  ['Build output của workspace con', 'client/dist/bundle.js'],
 ];
 for (const [label, file] of noiseCases) check(`${label}: ${file}`, isNoiseFile(file), true);
 
@@ -100,6 +107,17 @@ const notNoise: string[] = [
   '.gitignore', // file cấu hình git, không phải thư mục .git
 ];
 for (const file of notNoise) check(`Không phải nhiễu: ${file}`, isNoiseFile(file), false);
+
+console.log('\n— Nhóm 3b: thư mục tên build/out nằm trong src KHÔNG bị lọc nhầm —');
+const sourceBuildDirs = [
+  'src/build/Builder.java',
+  'src/out/adapter.ts',
+  'app/build/Config.ts',
+];
+for (const file of sourceBuildDirs) {
+  check(`Không phải nhiễu: ${file}`, isNoiseFile(file), false);
+  check(`Vẫn tính là mã nguồn: ${file}`, isSourceCodeFile(file), true);
+}
 
 // ---------------------------------------------------------------------------
 // 4. File cấu hình / asset không được coi là mã nguồn
