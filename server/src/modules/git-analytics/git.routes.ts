@@ -310,6 +310,17 @@ const getTeamHealth = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
+    // Sinh viên chỉ được xem scorecard của chính nhóm mình (LECTURER/ADMIN xem mọi nhóm)
+    if (req.user!.role === 'STUDENT') {
+      const membership = await pool.query(
+        'SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2',
+        [teamId, req.user!.userId]
+      );
+      if (membership.rows.length === 0) {
+        return res.status(403).json({ message: 'You can only view the health scorecard of your own team' });
+      }
+    }
+
     const [statsRes, peerRes] = await Promise.all([
       pool.query(
         `SELECT
@@ -355,11 +366,13 @@ const getTeamHealth = async (req: Request, res: Response) => {
       const linesAdded = Number(m.total_lines_added);
       const linesDeleted = Number(m.total_lines_deleted);
       const totalCommits = Number(m.total_commits);
-      const contributionPercentage = totalLinesAdded > 0 ? Number(((linesAdded / totalLinesAdded) * 100).toFixed(1)) : 0;
+      // Phan loai BR-07 bang ty le GOC, chi lam tron khi tra ve response
+      const rawContributionPercentage = totalLinesAdded > 0 ? (linesAdded / totalLinesAdded) * 100 : 0;
+      const contributionPercentage = Number(rawContributionPercentage.toFixed(1));
       const peer = peerStats.get(Number(m.user_id));
       const averagePeerScore = peer ? peer.average_score : null;
-      const isFreeRider = teamLocEnough && (contributionPercentage < FREE_RIDER_LOC_PERCENT || totalCommits === 0);
-      const label = classifyMember(contributionPercentage, totalCommits, averagePeerScore, teamLocEnough);
+      const isFreeRider = teamLocEnough && (rawContributionPercentage < FREE_RIDER_LOC_PERCENT || totalCommits === 0);
+      const label = classifyMember(rawContributionPercentage, totalCommits, averagePeerScore, teamLocEnough);
 
       return {
         user_id: m.user_id,
