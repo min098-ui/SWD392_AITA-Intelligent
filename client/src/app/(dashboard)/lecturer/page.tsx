@@ -226,6 +226,17 @@ export default function LecturerDashboard() {
   const [finalScoreInput, setFinalScoreInput] = useState<number>(0);
   const [scoreDiffNotice, setScoreDiffNotice] = useState<string>('');
 
+  // Real Git Analytics State for Lecturer
+  const [gitAnalyticsMap, setGitAnalyticsMap] = useState<Record<number, any>>({});
+  const [loadingGitMap, setLoadingGitMap] = useState<Record<number, boolean>>({});
+  const [syncingGitMap, setSyncingGitMap] = useState<Record<number, boolean>>({});
+  const [selectedGitTeamId, setSelectedGitTeamId] = useState<number | 'ALL'>('ALL');
+
+  // Real Peer Audit State for Lecturer
+  const [peerAuditMap, setPeerAuditMap] = useState<Record<number, any>>({});
+  const [loadingPeerMap, setLoadingPeerMap] = useState<Record<number, boolean>>({});
+  const [selectedPeerTeamComments, setSelectedPeerTeamComments] = useState<{ teamName: string; comments: any[] } | null>(null);
+
   // Helper để lấy token hoặc tự động cấp token hợp lệ
   const getToken = async (): Promise<string> => {
     let token = localStorage.getItem('token');
@@ -250,6 +261,63 @@ export default function LecturerDashboard() {
       }
     }
     return token || '';
+  };
+
+  const fetchGitForTeam = async (teamId: number) => {
+    setLoadingGitMap(prev => ({ ...prev, [teamId]: true }));
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/git/${teamId}/commits`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGitAnalyticsMap(prev => ({ ...prev, [teamId]: data }));
+      }
+    } catch (e) {
+      console.warn('Error fetching git telemetry for team', teamId, e);
+    } finally {
+      setLoadingGitMap(prev => ({ ...prev, [teamId]: false }));
+    }
+  };
+
+  const syncGitForTeam = async (teamId: number) => {
+    setSyncingGitMap(prev => ({ ...prev, [teamId]: true }));
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/git/${teamId}/sync`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSuccessToast(lang === 'vi' ? `Đã đồng bộ ${data.synced_commits_count || 0} commits từ GitHub!` : `Synced ${data.synced_commits_count || 0} commits from GitHub!`);
+        await fetchGitForTeam(teamId);
+      }
+    } catch (e) {
+      console.error('Error syncing git:', e);
+    } finally {
+      setSyncingGitMap(prev => ({ ...prev, [teamId]: false }));
+      setTimeout(() => setSuccessToast(''), 3500);
+    }
+  };
+
+  const fetchPeerAuditForTeam = async (teamId: number) => {
+    setLoadingPeerMap(prev => ({ ...prev, [teamId]: true }));
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/peer-audits/team/${teamId}/summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPeerAuditMap(prev => ({ ...prev, [teamId]: data }));
+      }
+    } catch (e) {
+      console.warn('Error fetching peer audits for team', teamId, e);
+    } finally {
+      setLoadingPeerMap(prev => ({ ...prev, [teamId]: false }));
+    }
   };
 
   // Fetch real database records from Backend
@@ -282,6 +350,10 @@ export default function LecturerDashboard() {
         const tData = await teamRes.json();
         if (tData.teams) {
           setTeams(tData.teams);
+          tData.teams.forEach((tm: any) => {
+            fetchGitForTeam(tm.team_id);
+            fetchPeerAuditForTeam(tm.team_id);
+          });
         }
       }
 
@@ -1430,7 +1502,7 @@ export default function LecturerDashboard() {
   };
 
   const lecturerTabs = (
-    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', margin: '0 auto', flexWrap: 'nowrap' }}>
       <button 
         type="button"
         onClick={() => setActiveTab('courses')}
@@ -3735,123 +3807,393 @@ export default function LecturerDashboard() {
 
         {/* TAB 3: GIT ANALYTICS & FREE-RIDER RADAR (F11) */}
         {activeTab === 'analytics' && (
-          <div>
-            <div style={{ marginBottom: '1.75rem' }}>
-              <h3 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <GitBranch size={22} color="#38bdf8" /> {lang === 'vi' ? 'Thống kê đóng góp Git & Radar Free-Rider' : 'Git Contribution Analytics'}
-              </h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
-                {lang === 'vi' 
-                  ? 'Tổng hợp commit và dòng code (LOC) từ GitHub repository của các nhóm đồ án để phát hiện sự chênh lệch đóng góp.'
-                  : 'Summary of commits and lines of code (LOC) from team GitHub repositories.'}
-              </p>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <GitBranch size={22} color="#38bdf8" /> {lang === 'vi' ? 'Thống kê đóng góp Git & Radar Free-Rider (BR-07)' : 'Git Contribution Analytics & BR-07 Radar'}
+                </h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
+                  {lang === 'vi' 
+                    ? 'Dữ liệu vi mô thực tế từ GitHub Octokit API kết hợp Bộ lọc nhiễu Noise Filter (loại bỏ node_modules, build artifacts) để phát hiện sinh viên đóng góp < 5% LOC.'
+                    : 'Real commit telemetry from GitHub Octokit API with Noise Filter to detect free-riders (< 5% LOC).'}
+                </p>
+              </div>
 
-            <div className="glass-card" style={{ padding: '0', borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Sinh viên' : 'Student Name'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Nhóm' : 'Team'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Lượt Commits' : 'Commits'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Số dòng thêm/xóa (LOC)' : 'LOC Added/Deleted'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Trạng thái đánh giá' : 'Status'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Lê Nguyễn Ánh Mai</strong> (Trưởng nhóm)</td>
-                      <td style={{ padding: '16px 18px' }}>Group 4</td>
-                      <td style={{ padding: '16px 18px' }}>42</td>
-                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+1,245</span> / <span style={{ color: '#f43f5e' }}>-400</span></td>
-                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">⭐ {lang === 'vi' ? 'Đóng góp xuất sắc (Top 1)' : 'Top Contributor'}</span></td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Nguyễn Quốc Thanh Phong</strong></td>
-                      <td style={{ padding: '16px 18px' }}>Group 4</td>
-                      <td style={{ padding: '16px 18px' }}>35</td>
-                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+1,050</span> / <span style={{ color: '#f43f5e' }}>-350</span></td>
-                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Đỗ Trần Đăng Khoa</strong></td>
-                      <td style={{ padding: '16px 18px' }}>Group 4</td>
-                      <td style={{ padding: '16px 18px' }}>31</td>
-                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+940</span> / <span style={{ color: '#f43f5e' }}>-310</span></td>
-                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Đinh Gia Huy</strong></td>
-                      <td style={{ padding: '16px 18px' }}>Group 4</td>
-                      <td style={{ padding: '16px 18px' }}>28</td>
-                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+890</span> / <span style={{ color: '#f43f5e' }}>-210</span></td>
-                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
-                    </tr>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '16px 18px' }}><strong>Nguyễn Tường Vy</strong></td>
-                      <td style={{ padding: '16px 18px' }}>Group 4</td>
-                      <td style={{ padding: '16px 18px' }}>26</td>
-                      <td style={{ padding: '16px 18px' }}><span style={{ color: '#34d399' }}>+780</span> / <span style={{ color: '#f43f5e' }}>-190</span></td>
-                      <td style={{ padding: '16px 18px' }}><span className="badge badge-success">{lang === 'vi' ? 'Đóng góp xuất sắc' : 'Excellent Activity'}</span></td>
-                    </tr>
-                  </tbody>
-                </table>
+              {/* Team Selector Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {lang === 'vi' ? 'Lọc theo nhóm:' : 'Filter Team:'}
+                </span>
+                <select
+                  value={selectedGitTeamId}
+                  onChange={(e) => setSelectedGitTeamId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    color: '#38bdf8',
+                    fontWeight: 700,
+                    fontSize: '0.86rem',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="ALL">{lang === 'vi' ? `Tất cả các nhóm (${teams.length})` : `All Teams (${teams.length})`}</option>
+                  {teams.map(t => (
+                    <option key={t.team_id} value={t.team_id}>{t.team_name} ({t.course_code})</option>
+                  ))}
+                </select>
               </div>
             </div>
+
+            {/* Teams Git Telemetry Display */}
+            {teams.length === 0 ? (
+              <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', borderRadius: '20px' }}>
+                <GitBranch size={42} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Chưa có nhóm nào trong hệ thống.' : 'No teams found.'}</p>
+              </div>
+            ) : (
+              teams
+                .filter(t => selectedGitTeamId === 'ALL' || t.team_id === selectedGitTeamId)
+                .map(team => {
+                  const telemetry = gitAnalyticsMap[team.team_id];
+                  const isLoading = loadingGitMap[team.team_id];
+                  const isSyncing = syncingGitMap[team.team_id];
+                  const members = telemetry?.member_contributions || [];
+
+                  return (
+                    <div 
+                      key={team.team_id} 
+                      className="glass-card" 
+                      style={{ 
+                        borderRadius: '20px', 
+                        overflow: 'hidden', 
+                        border: '1px solid var(--border-color)',
+                        padding: '1.5rem 1.75rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.25rem'
+                      }}
+                    >
+                      {/* Team Header & Actions */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                              {team.course_code}
+                            </span>
+                            <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                              {team.team_name}
+                            </h4>
+                          </div>
+                          {team.repo_url && (
+                            <a 
+                              href={team.repo_url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#38bdf8', textDecoration: 'none' }}
+                            >
+                              <ExternalLink size={13} /> {team.repo_url}
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Summary Badges & Sync Button */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          {telemetry && (
+                            <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
+                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                                {telemetry.team_total_commits || 0} Commits
+                              </span>
+                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                +{telemetry.team_total_lines_added || 0} LOC
+                              </span>
+                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
+                                -{telemetry.team_total_lines_deleted || 0} LOC
+                              </span>
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => syncGitForTeam(team.team_id)}
+                            disabled={isSyncing}
+                            className="btn-primary"
+                            style={{ padding: '7px 15px', fontSize: '0.82rem', gap: '6px', whiteSpace: 'nowrap' }}
+                          >
+                            {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <RotateCw size={14} />}
+                            {lang === 'vi' ? 'Đồng bộ từ GitHub' : 'Sync from GitHub'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Member Contributions Table */}
+                      <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Thành viên & Phân hệ' : 'Member & Module'}</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'vi' ? 'Lượt Commits' : 'Commits'}</th>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Dòng Code (LOC Thêm/Xóa)' : 'LOC Added/Deleted'}</th>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Tỷ lệ đóng góp' : 'Contribution %'}</th>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Đánh giá BR-07' : 'BR-07 Status'}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {isLoading ? (
+                              <tr>
+                                <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                                  <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#38bdf8' }} />
+                                  <p style={{ fontSize: '0.85rem' }}>{lang === 'vi' ? 'Đang phân tích telemetry GitHub...' : 'Analyzing GitHub telemetry...'}</p>
+                                </td>
+                              </tr>
+                            ) : members.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                                  {lang === 'vi' ? 'Chưa có dữ liệu commit. Bấm "Đồng bộ từ GitHub" để kéo commit về hệ thống.' : 'No commits recorded yet. Click "Sync from GitHub" to fetch.'}
+                                </td>
+                              </tr>
+                            ) : (
+                              members.map((m: any) => {
+                                const isFreeRider = m.is_free_rider;
+                                const isTop = m.contribution_percentage >= 35;
+
+                                return (
+                                  <tr 
+                                    key={m.user_id} 
+                                    style={{ 
+                                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                      background: isFreeRider ? 'rgba(239, 68, 68, 0.04)' : 'transparent'
+                                    }}
+                                  >
+                                    <td style={{ padding: '14px 16px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{
+                                          width: '32px', height: '32px', borderRadius: '50%',
+                                          background: isFreeRider ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.15)',
+                                          color: isFreeRider ? '#f87171' : '#38bdf8',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          fontWeight: 700, fontSize: '0.82rem', flexShrink: 0
+                                        }}>
+                                          {(m.full_name || 'U').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                          <strong style={{ fontSize: '0.92rem', color: isFreeRider ? '#fca5a5' : 'var(--text-main)' }}>
+                                            {m.full_name}
+                                          </strong>
+                                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                            {m.assigned_module || m.email}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '0.95rem' }}>
+                                      {m.total_commits}
+                                    </td>
+                                    <td style={{ padding: '14px 16px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                                        <span style={{ color: '#34d399' }}>+{m.total_lines_added.toLocaleString()}</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>/</span>
+                                        <span style={{ color: '#f43f5e' }}>-{m.total_lines_deleted.toLocaleString()}</span>
+                                      </div>
+                                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Net: <strong style={{ color: m.net_loc >= 0 ? '#38bdf8' : '#f43f5e' }}>{m.net_loc > 0 ? `+${m.net_loc.toLocaleString()}` : m.net_loc.toLocaleString()}</strong> LOC
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '14px 16px', minWidth: '160px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px', fontWeight: 700 }}>
+                                        <span style={{ color: isFreeRider ? '#f87171' : (isTop ? '#34d399' : '#38bdf8') }}>
+                                          {m.contribution_percentage}%
+                                        </span>
+                                      </div>
+                                      <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{
+                                          width: `${Math.min(100, Math.max(m.contribution_percentage, 0))}%`,
+                                          height: '100%',
+                                          background: isFreeRider 
+                                            ? 'linear-gradient(90deg, #ef4444, #f87171)' 
+                                            : (isTop ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #0284c7, #38bdf8)'),
+                                          borderRadius: '3px',
+                                          transition: 'width 0.4s ease'
+                                        }} />
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '14px 16px' }}>
+                                      {isFreeRider ? (
+                                        <span style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                          background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
+                                          border: '1px solid rgba(239, 68, 68, 0.35)', fontWeight: 700
+                                        }}>
+                                          <AlertTriangle size={12} />
+                                          {lang === 'vi' ? 'Cảnh báo BR-07: Free-Rider (<5% LOC)' : 'BR-07 Alert: Free-Rider (<5%)'}
+                                        </span>
+                                      ) : isTop ? (
+                                        <span style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                          background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                                          border: '1px solid rgba(16, 185, 129, 0.35)', fontWeight: 700
+                                        }}>
+                                          ⭐ {lang === 'vi' ? 'Đóng góp xuất sắc' : 'Top Contributor'}
+                                        </span>
+                                      ) : (
+                                        <span style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                          background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8',
+                                          border: '1px solid rgba(56, 189, 248, 0.25)', fontWeight: 600
+                                        }}>
+                                          <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đạt chuẩn đóng góp' : 'Normal Contributor'}
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
           </div>
         )}
 
-        {/* TAB 4: PEER AUDIT SUMMARY (F12) */}
+        {/* TAB 4: PEER AUDIT SUMMARY (BR-08) */}
         {activeTab === 'peer' && (
-          <div>
-            <div style={{ marginBottom: '1.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+            <div style={{ marginBottom: '0.5rem' }}>
               <h3 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <ShieldCheck size={22} color="#34d399" /> {lang === 'vi' ? 'Báo cáo đánh giá chéo nội bộ (Peer Audit)' : 'Peer Audit Report'}
+                <ShieldCheck size={22} color="#34d399" /> {lang === 'vi' ? 'Báo cáo đánh giá chéo nội bộ (Peer Audit BR-08)' : 'Peer Audit Report (BR-08)'}
               </h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem' }}>
                 {lang === 'vi'
-                  ? 'Tổng hợp điểm số và nhận xét ẩn danh giữa các thành viên trong nhóm theo phân hệ module phụ trách.'
-                  : 'Aggregated peer evaluations and anonymous critique across team members.'}
+                  ? 'Tổng hợp điểm số và nhận xét ẩn danh giữa các thành viên trong nhóm theo phân hệ phụ trách. Hệ thống tự động phát hiện thành viên có điểm đánh giá chéo bất thường (< 5.0).'
+                  : 'Aggregated peer evaluations and anonymous critique across team members. Flags students with low peer consensus (< 5.0).'}
               </p>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1.75rem' }}>
-              {/* Group 4 Card */}
-              <div className="glass-card" style={{ border: '1px solid var(--border-color)', borderRadius: '20px', padding: '1.65rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', maxWidth: '580px' }}>
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
-                    <strong style={{ fontSize: '1.15rem' }}>Group 4 (AITA)</strong>
-                    <span className="badge badge-success">100% {lang === 'vi' ? 'Đã hoàn thành' : 'Submitted'}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Lê Nguyễn Ánh Mai</span>
-                      <strong style={{ color: '#34d399' }}>9.8 / 10</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Nguyễn Tường Vy</span>
-                      <strong style={{ color: '#34d399' }}>9.5 / 10</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Nguyễn Quốc Thanh Phong</span>
-                      <strong style={{ color: '#34d399' }}>9.4 / 10</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Đỗ Trần Đăng Khoa</span>
-                      <strong style={{ color: '#34d399' }}>9.3 / 10</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>Đinh Gia Huy</span>
-                      <strong style={{ color: '#34d399' }}>9.2 / 10</strong>
-                    </div>
-                  </div>
-                </div>
-                <button className="btn-secondary" style={{ width: '100%', marginTop: '1.5rem', justifyContent: 'center' }} onClick={() => alert(lang === 'vi' ? 'Chi tiết nhận xét: Cả 5 thành viên đều hoàn thành tốt phân hệ được giao và đóng góp tích cực cho đồ án.' : 'All 5 members successfully completed their assigned modules.')}>
-                  {lang === 'vi' ? 'Xem chi tiết nhận xét bí mật' : 'View Confidential Comments'}
-                </button>
+            {teams.length === 0 ? (
+              <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', borderRadius: '20px' }}>
+                <Users size={42} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Chưa có nhóm nào trong hệ thống.' : 'No teams found.'}</p>
               </div>
-            </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))', gap: '1.75rem' }}>
+                {teams.map(team => {
+                  const summary = peerAuditMap[team.team_id];
+                  const isLoading = loadingPeerMap[team.team_id];
+                  const memberSummaries = summary?.member_summaries || [];
+                  const totalReviews = memberSummaries.reduce((acc: number, m: any) => acc + (m.total_reviews_received || 0), 0);
+
+                  return (
+                    <div 
+                      key={team.team_id}
+                      className="glass-card" 
+                      style={{ 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: '20px', 
+                        padding: '1.65rem', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        justifyContent: 'space-between',
+                        gap: '1.25rem'
+                      }}
+                    >
+                      <div>
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
+                          <div>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                              {team.course_code}
+                            </span>
+                            <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '4px 0 0 0', color: 'var(--text-main)' }}>
+                              {team.team_name}
+                            </h4>
+                          </div>
+                          <span className="badge badge-success" style={{ fontWeight: 700 }}>
+                            {totalReviews > 0 ? (lang === 'vi' ? `${totalReviews} phiếu đã gửi` : `${totalReviews} Reviews`) : (lang === 'vi' ? 'Chưa có phiếu' : 'No Reviews')}
+                          </span>
+                        </div>
+
+                        {/* Members list with real average scores */}
+                        {isLoading ? (
+                          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                            <Loader2 size={22} className="animate-spin" style={{ margin: '0 auto 8px', color: '#34d399' }} />
+                            <p style={{ fontSize: '0.85rem' }}>{lang === 'vi' ? 'Đang tổng hợp điểm đánh giá...' : 'Aggregating peer scores...'}</p>
+                          </div>
+                        ) : memberSummaries.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                            {lang === 'vi' ? 'Chưa có thành viên nào nộp đánh giá chéo cho nhóm này.' : 'No peer reviews submitted yet for this team.'}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                            {memberSummaries.map((m: any) => {
+                              const avg = Number(m.average_score) || 0;
+                              const hasReviews = m.total_reviews_received > 0;
+                              const scoreColor = hasReviews ? (avg >= 8.0 ? '#34d399' : (avg >= 5.0 ? '#fbbf24' : '#f87171')) : 'var(--text-muted)';
+
+                              return (
+                                <div key={m.user_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', padding: '6px 0', borderBottom: '1px dashed rgba(255, 255, 255, 0.05)' }}>
+                                  <div>
+                                    <strong style={{ color: 'var(--text-main)' }}>{m.full_name}</strong>
+                                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                      {m.assigned_module || m.email} • {m.total_reviews_received} {lang === 'vi' ? 'lượt đánh giá' : 'reviews'}
+                                    </div>
+                                  </div>
+                                  <div style={{ textAlign: 'right' }}>
+                                    <strong style={{ color: scoreColor, fontSize: '1rem' }}>
+                                      {hasReviews ? `${avg.toFixed(1)} / 10` : '—'}
+                                    </strong>
+                                    {m.needs_attention && (
+                                      <div style={{ fontSize: '0.7rem', color: '#f87171', fontWeight: 700 }}>
+                                        ⚠️ {lang === 'vi' ? 'Điểm thấp' : 'Low Score'}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* View Comments Button */}
+                      <button 
+                        className="btn-secondary" 
+                        style={{ width: '100%', marginTop: '0.5rem', justifyContent: 'center', fontSize: '0.85rem' }} 
+                        onClick={() => {
+                          const allComments: any[] = [];
+                          memberSummaries.forEach((m: any) => {
+                            if (m.feedback_comments && m.feedback_comments.length > 0) {
+                              m.feedback_comments.forEach((c: any) => {
+                                allComments.push({
+                                  targetStudent: m.full_name,
+                                  score: c.score,
+                                  comments: c.comments,
+                                  round: c.audit_round
+                                });
+                              });
+                            }
+                          });
+                          setSelectedPeerTeamComments({
+                            teamName: team.team_name,
+                            comments: allComments
+                          });
+                        }}
+                      >
+                        {lang === 'vi' ? 'Xem chi tiết nhận xét bí mật (BR-08)' : 'View Confidential Comments'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -5032,6 +5374,102 @@ export default function LecturerDashboard() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: XEM CHI TIẾT NHẬN XÉT BÍ MẬT PEER AUDIT (BR-08) */}
+        {selectedPeerTeamComments && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            padding: '1rem'
+          }}>
+            <div className="glass-card" style={{
+              width: '100%',
+              maxWidth: '650px',
+              padding: '1.75rem',
+              borderRadius: '20px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)',
+              maxHeight: '85vh',
+              overflowY: 'auto'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <ShieldCheck size={22} color="#34d399" />
+                  <div>
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      {lang === 'vi' ? 'Nhận xét đánh giá chéo bí mật' : 'Confidential Peer Comments'}
+                    </h4>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {selectedPeerTeamComments.teamName} • BR-08 Confidentiality
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedPeerTeamComments(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {selectedPeerTeamComments.comments.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+                  {lang === 'vi' ? 'Chưa có phiếu nhận xét nào được nộp cho nhóm này.' : 'No comments submitted yet for this team.'}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {selectedPeerTeamComments.comments.map((c, idx) => (
+                    <div 
+                      key={idx} 
+                      style={{ 
+                        background: 'rgba(255, 255, 255, 0.03)', 
+                        border: '1px solid var(--border-color)', 
+                        borderRadius: '12px', 
+                        padding: '1rem 1.25rem' 
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                          {lang === 'vi' ? 'Đánh giá cho:' : 'Review for:'} <span style={{ color: '#38bdf8' }}>{c.targetStudent}</span>
+                        </span>
+                        <span style={{ 
+                          padding: '2px 8px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 700,
+                          background: c.score >= 8 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                          color: c.score >= 8 ? '#34d399' : '#fbbf24',
+                          border: `1px solid ${c.score >= 8 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                        }}>
+                          {c.score} / 10
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5, fontStyle: 'italic' }}>
+                        "{c.comments}"
+                      </p>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '6px' }}>
+                        🔒 {lang === 'vi' ? 'Danh tính người gửi được bảo mật tuyệt đối theo chuẩn BR-08.' : 'Reviewer identity is strictly protected under BR-08.'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                <button 
+                  onClick={() => setSelectedPeerTeamComments(null)}
+                  className="btn-secondary"
+                  style={{ padding: '8px 18px', fontSize: '0.85rem' }}
+                >
+                  {lang === 'vi' ? 'Đóng' : 'Close'}
+                </button>
+              </div>
             </div>
           </div>
         )}
