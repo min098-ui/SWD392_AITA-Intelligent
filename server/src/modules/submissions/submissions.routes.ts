@@ -15,7 +15,24 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
       SELECT s.*, a.title as assignment_title, t.team_name,
         u.full_name as submitter_name, u.email as submitter_email,
         gj.grading_job_id, gj.status as grading_status,
-        COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score
+        COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score,
+        (
+          SELECT json_agg(
+            json_build_object(
+              'result_id', gr.grading_result_id,
+              'criterion', rr.criterion,
+              'passed', gr.passed,
+              'score', gr.score,
+              'max_score', rr.max_score,
+              'execution_time_ms', gr.execution_time_ms,
+              'is_hidden', rr.is_hidden,
+              'actual_output', CASE WHEN rr.is_hidden THEN 'Output ẩn theo chuẩn BR-06' ELSE gr.actual_output END
+            ) ORDER BY rr.rubric_rule_id ASC
+          )
+          FROM grading_results gr
+          JOIN rubric_rules rr ON gr.rubric_rule_id = rr.rubric_rule_id
+          WHERE gr.grading_job_id = gj.grading_job_id
+        ) as test_results
       FROM submissions s
       JOIN assignments a ON s.assignment_id = a.assignment_id
       LEFT JOIN teams t ON s.team_id = t.team_id
@@ -62,7 +79,24 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
       `SELECT s.*, a.title as assignment_title, t.team_name,
               u.full_name as submitter_name, u.email as submitter_email,
               gj.grading_job_id, gj.status as grading_status, gj.completed_at,
-              COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score
+              COALESCE(s.final_score, s.reviewer_1_score, s.ai_score, (SELECT SUM(gr.score) FROM grading_results gr WHERE gr.grading_job_id = gj.grading_job_id), 0) as score,
+              (
+                SELECT json_agg(
+                  json_build_object(
+                    'result_id', gr.grading_result_id,
+                    'criterion', rr.criterion,
+                    'passed', gr.passed,
+                    'score', gr.score,
+                    'max_score', rr.max_score,
+                    'execution_time_ms', gr.execution_time_ms,
+                    'is_hidden', rr.is_hidden,
+                    'actual_output', CASE WHEN rr.is_hidden THEN 'Output ẩn theo chuẩn BR-06' ELSE gr.actual_output END
+                  ) ORDER BY rr.rubric_rule_id ASC
+                )
+                FROM grading_results gr
+                JOIN rubric_rules rr ON gr.rubric_rule_id = rr.rubric_rule_id
+                WHERE gr.grading_job_id = gj.grading_job_id
+              ) as test_results
        FROM submissions s
        JOIN assignments a ON s.assignment_id = a.assignment_id
        LEFT JOIN teams t ON s.team_id = t.team_id
