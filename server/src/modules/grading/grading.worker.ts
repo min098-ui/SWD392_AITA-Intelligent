@@ -89,6 +89,7 @@ export class GradingWorkerService {
 
       let totalEarnedScore = 0;
       let totalMaxScore = 0;
+      let hasTimeout = false;
       const accumulatedAiFeedbacks: string[] = [];
 
       // 3. Execute code in Docker Sandbox or AI Review for each Rubric Rule
@@ -111,6 +112,11 @@ export class GradingWorkerService {
           actualOutput = sandboxRes.stdout || sandboxRes.stderr;
           executionTimeMs = sandboxRes.executionTimeMs;
 
+          if (sandboxRes.timedOut) {
+            hasTimeout = true;
+            actualOutput = `[BR-03 Watchdog Alert] Quá thời gian thực thi (Execution Timeout: 5000ms)! Container Docker Sandbox đã bị ngắt an toàn.`;
+          }
+
           const normalizeOutput = (str: string) => {
             return (str || '')
               .replace(/\\n/g, '\n')
@@ -126,7 +132,7 @@ export class GradingWorkerService {
           const actualNormalized = normalizeOutput(sandboxRes.stdout || '');
 
           // Rule passes if exitCode is 0 and stdout matches expected output
-          if (sandboxRes.exitCode === 0 && actualNormalized === expectedNormalized) {
+          if (sandboxRes.exitCode === 0 && !sandboxRes.timedOut && actualNormalized === expectedNormalized) {
             passed = true;
             score = Number(rule.max_score || 10.0);
           } else {
@@ -169,24 +175,27 @@ export class GradingWorkerService {
         );
       }
 
-      // 5. Update grading job and submission status to COMPLETED / GRADED
+      // 5. Update grading job and submission status to COMPLETED / GRADED or FAILED
       await pool.query(
         `UPDATE grading_jobs SET status = 'COMPLETED', completed_at = NOW() WHERE grading_job_id = $1`,
         [grading_job_id]
       );
 
-      const finalAiFeedback = accumulatedAiFeedbacks.length > 0
-        ? accumulatedAiFeedbacks.join('\n\n---\n\n')
-        : 'Code review and automated testing completed.';
+      const submissionFinalStatus = (hasTimeout || (totalMaxScore > 0 && totalEarnedScore === 0)) ? 'FAILED' : 'GRADED';
+      const finalAiFeedback = hasTimeout
+        ? 'Cảnh báo BR-03: Phát hiện vòng lặp vô hạn hoặc thời gian xử lý vượt quá giới hạn 5,000ms. Watchdog đã can thiệp ngắt container an toàn.'
+        : (accumulatedAiFeedbacks.length > 0
+          ? accumulatedAiFeedbacks.join('\n\n---\n\n')
+          : (totalEarnedScore === 0 ? 'Mã nguồn thực thi thất bại (0/10). Không vượt qua các kiểm thử đầu ra.' : 'Code review and automated testing completed.'));
 
       await pool.query(
         `UPDATE submissions 
-         SET status = 'GRADED', 
-             ai_score = $1, 
-             ai_feedback = $2,
-             final_score = COALESCE(final_score, $1) 
-         WHERE submission_id = $3`,
-        [totalEarnedScore, finalAiFeedback, submission_id]
+         SET status = $1, 
+             ai_score = $2, 
+             ai_feedback = $3, 
+             final_score = COALESCE(final_score, $2) 
+         WHERE submission_id = $4`,
+        [submissionFinalStatus, totalEarnedScore, finalAiFeedback, submission_id]
       );
 
       console.log(
