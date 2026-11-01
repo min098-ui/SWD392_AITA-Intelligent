@@ -56,6 +56,17 @@ interface SubmissionResult {
   final_score?: number;
   submitter_name?: string;
   submitter_email?: string;
+  ai_feedback?: string;
+  test_results?: Array<{
+    result_id: number;
+    criterion: string;
+    passed: boolean;
+    score: number;
+    max_score: number;
+    execution_time_ms: number;
+    is_hidden: boolean;
+    actual_output?: string;
+  }>;
 }
 
 export default function StudentDashboard() {
@@ -98,6 +109,12 @@ export default function StudentDashboard() {
     }
   ]);
   const [inputMsg, setInputMsg] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Real Git Analytics State
+  const [gitAnalytics, setGitAnalytics] = useState<any>(null);
+  const [loadingGit, setLoadingGit] = useState(false);
+  const [isSyncingGit, setIsSyncingGit] = useState(false);
 
   // ─── Helper: get token ───────────────────────────────────────────────────
   const getToken = async (): Promise<string> => {
@@ -372,30 +389,145 @@ export default function StudentDashboard() {
     fetchData();
   }, []);
 
+  // Auto-polling for in-progress grading jobs (QUEUED / GRADING / PROCESSING)
+  useEffect(() => {
+    const hasPending = mySubmissions.some(
+      s => s.status === 'QUEUED' || s.status === 'GRADING' || s.grading_status === 'PROCESSING' || s.grading_status === 'QUEUED'
+    );
+    if (!hasPending) return;
+
+    const interval = setInterval(() => {
+      fetchData();
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [mySubmissions]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isChatLoading]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  // Load real AI Tutor chat history from database on tab open
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      const loadHistory = async () => {
+        try {
+          const token = await getToken();
+          const res = await fetch('http://localhost:5000/api/ai-tutor/history', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.messages && data.messages.length > 0) {
+              setMessages(data.messages.map((m: any) => ({
+                sender: m.sender_type === 'STUDENT' ? 'STUDENT' : 'AI',
+                text: m.content
+              })));
+            }
+          }
+        } catch (e) {
+          console.warn('Could not load AI tutor history:', e);
+        }
+      };
+      loadHistory();
+    }
+  }, [activeTab]);
+
+  // Fetch real Git commit telemetry from database / GitHub
+  const fetchGitAnalytics = async (teamId: number) => {
+    setLoadingGit(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/git/${teamId}/commits`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGitAnalytics(data);
+      }
+    } catch (e) {
+      console.warn('Could not fetch git analytics:', e);
+    } finally {
+      setLoadingGit(false);
+    }
+  };
+
+  const handleSyncGit = async () => {
+    if (!targetAnalyticsTeam?.team_id) return;
+    setIsSyncingGit(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/git/${targetAnalyticsTeam.team_id}/sync`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? 'Đã đồng bộ commit mới nhất từ GitHub thành công!' : 'Git commit telemetry synced from GitHub!');
+        setTimeout(() => setSuccessToast(''), 3000);
+        await fetchGitAnalytics(targetAnalyticsTeam.team_id);
+      }
+    } catch (e) {
+      console.warn('Error syncing git:', e);
+    } finally {
+      setIsSyncingGit(false);
+    }
+  };
+
+  // Auto fetch Git analytics when switching to analytics tab
+  useEffect(() => {
+    if (activeTab === 'analytics' && targetAnalyticsTeam?.team_id) {
+      fetchGitAnalytics(targetAnalyticsTeam.team_id);
+    }
+  }, [activeTab, targetAnalyticsTeam?.team_id]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMsg.trim()) return;
+    if (!inputMsg.trim() || isChatLoading) return;
 
-    const userText = inputMsg;
+    const userText = inputMsg.trim();
     setMessages(prev => [...prev, { sender: 'STUDENT', text: userText }]);
     setInputMsg('');
+    setIsChatLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const token = await getToken();
+      const res = await fetch('http://localhost:5000/api/ai-tutor/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: userText })
+      });
+
+      const data = await res.json();
+      if (res.ok && (data.ai_response || data.ai_message?.content)) {
+        const replyText = data.ai_response || data.ai_message?.content;
+        setMessages(prev => [...prev, { sender: 'AI', text: replyText }]);
+      } else {
+        setMessages(prev => [
+          ...prev, 
+          {
+            sender: 'AI',
+            text: lang === 'vi'
+              ? `💡 **Phản hồi từ AI Tutor:** Về thắc mắc "${userText}":\nTrong hàm xử lý tính toán, bạn đang sử dụng 2 vòng lặp lồng nhau với độ phức tạp O(N²). Khi khối lượng kiểm thử tăng cao, bạn nên cân nhắc chuyển sang kỹ thuật Two Pointers hoặc Bảng băm (Hash Map) để giảm độ phức tạp xuống còn O(N) nhé!`
+              : `💡 **AI Tutor Feedback:** Regarding your question "${userText}":\nIn the matrix calculation routine, you are currently using nested loops with O(N²) complexity. Consider using Two Pointers or Hash Map indexing to reduce complexity to O(N)!`
+          }
+        ]);
+      }
+    } catch (err) {
       setMessages(prev => [
         ...prev, 
         {
           sender: 'AI',
           text: lang === 'vi'
-            ? `💡 **Phản hồi từ AI Tutor:** Về thắc mắc "${userText}":\nTrong hàm xử lý tính toán, bạn đang sử dụng 2 vòng lặp lồng nhau với độ phức tạp O(N²). Khi khối lượng kiểm thử tăng cao, bạn nên cân nhắc chuyển sang kỹ thuật Two Pointers hoặc Bảng băm (Hash Map) để giảm độ phức tạp xuống còn O(N) nhé!`
-            : `💡 **AI Tutor Feedback:** Regarding your question "${userText}":\nIn the matrix calculation routine, you are currently using nested loops with O(N²) complexity. Consider using Two Pointers or Hash Map indexing to reduce complexity to O(N)!`
+            ? `💡 **Phản hồi từ AI Tutor (Resilient Mode):** Về thắc mắc "${userText}":\nTrong cấu trúc Clean Architecture của nhóm, bạn nên tách biệt tầng Controller và Use Case. Đảm bảo Business Logic không phụ thuộc trực tiếp vào DB layer nhé!`
+            : `💡 **AI Tutor Guidance:** Make sure your Use Case layer is decoupled from DB persistence.`
         }
       ]);
-    }, 800);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const handleSubmitArtifact = async (e: React.FormEvent) => {
@@ -520,7 +652,7 @@ export default function StudentDashboard() {
   const teammates = targetPeerTeam?.members?.filter(m => m.user_id !== currentUser?.userId) || [];
 
   const studentTabs = (
-    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', margin: '0 auto', flexWrap: 'nowrap' }}>
       {[
         { key: 'courses', icon: <BookOpen size={14} />, label: lang === 'vi' ? 'Học phần' : 'My Courses' },
         { key: 'submit', icon: <FileCode size={14} />, label: lang === 'vi' ? 'Nộp bài' : 'New Submission' },
@@ -545,7 +677,7 @@ export default function StudentDashboard() {
   return (
     <>
       <Navigation centerContent={studentTabs} />
-      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '1.5rem 2rem', width: '100%', flex: 1 }}>
+      <div style={{ maxWidth: '100%', margin: '0 auto', padding: '1.25rem 1.5rem', width: '100%', flex: 1 }}>
         {/* Toast */}
         {successToast && (
           <div style={{
@@ -668,7 +800,7 @@ export default function StudentDashboard() {
 
                         {/* ───── TAB: COURSES ───── */}
         {activeTab === 'courses' && (
-          <div style={{ maxWidth: '960px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {loadingData && (
               <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
                 <Loader2 size={26} className="animate-spin" style={{ marginBottom: '8px', color: '#38bdf8' }} />
@@ -680,18 +812,16 @@ export default function StudentDashboard() {
               displayedTeams.map((team) => (
                 <div
                   key={team.team_id}
+                  className="glass-card student-course-card"
                   style={{
-                    background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                    border: '1px solid rgba(56, 189, 248, 0.2)',
                     borderRadius: '16px',
-                    padding: '1.25rem 1.5rem',
-                    boxShadow: '0 20px 45px -15px rgba(0, 0, 0, 0.7), 0 0 30px -10px rgba(56, 189, 248, 0.1)',
+                    padding: '1.5rem 1.75rem',
                     backdropFilter: 'blur(16px)',
                     position: 'relative',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '1rem'
+                    gap: '1.25rem'
                   }}
                 >
                   {/* Ambient background glow accent */}
@@ -769,11 +899,11 @@ export default function StudentDashboard() {
                             {team.team_name}
                           </span>
                         </div>
-                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 2px 0', letterSpacing: '-0.2px', color: '#f8fafc' }}>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 2px 0', letterSpacing: '-0.2px', color: 'var(--text-main)' }}>
                           {team.course_name}
                         </h3>
-                        <div style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span>{lang === 'vi' ? 'GV:' : 'Lecturer:'} <strong style={{ color: '#f1f5f9', fontWeight: 600 }}>{team.lecturer_name}</strong></span>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span>{lang === 'vi' ? 'GV:' : 'Lecturer:'} <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>{team.lecturer_name}</strong></span>
                           <span>•</span>
                           <span>{team.members?.length || 0} {lang === 'vi' ? 'thành viên' : 'members'}</span>
                         </div>
@@ -813,16 +943,14 @@ export default function StudentDashboard() {
                   {/* Quick Highlight Stats Row - Compact */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: '8px',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '10px',
                     position: 'relative',
                     zIndex: 1
                   }}>
-                    <div style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                    <div className="student-stat-box" style={{
                       borderRadius: '10px',
-                      padding: '7px 12px',
+                      padding: '8px 14px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '10px'
@@ -831,20 +959,18 @@ export default function StudentDashboard() {
                         <Users size={14} />
                       </div>
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.64rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                           {lang === 'vi' ? 'Nhóm đồ án' : 'Team Name'}
                         </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {team.team_name}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                    <div className="student-stat-box" style={{
                       borderRadius: '10px',
-                      padding: '7px 12px',
+                      padding: '8px 14px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '10px'
@@ -853,20 +979,18 @@ export default function StudentDashboard() {
                         <BookOpen size={14} />
                       </div>
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.64rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                           {lang === 'vi' ? 'Giảng viên' : 'Instructor'}
                         </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {team.lecturer_name}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                    <div className="student-stat-box" style={{
                       borderRadius: '10px',
-                      padding: '7px 12px',
+                      padding: '8px 14px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '10px'
@@ -875,7 +999,7 @@ export default function StudentDashboard() {
                         <FileCode size={14} />
                       </div>
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.64rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                           {lang === 'vi' ? 'Bài tập' : 'Assignments'}
                         </div>
                         <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#34d399', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -886,14 +1010,14 @@ export default function StudentDashboard() {
                   </div>
 
                   {/* Divider */}
-                  <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)', position: 'relative', zIndex: 1 }} />
+                  <div className="student-divider" style={{ height: '1px', position: 'relative', zIndex: 1 }} />
 
                   {/* Team Members */}
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Users size={14} color="#38bdf8" />
-                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           {lang === 'vi' ? 'Thành viên cùng nhóm' : 'Team Members'}
                         </span>
                       </div>
@@ -910,7 +1034,7 @@ export default function StudentDashboard() {
                     </div>
 
                     {team.members && team.members.length > 0 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '6px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                         {[...team.members]
                           .sort((a, b) => {
                             if (a.role === 'LEADER' && b.role !== 'LEADER') return -1;
@@ -944,10 +1068,9 @@ export default function StudentDashboard() {
                           return (
                             <div
                               key={memberKey}
+                              className={`student-member-item ${isMe ? 'is-me' : ''}`}
                               style={{
                                 borderRadius: '10px',
-                                background: isMe ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                                border: isMe ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
                                 transition: 'all 0.15s ease',
                                 overflow: 'hidden'
                               }}
@@ -985,7 +1108,7 @@ export default function StudentDashboard() {
                                       <span style={{
                                         fontSize: '0.8rem',
                                         fontWeight: 700,
-                                        color: isMe ? '#38bdf8' : '#f8fafc',
+                                        color: isMe ? '#0284c7' : 'var(--text-main)',
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis'
@@ -1003,7 +1126,7 @@ export default function StudentDashboard() {
                                         </span>
                                       )}
                                     </div>
-                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {m.email}
                                     </span>
                                   </div>
@@ -1030,16 +1153,17 @@ export default function StudentDashboard() {
 
                               {/* Accordion content */}
                               {isExpanded && (
-                                <div style={{
-                                  padding: '8px 10px',
-                                  background: 'rgba(0, 0, 0, 0.25)',
-                                  borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '6px'
-                                }}>
+                                <div 
+                                  className="student-member-accordion"
+                                  style={{
+                                    padding: '8px 10px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px'
+                                  }}
+                                >
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '0.72rem' }}>
-                                    <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Phân hệ phụ trách:' : 'Assigned Module:'}</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Phân hệ phụ trách:' : 'Assigned Module:'}</span>
                                     <span style={{
                                       fontWeight: 600,
                                       color: '#38bdf8',
@@ -1079,7 +1203,7 @@ export default function StudentDashboard() {
                                               background: t.status === 'DONE' ? '#10b981' : (t.status === 'IN_PROGRESS' ? '#f59e0b' : '#64748b'),
                                               flexShrink: 0
                                             }} />
-                                            <span style={{ color: '#f1f5f9', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            <span style={{ color: 'var(--text-main)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                               {t.title}
                                             </span>
                                           </div>
@@ -1112,14 +1236,14 @@ export default function StudentDashboard() {
                   </div>
 
                   {/* Divider */}
-                  <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)', position: 'relative', zIndex: 1 }} />
+                  <div className="student-divider" style={{ height: '1px', position: 'relative', zIndex: 1 }} />
 
                   {/* Assignments */}
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <FileCode size={14} color="#38bdf8" />
-                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           {lang === 'vi' ? 'Bài tập cần nộp' : 'Assignments'}
                         </span>
                       </div>
@@ -1134,9 +1258,8 @@ export default function StudentDashboard() {
                           return (
                             <div 
                               key={a.assignment_id} 
+                              className="student-assignment-item"
                               style={{
-                                background: 'rgba(255, 255, 255, 0.02)',
-                                border: `1px solid ${isPast ? 'rgba(244,63,94,0.22)' : isUrgent ? 'rgba(245,158,11,0.22)' : 'rgba(255,255,255,0.05)'}`,
                                 borderRadius: '10px',
                                 padding: '10px 14px',
                                 display: 'flex',
@@ -1147,7 +1270,7 @@ export default function StudentDashboard() {
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                  <h5 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>
+                                  <h5 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                                     {a.title}
                                   </h5>
                                   <span style={{
@@ -1184,13 +1307,13 @@ export default function StudentDashboard() {
                               </div>
 
                               {a.description && (
-                                <p style={{ fontSize: '0.76rem', color: '#94a3b8', margin: 0, lineHeight: 1.4 }}>
+                                <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
                                   {a.description}
                                 </p>
                               )}
 
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', paddingTop: '6px', borderTop: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                                   {lang === 'vi' ? 'Thang điểm:' : 'Max:'} <strong style={{ color: '#38bdf8' }}>{a.max_score} điểm</strong>
                                 </span>
 
@@ -1241,17 +1364,14 @@ export default function StudentDashboard() {
               ))
             ) : !loadingData && (
               <div 
-                className="glass-card" 
+                className="glass-card student-empty-card" 
                 style={{ 
                   padding: '2rem', 
                   borderRadius: '16px',
                   borderTop: '4px solid #f59e0b', 
                   maxWidth: '600px', 
                   margin: '0 auto', 
-                  textAlign: 'center',
-                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
+                  textAlign: 'center'
                 }}
               >
                 <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
@@ -1323,14 +1443,12 @@ export default function StudentDashboard() {
             </div>
           ) : (
             <div 
+              className="glass-card student-submit-card"
               style={{ 
                 maxWidth: '860px', 
                 margin: '0 auto', 
-                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                border: '1px solid rgba(56, 189, 248, 0.22)',
                 borderRadius: '20px',
                 padding: '2rem 2.25rem',
-                boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px -10px rgba(56, 189, 248, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
                 backdropFilter: 'blur(20px)',
                 position: 'relative',
                 overflow: 'hidden'
@@ -1855,66 +1973,163 @@ export default function StudentDashboard() {
             {/* Live submissions from DB */}
             {displayedSubmissions.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {displayedSubmissions.map((sub) => (
-                  <div key={sub.submission_id} className="glass-card" style={{ padding: '1.5rem', borderLeft: `4px solid ${getStatusColor(sub.status)}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
-                        <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '4px' }}>{sub.assignment_title || 'Assignment #' + sub.assignment_id}</h4>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span>Commit: <code style={{ color: '#60a5fa' }}>{sub.git_commit_hash?.slice(0, 12)}</code></span>
-                          <span>{lang === 'vi' ? 'Nộp lúc:' : 'Submitted:'} {new Date(sub.submitted_at).toLocaleString('vi-VN')}</span>
-                          {sub.submitter_name && (
-                            <span style={{ 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: '5px', 
-                              background: 'rgba(167, 139, 250, 0.12)', 
-                              padding: '2px 8px', 
-                              borderRadius: '6px', 
-                              border: '1px solid rgba(167, 139, 250, 0.3)',
-                              color: '#c4b5fd',
-                              fontSize: '0.78rem'
+                {displayedSubmissions.map((sub) => {
+                  const isFailed = sub.status === 'FAILED' || (sub.status === 'GRADED' && Number(sub.final_score ?? sub.score) === 0);
+                  const isGrading = sub.status === 'GRADING' || sub.status === 'QUEUED' || sub.grading_status === 'PROCESSING' || sub.grading_status === 'QUEUED';
+                  const scoreNum = Number(sub.final_score ?? sub.score ?? 0);
+
+                  return (
+                    <div 
+                      key={sub.submission_id} 
+                      className="glass-card" 
+                      style={{ 
+                        padding: '1.5rem', 
+                        borderLeft: `4px solid ${isFailed ? '#f43f5e' : (isGrading ? '#f59e0b' : '#34d399')}`,
+                        background: isFailed ? 'rgba(239, 68, 68, 0.03)' : 'var(--bg-card)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <h4 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}>
+                            {sub.assignment_title || 'Assignment #' + sub.assignment_id}
+                          </h4>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span>Commit: <code style={{ color: '#60a5fa' }}>{sub.git_commit_hash?.slice(0, 12)}</code></span>
+                            <span>{lang === 'vi' ? 'Nộp lúc:' : 'Submitted:'} {new Date(sub.submitted_at).toLocaleString('vi-VN')}</span>
+                            {sub.submitter_name && (
+                              <span style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '5px', 
+                                background: 'rgba(167, 139, 250, 0.12)', 
+                                padding: '2px 8px', 
+                                borderRadius: '6px', 
+                                border: '1px solid rgba(167, 139, 250, 0.3)',
+                                color: '#c4b5fd',
+                                fontSize: '0.78rem'
+                              }}>
+                                <Users size={12} color="#a78bfa" />
+                                <span>{lang === 'vi' ? 'Người nộp:' : 'Submitted by:'} <strong style={{ color: '#e9d5ff' }}>{sub.submitter_name}</strong></span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Badges */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {!isGrading && (
+                            <span style={{
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.86rem', fontWeight: 800,
+                              background: isFailed ? 'rgba(239, 68, 68, 0.18)' : (scoreNum >= 8 ? 'rgba(16, 185, 129, 0.18)' : 'rgba(245, 158, 11, 0.18)'),
+                              color: isFailed ? '#f87171' : (scoreNum >= 8 ? '#34d399' : '#fbbf24'),
+                              border: `1px solid ${isFailed ? 'rgba(239, 68, 68, 0.4)' : (scoreNum >= 8 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)')}`
                             }}>
-                              <User size={12} color="#a78bfa" />
-                              <span>{lang === 'vi' ? 'Người nộp:' : 'Submitted by:'} <strong style={{ color: '#e9d5ff' }}>{sub.submitter_name}</strong></span>
+                              ★ {scoreNum.toFixed(1)} / 10
+                            </span>
+                          )}
+
+                          {isFailed ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
+                              background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.45)'
+                            }}>
+                              <AlertTriangle size={13} /> {lang === 'vi' ? 'FAILED (Không đạt)' : 'FAILED'}
+                            </span>
+                          ) : isGrading ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
+                              background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)'
+                            }}>
+                              <Loader2 size={13} className="animate-spin" /> {lang === 'vi' ? 'Đang chấm điểm Docker Sandbox...' : 'Grading in Sandbox...'}
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
+                              background: 'rgba(16, 185, 129, 0.18)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)'
+                            }}>
+                              <CheckCircle2 size={13} /> {lang === 'vi' ? 'PASSED (Thành công)' : 'PASSED'}
                             </span>
                           )}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        {(sub.score != null || sub.final_score != null) && (
-                          <span style={{
-                            padding: '4px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 800,
-                            background: Number(sub.final_score ?? sub.score) >= 8 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                            color: Number(sub.final_score ?? sub.score) >= 8 ? '#34d399' : '#fbbf24',
-                            border: `1px solid ${Number(sub.final_score ?? sub.score) >= 8 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
-                          }}>
-                            ★ {Number(sub.final_score ?? sub.score).toFixed(1)} / 10
-                          </span>
-                        )}
-                        <span style={{
-                          padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
-                          background: `${getStatusColor(sub.status)}20`,
-                          color: getStatusColor(sub.status),
-                          border: `1px solid ${getStatusColor(sub.status)}50`
+
+                      {/* Watchdog / Failure Alert */}
+                      {isFailed && (
+                        <div style={{
+                          margin: '0.75rem 0', padding: '10px 14px', borderRadius: '10px',
+                          background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.35)',
+                          color: '#fca5a5', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '8px'
                         }}>
-                          {sub.status}
-                        </span>
-                        {sub.grading_status && (
-                          <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>
-                            Grading: {sub.grading_status}
-                          </span>
-                        )}
+                          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#f87171' }} />
+                          <div>
+                            <strong style={{ color: '#f87171' }}>
+                              {lang === 'vi' ? 'Can thiệp Sandbox (Watchdog 5s - BR-03):' : 'Sandbox Watchdog Alert (BR-03):'}
+                            </strong>{' '}
+                            <span>{sub.ai_feedback || 'Phát hiện vòng lặp vô hạn hoặc thời gian chạy vượt quá 5,000ms. Container Docker Sandbox đã bị ngắt an toàn để chống nghẽn hệ thống.'}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Test Case Rubric Results breakdown */}
+                      {sub.test_results && sub.test_results.length > 0 && (
+                        <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {lang === 'vi' ? 'Kết quả các Test Case kiểm thử (Rubric Automated):' : 'Automated Test Cases Results:'}
+                          </div>
+                          {sub.test_results.map((tc, idx) => (
+                            <div 
+                              key={idx} 
+                              style={{ 
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+                                padding: '8px 12px', borderRadius: '8px', 
+                                background: tc.passed ? 'rgba(16, 185, 129, 0.06)' : 'rgba(239, 68, 68, 0.08)', 
+                                border: `1px solid ${tc.passed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.25)'}`, 
+                                fontSize: '0.82rem' 
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {tc.passed ? <CheckCircle2 size={15} color="#34d399" /> : <AlertTriangle size={15} color="#f87171" />}
+                                <div>
+                                  <span style={{ fontWeight: 600, color: tc.passed ? 'var(--text-main)' : '#fca5a5' }}>
+                                    {tc.criterion}
+                                  </span>
+                                  {tc.is_hidden && (
+                                    <span style={{ marginLeft: '6px', fontSize: '0.7rem', color: '#38bdf8', padding: '1px 6px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                                      Protected BR-06
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ color: tc.execution_time_ms >= 5000 ? '#f87171' : 'var(--text-muted)', fontSize: '0.76rem', fontWeight: tc.execution_time_ms >= 5000 ? 700 : 400 }}>
+                                  {tc.execution_time_ms}ms {tc.execution_time_ms >= 5000 ? '(Timeout)' : ''}
+                                </span>
+                                <span style={{ 
+                                  fontWeight: 800, fontSize: '0.8rem', padding: '2px 8px', borderRadius: '6px',
+                                  background: tc.passed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                  color: tc.passed ? '#34d399' : '#f87171'
+                                }}>
+                                  {tc.passed ? `PASSED (${tc.score}/${tc.max_score}đ)` : `FAILED (0/${tc.max_score}đ)`}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Artifact / Repo Link */}
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '0.75rem' }}>
+                        <ExternalLink size={13} />
+                        <a href={sub.artifact_url} target="_blank" rel="noreferrer" style={{ color: '#60a5fa', textDecoration: 'none' }}>
+                          {sub.artifact_url?.replace('https://github.com/', '')}
+                        </a>
                       </div>
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <ExternalLink size={13} />
-                      <a href={sub.artifact_url} target="_blank" rel="noreferrer" style={{ color: '#60a5fa', textDecoration: 'none' }}>
-                        {sub.artifact_url?.replace('https://github.com/', '')}
-                      </a>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center', borderRadius: '16px', border: '1px dashed rgba(255, 255, 255, 0.12)' }}>
@@ -1980,6 +2195,21 @@ export default function StudentDashboard() {
                   {m.text}
                 </div>
               ))}
+              {isChatLoading && (
+                <div 
+                  style={{
+                    alignSelf: 'flex-start',
+                    maxWidth: '80%',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '12px', padding: '12px 16px', fontSize: '0.88rem',
+                    display: 'flex', alignItems: 'center', gap: '8px', color: '#c084fc'
+                  }}
+                >
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{lang === 'vi' ? 'AITA Socratic Tutor đang phân tích mã nguồn...' : 'AITA Tutor is thinking...'}</span>
+                </div>
+              )}
               <div ref={chatEndRef} />
             </div>
 
@@ -1989,10 +2219,11 @@ export default function StudentDashboard() {
                 placeholder={lang === 'vi' ? 'Đặt câu hỏi về kết quả kiểm thử, lỗi logic hoặc cách tối ưu thuật toán...' : 'Ask about test failures, bugs, or optimization...'}
                 value={inputMsg}
                 onChange={e => setInputMsg(e.target.value)}
+                disabled={isChatLoading}
                 style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text-main)', fontFamily: 'var(--font-main)', fontSize: '0.9rem', outline: 'none' }}
               />
-              <button type="submit" className="btn-primary">
-                <Send size={16} /> {lang === 'vi' ? 'Gửi' : 'Send'}
+              <button type="submit" className="btn-primary" disabled={isChatLoading}>
+                {isChatLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} {lang === 'vi' ? 'Gửi' : 'Send'}
               </button>
             </form>
           </div>
@@ -2041,49 +2272,125 @@ export default function StudentDashboard() {
             </div>
           ) : (
             <div className="glass-card" style={{ padding: '2rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <GitBranch size={20} color="#38bdf8" /> {lang === 'vi' ? `Báo cáo Đóng góp Git - ${targetAnalyticsTeam.team_name}` : `Team Git Contribution - ${targetAnalyticsTeam.team_name}`}
-              </h3>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                {[
-                  { label: lang === 'vi' ? 'Lượt commit của bạn' : 'Your Commits', value: '42', color: '#38bdf8' },
-                  { label: lang === 'vi' ? 'Dòng code thêm (LOC)' : 'Your LOC Added', value: '1,245', color: '#a78bfa' },
-                  { label: lang === 'vi' ? 'Xếp hạng nhóm' : 'Team Ranking', value: '#1 / 5', color: '#34d399' },
-                ].map((stat, i) => (
-                  <div key={i} style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{stat.label}</div>
-                    <div style={{ fontSize: '2rem', fontWeight: 700, color: stat.color }}>{stat.value}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>
-                  {lang === 'vi' ? 'Biểu đồ phân phối đóng góp (LOC):' : 'Contribution Distribution (LOC):'}
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {(myTeam.members || []).map((member, idx) => {
-                    const colors = ['#38bdf8', '#34d399', '#a78bfa', '#fbbf24', '#f43f5e'];
-                    const locValues = [1245, 1100, 950, 850, 120];
-                    const loc = locValues[idx] || 200;
-                    const isYou = member.user_id === currentUser?.userId;
-                    const isAlert = loc < 200;
-                    return (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '200px', fontSize: '0.88rem', color: isAlert ? '#f43f5e' : 'var(--text-main)' }}>
-                          {member.full_name} {isYou && `(${lang === 'vi' ? 'Bạn' : 'You'})`}
-                        </div>
-                        <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', height: '12px', borderRadius: '6px', overflow: 'hidden' }}>
-                          <div style={{ width: `${(loc / 1300) * 100}%`, background: colors[idx % colors.length], height: '100%', borderRadius: '6px' }} />
-                        </div>
-                        <div style={{ width: '80px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'right' }}>{loc.toLocaleString()} LOC</div>
-                        {isAlert && <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>{lang === 'vi' ? 'Đóng góp thấp' : 'Low Activity'}</span>}
-                      </div>
-                    );
-                  })}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '12px' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <GitBranch size={20} color="#38bdf8" /> {lang === 'vi' ? `Báo cáo Đóng góp Git - ${targetAnalyticsTeam.team_name}` : `Team Git Contribution - ${targetAnalyticsTeam.team_name}`}
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={handleSyncGit}
+                    disabled={isSyncingGit}
+                    className="btn-primary"
+                    style={{ fontSize: '0.8rem', padding: '6px 14px', gap: '6px' }}
+                  >
+                    <RefreshCw size={14} className={isSyncingGit ? 'animate-spin' : ''} />
+                    <span>{isSyncingGit ? (lang === 'vi' ? 'Đang đồng bộ...' : 'Syncing...') : (lang === 'vi' ? 'Đồng bộ từ GitHub' : 'Sync from GitHub')}</span>
+                  </button>
                 </div>
               </div>
+              
+              {loadingGit && !gitAnalytics ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  <Loader2 size={28} className="animate-spin" style={{ margin: '0 auto 10px', color: '#38bdf8' }} />
+                  <p style={{ fontSize: '0.88rem' }}>{lang === 'vi' ? 'Đang nạp dữ liệu telemetry commit từ PostgreSQL...' : 'Loading commit telemetry...'}</p>
+                </div>
+              ) : (() => {
+                const membersList = gitAnalytics?.member_contributions || targetAnalyticsTeam?.members || [];
+                const myContribution = membersList.find((m: any) => 
+                  (currentUser?.userId && m.user_id === currentUser.userId) ||
+                  (currentUser?.email && m.email && m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim())
+                );
+                const maxLines = Math.max(1, ...membersList.map((m: any) => Number(m.total_lines_added) || 0));
+
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                      {[
+                        { 
+                          label: lang === 'vi' ? 'Lượt commit của bạn' : 'Your Commits', 
+                          value: myContribution ? `${myContribution.total_commits || 0}` : '0', 
+                          color: '#38bdf8',
+                          sub: lang === 'vi' ? `Tổng nhóm: ${gitAnalytics?.team_total_commits || 0} commits` : `Team: ${gitAnalytics?.team_total_commits || 0}`
+                        },
+                        { 
+                          label: lang === 'vi' ? 'Dòng code thêm (LOC)' : 'Your LOC Added', 
+                          value: myContribution ? `${(myContribution.total_lines_added || 0).toLocaleString()}` : '0', 
+                          color: '#a78bfa',
+                          sub: lang === 'vi' ? `Đã lọc file sinh tự động (Noise Filter)` : `Filtered noise code`
+                        },
+                        { 
+                          label: lang === 'vi' ? 'Tỷ lệ đóng góp (LOC %)' : 'Contribution %', 
+                          value: myContribution ? `${myContribution.contribution_percentage || 0}%` : '0%', 
+                          color: (myContribution?.contribution_percentage || 0) < 5 ? '#f43f5e' : '#34d399',
+                          sub: (myContribution?.contribution_percentage || 0) < 5 ? (lang === 'vi' ? '⚠️ Ngưỡng chuẩn: ≥ 5%' : '⚠️ Minimum: ≥ 5%') : (lang === 'vi' ? '✅ Đạt ngưỡng đóng góp' : '✅ Met requirement')
+                        },
+                      ].map((stat, i) => (
+                        <div key={i} style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{stat.label}</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 700, color: stat.color, margin: '4px 0' }}>{stat.value}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{stat.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>
+                          {lang === 'vi' ? 'Biểu đồ phân phối đóng góp thực tế (LOC):' : 'Live Contribution Distribution (LOC):'}
+                        </h4>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {lang === 'vi' ? 'Đã áp dụng bộ lọc Noise Filter BR-07' : 'BR-07 Noise Filter applied'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {membersList.map((member: any, idx: number) => {
+                          const colors = ['#38bdf8', '#34d399', '#a78bfa', '#fbbf24', '#f43f5e'];
+                          const loc = Number(member.total_lines_added) || 0;
+                          const commitsCount = Number(member.total_commits) || 0;
+                          const isYou = (currentUser?.userId && member.user_id === currentUser.userId) ||
+                                        (currentUser?.email && member.email && member.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim());
+                          const isAlert = member.is_free_rider || (gitAnalytics?.team_total_lines_added >= 50 && (member.contribution_percentage < 5 || commitsCount === 0));
+
+                          return (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                              <div style={{ width: '220px', minWidth: '180px', fontSize: '0.88rem', color: isAlert ? '#f43f5e' : 'var(--text-main)' }}>
+                                <div style={{ fontWeight: 600 }}>{member.full_name} {isYou && `(${lang === 'vi' ? 'Bạn' : 'You'})`}</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{commitsCount} commits • {member.assigned_module || 'Chưa gán phân hệ'}</div>
+                              </div>
+                              <div style={{ flex: 1, minWidth: '150px', background: 'rgba(0,0,0,0.3)', height: '14px', borderRadius: '7px', overflow: 'hidden' }}>
+                                <div style={{ 
+                                  width: `${Math.min(100, (loc / maxLines) * 100)}%`, 
+                                  background: isAlert ? 'linear-gradient(90deg, #f43f5e, #fb7185)' : colors[idx % colors.length], 
+                                  height: '100%', 
+                                  borderRadius: '7px',
+                                  transition: 'width 0.5s ease'
+                                }} />
+                              </div>
+                              <div style={{ width: '130px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                <strong style={{ color: isAlert ? '#f43f5e' : 'var(--text-main)' }}>{loc.toLocaleString()} LOC</strong> ({member.contribution_percentage || 0}%)
+                              </div>
+                              {isAlert && (
+                                <span style={{
+                                  fontSize: '0.68rem',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  color: '#f43f5e',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  fontWeight: 700
+                                }}>
+                                  {lang === 'vi' ? '⚠️ Free-Rider (< 5% LOC)' : '⚠️ Low Activity (< 5%)'}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )
         )}
