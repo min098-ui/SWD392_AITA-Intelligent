@@ -76,10 +76,11 @@ export default function Navigation({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '1.25rem'
+        gap: '1.25rem',
+        position: 'relative'
       }}>
         {/* Phần Hình 1: Logo sát mép trái */}
-        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, position: 'relative', zIndex: 2 }}>
           <Link href={getDashboardHref()} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
             <div style={{
               background: 'var(--accent-gradient)',
@@ -105,19 +106,18 @@ export default function Navigation({
         </div>
 
         {/* Phần Hình 2: Tabs navigation ở giữa navbar */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flex: 1,
-          minWidth: 0,
-          overflowX: 'auto',
-          scrollbarWidth: 'none'
-        }}>
+        <div 
+          className="navbar-center-tabs"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
           {centerContent ? (
             centerContent
           ) : pathname === '/' && !isLoggedIn ? (
-            <nav style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
               <a href="#overview" style={{ fontSize: '0.9rem', color: 'var(--text-muted)', transition: 'color 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
                 {lang === 'vi' ? 'Tổng Quan' : 'Overview'}
               </a>
@@ -138,7 +138,7 @@ export default function Navigation({
         </div>
 
         {/* Phần Hình 3: Profile Avatar Dropdown (nếu đăng nhập) hoặc LanguageSwitcher & Đăng Nhập (nếu chưa) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
           {isLoggedIn ? (
             <UserProfileMenu user={user} onLogout={handleLogout} />
           ) : (
