@@ -8,6 +8,7 @@
     "test:member2": "npm --prefix server run test:member2",
     "test:member3": "npm --prefix server run test:member3",
     "test:member4": "npm --prefix server run test:member4",
+    "test:member5": "npm --prefix server run test:member5",
     "db:reset": "npm --prefix server run db:reset",
     "studio": "npm --prefix server run studio",
     "dev:server": "npm --prefix server run dev",
