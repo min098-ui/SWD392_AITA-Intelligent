@@ -1,0 +1,1152 @@
+{
+  "info": {
+    "_postman_id": "aita-intelligent-swd392-group4",
+    "name": "AITA-INTELLIGENT Full API Test Suite (SWD392 Group 4)",
+    "description": "Toàn bộ bộ sưu tập Postman kiểm thử 25+ REST API của hệ thống AITA-INTELLIGENT (Next.js 14 + Express + PostgreSQL + Docker Sandbox + Gemini AI 1.5).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Authentication & RBAC (BR-01)",
+      "item": [
+        {
+          "name": "Register Student Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Dang Minh Quang\",\n  \"email\": \"quangdm@fpt.edu.vn\",\n  \"password\": \"Password@123\",\n  \"role\": \"STUDENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login as Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) { pm.environment.set('studentToken', jsonData.token); pm.environment.set('token', jsonData.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student1@fpt.edu.vn\",\n  \"password\": \"Password@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login as Lecturer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) { pm.environment.set('lecturerToken', jsonData.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"giangnv@fe.edu.vn\",\n  \"password\": \"Password@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login as Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) { pm.environment.set('adminToken', jsonData.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@fpt.edu.vn\",\n  \"password\": \"Password@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Courses & Enrollments",
+      "item": [
+        {
+          "name": "List Courses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Course (Lecturer/Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"course_code\": \"SWD392_2026\",\n  \"course_name\": \"Software Architecture & Design\",\n  \"semester\": \"FA26\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Enroll Student into Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"student_id\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}/enroll",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}",
+                "enroll"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Students in Course",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}/students",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}",
+                "students"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Teams & Task Allocation",
+      "item": [
+        {
+          "name": "List Teams",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/teams?course_id={{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teams"
+              ],
+              "query": [
+                {
+                  "key": "course_id",
+                  "value": "{{courseId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Team with GitHub Repo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"course_id\": 1,\n  \"team_name\": \"Group 4 - AITA Intelligent\",\n  \"repo_url\": \"https://github.com/min098-ui/SWD392_AITA-Intelligent\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teams"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Member with Module Allocation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 3,\n  \"assigned_module\": \"Frontend & UI/UX Design\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/{{teamId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teams",
+                "{{teamId}}",
+                "members"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Team Name / Repo URL",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_name\": \"Group 4 - AITA Intelligent\",\n  \"repo_url\": \"https://github.com/min098-ui/SWD392_AITA-Intelligent\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teams/{{teamId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "teams",
+                "{{teamId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Assignments & Rubrics (BR-06)",
+      "item": [
+        {
+          "name": "List Assignments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments?course_id={{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments"
+              ],
+              "query": [
+                {
+                  "key": "course_id",
+                  "value": "{{courseId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Assignment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"course_id\": 1,\n  \"title\": \"Milestone 2 - Clean Architecture & AI Tutor\",\n  \"description\": \"Triển khai Clean Code, Docker Sandbox runner và Socratic AI\",\n  \"deadline\": \"2026-11-15T23:59:59Z\",\n  \"max_score\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Visible Rubric Test Case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"criterion\": \"Unit Test: Fibonacci Memoization O(n)\",\n  \"rule_type\": \"UNIT_TEST\",\n  \"input_data\": \"40\",\n  \"expected_output\": \"102334155\",\n  \"weight\": 3,\n  \"max_score\": 3,\n  \"is_hidden\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/{{assignmentId}}/rubrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments",
+                "{{assignmentId}}",
+                "rubrics"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Hidden Rubric Test Case (BR-06 Shielded)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"criterion\": \"Edge Case: Deep Recursion Call Stack Overflow\",\n  \"rule_type\": \"SECURITY\",\n  \"input_data\": \"10000\",\n  \"expected_output\": \"PASSED\",\n  \"weight\": 4,\n  \"max_score\": 4,\n  \"is_hidden\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/{{assignmentId}}/rubrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assignments",
+                "{{assignmentId}}",
+                "rubrics"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Submissions & Docker Sandbox (BR-03, BR-06)",
+      "item": [
+        {
+          "name": "Submit Assignment to Queue (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignment_id\": 1,\n  \"team_id\": 1,\n  \"artifact_url\": \"https://github.com/min098-ui/SWD392_AITA-Intelligent\",\n  \"git_commit_hash\": \"a7f8c2901b2c3d4e\",\n  \"code_content\": \"function fib(n, memo={}) { if(n <= 1) return n; if(memo[n]) return memo[n]; return memo[n] = fib(n-1, memo) + fib(n-2, memo); }\\nconsole.log(fib(Number(process.argv[2]||40)));\",\n  \"language\": \"javascript\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/submissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "submissions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Submissions for Team",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/submissions?team_id={{teamId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "submissions"
+              ],
+              "query": [
+                {
+                  "key": "team_id",
+                  "value": "{{teamId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Submission Status Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/submissions/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "submissions",
+                "{{submissionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Rubric Test Results & AI Feedback (BR-06 Protected)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/grading/{{jobId}}/results",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grading",
+                "{{jobId}}",
+                "results"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Trigger Regrade (Lecturer/Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/grading/regrade/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grading",
+                "regrade",
+                "{{submissionId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Dual-Lecturer Moderation (BR-09)",
+      "item": [
+        {
+          "name": "Lecturer 1 Approves AI Score",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNotes\": \"AI grading aligns with clean code criteria.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/grading/review/approve-ai/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grading",
+                "review",
+                "approve-ai",
+                "{{submissionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lecturer 1 Requests Second Opinion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedLecturerId\": 4,\n  \"reviewNotes\": \"Need second opinion on architectural complexity.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/grading/review/request-second-opinion/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grading",
+                "review",
+                "request-second-opinion",
+                "{{submissionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lecturer 2 Submits Independent Score",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"secondOpinionScore\": 9,\n  \"secondOpinionNotes\": \"Well-structured, excellent error handling.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/grading/review/second-opinion/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grading",
+                "review",
+                "second-opinion",
+                "{{submissionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Final Consensus Agreement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"finalScore\": 9.25,\n  \"consensusNotes\": \"Consensus reached between Primary and Secondary lecturers.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/grading/review/consensus/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "grading",
+                "review",
+                "consensus",
+                "{{submissionId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Gemini AI Tutor & Key Pool (BR-02, BR-04, BR-05)",
+      "item": [
+        {
+          "name": "Create AI Chat Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 201', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "var data = pm.response.json();",
+                  "if (data.session_id) { pm.environment.set('sessionId', data.session_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignment_id\": 1,\n  \"session_title\": \"Dijkstra Memoization Architecture Discussion\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai-tutor/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai-tutor",
+                "sessions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Question to AI Socratic Tutor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"How can I optimize the recursive Fibonacci function from O(2^n) to O(n)?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/ai-tutor/sessions/{{sessionId}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai-tutor",
+                "sessions",
+                "{{sessionId}}",
+                "chat"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Chat Session Message History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai-tutor/sessions/{{sessionId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai-tutor",
+                "sessions",
+                "{{sessionId}}",
+                "messages"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin Inspect AI Key Pool (BR-02 Encrypted)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai-tutor/admin/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai-tutor",
+                "admin",
+                "keys"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin Inspect Prompt Templates (BR-05)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ai-tutor/admin/prompts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ai-tutor",
+                "admin",
+                "prompts"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Git Telemetry & Peer Audits (BR-07, BR-08)",
+      "item": [
+        {
+          "name": "Sync Git Commits via Octokit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/git/{{teamId}}/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "git",
+                "{{teamId}}",
+                "sync"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Team Commits & Free-Rider Anomalies (BR-07)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/git/{{teamId}}/commits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "git",
+                "{{teamId}}",
+                "commits"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Unified Team Health Scorecard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/git/{{teamId}}/team-health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "git",
+                "{{teamId}}",
+                "team-health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Submit Peer Review (BR-08 Non-Self)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": 1,\n  \"assignment_id\": 1,\n  \"reviewee_id\": 4,\n  \"audit_round\": 1,\n  \"score\": 9.5,\n  \"comments\": \"Contributed excellent code, always on time.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/peer-audits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "peer-audits"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Team Peer Audit Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{lecturerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/peer-audits/team/{{teamId}}/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "peer-audits",
+                "team",
+                "{{teamId}}",
+                "summary"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Student Assigned Reviews (my-reviews)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/peer-audits/my-reviews?assignment_id=1&audit_round=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "peer-audits",
+                "my-reviews"
+              ],
+              "query": [
+                {
+                  "key": "assignment_id",
+                  "value": "1"
+                },
+                {
+                  "key": "audit_round",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. System Health & Infrastructure",
+      "item": [
+        {
+          "name": "Healthcheck (/api/health)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Health status is UP', function () { var d = pm.response.json(); pm.expect(d.status).to.eql('UP'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
