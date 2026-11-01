@@ -28,23 +28,12 @@ const GoogleIcon = () => (
   </svg>
 );
 
-// Biểu tượng GitHub chuẩn thương hiệu
-const GitHubIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
-    <path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-    />
-  </svg>
-);
-
 function LoginContent() {
   const searchParams = useSearchParams();
   const { lang } = useLanguage();
   const urlRole = searchParams.get('state') || searchParams.get('role');
   const [selectedRole, setSelectedRole] = useState<'STUDENT' | 'LECTURER'>(urlRole === 'LECTURER' ? 'LECTURER' : 'STUDENT');
-  const [redirectingProvider, setRedirectingProvider] = useState<'google' | 'github' | null>(null);
+  const [redirectingProvider, setRedirectingProvider] = useState<'google' | null>(null);
   const [errorType, setErrorType] = useState<'pending' | 'role_conflict' | 'locked' | 'general' | null>(null);
   const [alertMessage, setAlertMessage] = useState('');
 
@@ -59,11 +48,9 @@ function LoginContent() {
       continueGoogleStudent: 'Tiếp tục với Google',
       continueGoogleLecturer: 'Tiếp tục với Google',
       continueGoogle: 'Tiếp tục với Google',
-      continueGithub: 'Tiếp tục với GitHub',
       redirecting: 'Đang chuyển hướng xác thực...',
       footerNotice: 'Đăng nhập bảo mật qua Google Workspace SSO.',
       errorGoogleDenied: 'Bạn đã hủy đăng nhập bằng tài khoản Google.',
-      errorGithubDenied: 'Bạn đã hủy đăng nhập bằng tài khoản GitHub.',
       errorGeneral: 'Đăng nhập không thành công. Vui lòng thử lại sau.'
     },
     en: {
@@ -75,11 +62,9 @@ function LoginContent() {
       continueGoogleStudent: 'Continue with Google',
       continueGoogleLecturer: 'Continue with Google',
       continueGoogle: 'Continue with Google',
-      continueGithub: 'Continue with GitHub',
       redirecting: 'Redirecting to sign in...',
       footerNotice: 'Secure sign-in via Google Workspace SSO.',
       errorGoogleDenied: 'Google sign in was cancelled.',
-      errorGithubDenied: 'GitHub sign in was cancelled.',
       errorGeneral: 'Sign in failed. Please try again.'
     }
   };
@@ -108,9 +93,6 @@ function LoginContent() {
     } else if (err === 'google_denied') {
       setErrorType('general');
       setAlertMessage(currentT.errorGoogleDenied);
-    } else if (err === 'github_denied') {
-      setErrorType('general');
-      setAlertMessage(currentT.errorGithubDenied);
     } else if (err === 'oauth_error') {
       setErrorType('general');
       setAlertMessage(msg || (lang === 'vi' ? 'Phiên xác thực đã hết hạn hoặc kết nối bị gián đoạn. Vui lòng bấm vào nút đăng nhập bên dưới để thử lại.' : 'OAuth session expired or connection was interrupted. Please click the button below to try again.'));
@@ -134,22 +116,6 @@ function LoginContent() {
     const state = encodeURIComponent(selectedRole);
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}&prompt=select_account`;
     window.location.href = googleAuthUrl;
-  };
-
-  // Chuyển hướng trực tiếp tới GitHub OAuth
-  const handleGitHubLogin = () => {
-    setRedirectingProvider('github');
-    setErrorType(null);
-    setAlertMessage('');
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('intended_role', selectedRole);
-    }
-    const clientId = (process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || '').trim();
-    const redirectUri = encodeURIComponent('http://localhost:3000/api/auth/callback/github');
-    const scope = encodeURIComponent('read:user user:email');
-    const state = encodeURIComponent(selectedRole);
-    const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
-    window.location.href = githubAuthUrl;
   };
 
   return (
@@ -432,61 +398,6 @@ function LoginContent() {
                 <>
                   <GoogleIcon />
                   <span>{selectedRole === 'LECTURER' ? currentT.continueGoogleLecturer : currentT.continueGoogleStudent}</span>
-                </>
-              )}
-            </button>
-
-            {/* Nút Đăng Nhập GitHub Phụ */}
-            <button
-              type="button"
-              id="github-login-btn"
-              disabled={redirectingProvider !== null}
-              onClick={handleGitHubLogin}
-              style={{
-                width: '100%',
-                height: '48px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                borderRadius: '14px',
-                background: 'rgba(255, 255, 255, 0.07)',
-                border: '1px solid rgba(255, 255, 255, 0.14)',
-                color: '#ffffff',
-                fontSize: '0.94rem',
-                fontWeight: 600,
-                cursor: redirectingProvider !== null ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                outline: 'none',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
-                opacity: redirectingProvider === 'github' ? 0.75 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (!redirectingProvider) {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.28)';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.35)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!redirectingProvider) {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.07)';
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.14)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
-                }
-              }}
-            >
-              {redirectingProvider === 'github' ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" color="#ffffff" />
-                  <span>{currentT.redirecting}</span>
-                </>
-              ) : (
-                <>
-                  <GitHubIcon />
-                  <span>{currentT.continueGithub}</span>
                 </>
               )}
             </button>
