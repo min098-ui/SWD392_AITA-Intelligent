@@ -13,7 +13,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var saved = localStorage.getItem('aita_theme') || 'dark';
+                  document.documentElement.setAttribute('data-theme', saved);
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body>
         <LanguageProvider>
           <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
