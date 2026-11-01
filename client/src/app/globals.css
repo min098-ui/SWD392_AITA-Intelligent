@@ -36,44 +36,70 @@ body[data-theme="light"] {
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
   --bg-glass: rgba(0, 0, 0, 0.035);
-  --border-color: rgba(0, 0, 0, 0.12);
-  --border-glow: rgba(59, 130, 246, 0.3);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --border-glow: rgba(2, 132, 199, 0.25);
 
   --text-main: #0f172a;
   --text-muted: #64748b;
   --text-dim: #94a3b8;
   
-  --shadow-subtle: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+  --shadow-subtle: 0 10px 30px -10px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 html[data-theme="light"] body {
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.06) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.06) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.05) 0px, transparent 50%) !important;
 }
 
 html[data-theme="light"] header {
-  background: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
 }
 
-html[data-theme="light"] .glass-card {
+/* Light Mode: All cards and containers */
+html[data-theme="light"] .glass-card,
+html[data-theme="light"] .student-course-card,
+html[data-theme="light"] .student-submit-card,
+html[data-theme="light"] .student-empty-card,
+html[data-theme="light"] .halo-card {
   background: #ffffff !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(0, 0, 0, 0.09) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
 }
 
-html[data-theme="light"] .btn-secondary {
-  background: rgba(0, 0, 0, 0.04);
-  color: #1e293b;
-  border-color: rgba(0, 0, 0, 0.12);
+/* Light Mode: Inner components & sub-boxes */
+html[data-theme="light"] .student-stat-box {
+  background: #f8fafc !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
-html[data-theme="light"] .btn-secondary:hover {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.2);
+html[data-theme="light"] .student-member-item {
+  background: #f8fafc !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-theme="light"] .student-member-item.is-me {
+  background: rgba(239, 246, 255, 0.95) !important;
+  border: 1px solid rgba(2, 132, 199, 0.35) !important;
+}
+
+html[data-theme="light"] .student-member-accordion {
+  background: #f1f5f9 !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-theme="light"] .student-assignment-item {
+  background: #f8fafc !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+html[data-theme="light"] .student-divider {
+  background: rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Light Mode: Headings guarantee */
@@ -86,13 +112,33 @@ html[data-theme="light"] h6:not(.btn-primary *) {
   color: #0f172a !important;
 }
 
+html[data-theme="light"] label {
+  color: #1e293b !important;
+}
+
+html[data-theme="light"] p {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] strong {
+  color: #0f172a !important;
+}
+
 /* Light Mode: Form inputs, selects & textareas */
 html[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not(.btn-primary),
 html[data-theme="light"] select,
 html[data-theme="light"] textarea {
   background-color: #ffffff !important;
   color: #0f172a !important;
-  border-color: rgba(0, 0, 0, 0.16) !important;
+  border: 1px solid rgba(0, 0, 0, 0.16) !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-theme="light"] input:focus,
+html[data-theme="light"] select:focus,
+html[data-theme="light"] textarea:focus {
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.16) !important;
 }
 
 html[data-theme="light"] select option {
@@ -105,6 +151,34 @@ html[data-theme="light"] textarea::placeholder {
   color: #94a3b8 !important;
 }
 
+/* Light Mode: Buttons */
+html[data-theme="light"] .btn-secondary {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-theme="light"] .btn-secondary:hover {
+  background: #f1f5f9 !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
+  color: #0f172a !important;
+}
+
+/* Light Mode: Pill Buttons */
+html[data-theme="light"] .pill-btn-white {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06) !important;
+}
+
+html[data-theme="light"] .pill-btn-ghost {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #334155 !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
 /* Light Mode: Code block */
 html[data-theme="light"] .code-box,
 html[data-theme="light"] pre {
@@ -115,6 +189,75 @@ html[data-theme="light"] pre {
 
 html[data-theme="light"] code {
   color: #0f172a !important;
+}
+
+/* Default Dark Theme Classes for Component Elements */
+.student-course-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.7), 0 0 30px -10px rgba(56, 189, 248, 0.1);
+}
+
+.student-submit-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px -10px rgba(56, 189, 248, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.student-empty-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.7);
+}
+
+.student-stat-box {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.student-member-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.student-member-item.is-me {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.student-member-accordion {
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.student-assignment-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.student-divider {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Center Navbar Tabs */
+.navbar-center-tabs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+@media (max-width: 1200px) {
+  .navbar-center-tabs {
+    position: static;
+    transform: none;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
 }
 
 * {
