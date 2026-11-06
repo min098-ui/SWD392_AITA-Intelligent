@@ -28,7 +28,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <LanguageProvider>
           <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             {children}
@@ -38,4 +38,3 @@ export default function RootLayout({
     </html>
   );
 }
-
