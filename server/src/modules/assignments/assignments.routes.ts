@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../../config/db';
 import { authenticateJWT, requireRole } from '../../common/auth.middleware';
+import { addGradingJob } from '../grading/grading.queue';
+import { aiTutorService } from '../ai-tutor/ai-tutor.service';
 
 const router = Router();
 
@@ -81,6 +83,36 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching assignment details:', error);
     return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// POST /api/assignments/generate-ai - Generate assignment & test cases from lecture slides/topics via AI (BR-04 Key Pool / Gemini)
+router.post('/generate-ai', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (req: Request, res: Response) => {
+  const { topic, slideSummary, language = 'javascript', difficulty = 'MEDIUM' } = req.body;
+
+  if (!topic || typeof topic !== 'string' || !topic.trim()) {
+    return res.status(400).json({ 
+      message: 'Vui lòng cung cấp chủ đề bài học hoặc slide bài giảng (topic is required).' 
+    });
+  }
+
+  try {
+    const generated = await aiTutorService.generateAssignmentFromSlide({
+      topic: topic.trim(),
+      slideSummary: slideSummary ? String(slideSummary).trim() : undefined,
+      language: language === 'python' ? 'python' : 'javascript',
+      difficulty: ['EASY', 'MEDIUM', 'HARD'].includes(difficulty) ? difficulty : 'MEDIUM',
+    });
+
+    return res.json({
+      success: true,
+      data: generated,
+    });
+  } catch (error: any) {
+    console.error('Error in /api/assignments/generate-ai:', error);
+    return res.status(500).json({
+      message: 'Lỗi khi AI khởi tạo bài tập: ' + (error?.message || 'Internal server error'),
+    });
   }
 });
 
@@ -358,6 +390,83 @@ router.delete('/:id', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (
   } catch (error) {
     console.error('Error deleting assignment:', error);
     return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// POST /api/assignments/:id/regrade - Re-grade all submissions for this assignment (Lecturer / Admin only)
+router.post('/:id/regrade', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (req: Request, res: Response) => {
+  const assignmentId = req.params.id;
+
+  try {
+    // 1. Verify assignment exists
+    const assignRes = await pool.query('SELECT assignment_id, title FROM assignments WHERE assignment_id = $1', [assignmentId]);
+    if (assignRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Assignment not found.' });
+    }
+
+    // 2. Query all submissions for this assignment
+    const subsRes = await pool.query(
+      `SELECT s.submission_id, s.assignment_id, s.team_id, s.artifact_url, s.git_commit_hash
+       FROM submissions s
+       WHERE s.assignment_id = $1
+       ORDER BY s.submitted_at DESC`,
+      [assignmentId]
+    );
+
+    if (subsRes.rows.length === 0) {
+      return res.status(200).json({ 
+        message: 'Không tìm thấy bài nộp nào cho bài tập này để chấm lại.', 
+        regradedCount: 0 
+      });
+    }
+
+    // 3. For each submission, reset status, create a new grading_job, and enqueue BullMQ job
+    let regradedCount = 0;
+    for (const sub of subsRes.rows) {
+      // Reset submission status back to QUEUED
+      await pool.query(
+        `UPDATE submissions 
+         SET status = 'QUEUED', 
+             final_score = NULL, 
+             reviewer_1_score = NULL, 
+             ai_score = NULL 
+         WHERE submission_id = $1`,
+        [sub.submission_id]
+      );
+
+      // Create new grading_job
+      const jobRes = await pool.query(
+        `INSERT INTO grading_jobs (submission_id, priority, status)
+         VALUES ($1, 1, 'QUEUED')
+         RETURNING grading_job_id`,
+        [sub.submission_id]
+      );
+
+      const gradingJobId = jobRes.rows[0].grading_job_id;
+      const language = sub.artifact_url && sub.artifact_url.toLowerCase().includes('.py') ? 'python' : 'javascript';
+
+      // Push to BullMQ queue
+      await addGradingJob({
+        grading_job_id: gradingJobId,
+        submission_id: sub.submission_id,
+        assignment_id: Number(assignmentId),
+        team_id: sub.team_id || undefined,
+        artifact_url: sub.artifact_url,
+        git_commit_hash: sub.git_commit_hash || 'HEAD',
+        language,
+        priority: 1
+      });
+
+      regradedCount++;
+    }
+
+    return res.json({
+      message: `Đã đưa ${regradedCount} bài nộp vào hàng đợi Docker Sandbox để chấm lại tự động!`,
+      regradedCount
+    });
+  } catch (error) {
+    console.error('Error regrading assignment submissions:', error);
+    return res.status(500).json({ message: 'Internal server error while regrading.' });
   }
 });
 
