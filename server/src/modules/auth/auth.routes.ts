@@ -596,7 +596,7 @@ router.get('/db-inspect/:tableName', authenticateJWT, async (req: Request, res: 
   }
 
   try {
-    let query = `SELECT * FROM ${tableName} ORDER BY 1 DESC LIMIT 100`;
+    let query = `SELECT * FROM ${tableName} ORDER BY 1 ASC LIMIT 100`;
     if (tableName === 'users') {
       // Ẩn hash mật khẩu vì lý do bảo mật
       query = `SELECT user_id, full_name, email, role, created_at, '••••••••••••' as password_hash FROM users ORDER BY user_id ASC`;
