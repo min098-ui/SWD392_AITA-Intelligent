@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Navigation from '../../../components/Navigation';
 import { useLanguage } from '../../../context/LanguageContext';
 import { 
-  Send, Bot, CheckCircle2, Clock, GitBranch, MessageSquare, 
+  Send, Bot, CheckCircle2, ShieldCheck, Clock, GitBranch, Edit3, MessageSquare, 
   Terminal, AlertCircle, FileCode, Users, ExternalLink, Sparkles, BookOpen,
   Loader2, Check, ArrowRight, X, RefreshCw, Database, Star, AlertTriangle,
   Mail, Crown, ChevronDown, ChevronUp, CheckSquare, Play, User
@@ -50,10 +50,17 @@ interface SubmissionResult {
   submitted_at: string;
   status: string;
   assignment_title?: string;
+  assignment_deadline?: string;
+  assignment_submission_type?: string;
   team_name?: string;
   grading_status?: string;
   score?: number;
   final_score?: number;
+  reviewer_1_notes?: string;
+  reviewer_2_notes?: string;
+  consensus_notes?: string;
+  is_late?: boolean;
+  late_minutes?: number;
   submitter_name?: string;
   submitter_email?: string;
   ai_feedback?: string;
@@ -71,6 +78,10 @@ interface SubmissionResult {
 
 export default function StudentDashboard() {
   const { lang } = useLanguage();
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'courses' | 'submit' | 'results' | 'chat' | 'peer' | 'analytics'>('courses');
   
@@ -115,6 +126,10 @@ export default function StudentDashboard() {
   const [gitAnalytics, setGitAnalytics] = useState<any>(null);
   const [loadingGit, setLoadingGit] = useState(false);
   const [isSyncingGit, setIsSyncingGit] = useState(false);
+  const [gitBranch, setGitBranch] = useState('main');
+  const [isEditingGitRepo, setIsEditingGitRepo] = useState(false);
+  const [customGitRepo, setCustomGitRepo] = useState('');
+  const [gitAnalysisStep, setGitAnalysisStep] = useState<number>(0);
 
   // ─── Helper: get token ───────────────────────────────────────────────────
   const getToken = async (): Promise<string> => {
@@ -455,20 +470,42 @@ export default function StudentDashboard() {
   const handleSyncGit = async () => {
     if (!targetAnalyticsTeam?.team_id) return;
     setIsSyncingGit(true);
+    setGitAnalysisStep(1);
+    const stepTimer1 = setTimeout(() => setGitAnalysisStep(2), 600);
+    const stepTimer2 = setTimeout(() => setGitAnalysisStep(3), 1200);
+
     try {
       const token = await getToken();
+      const effectiveRepo = customGitRepo.trim() || targetAnalyticsTeam.repo_url;
+      const effectiveBranch = gitBranch.trim() || 'main';
       const res = await fetch(`http://localhost:5000/api/git/${targetAnalyticsTeam.team_id}/sync`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          branch: effectiveBranch,
+          repo_url: effectiveRepo
+        })
       });
+
+      setGitAnalysisStep(4);
+
       if (res.ok) {
-        setSuccessToast(lang === 'vi' ? 'Đã đồng bộ commit mới nhất từ GitHub thành công!' : 'Git commit telemetry synced from GitHub!');
-        setTimeout(() => setSuccessToast(''), 3000);
+        const syncData = await res.json();
+        setIsEditingGitRepo(false);
+        setSuccessToast(lang === 'vi' 
+          ? `Bóc tách thành công ${syncData.synced_commits_count || 0} commits từ nhánh "${syncData.branch || effectiveBranch}"!` 
+          : `Git commit telemetry synced on branch "${syncData.branch || effectiveBranch}" from GitHub!`);
+        setTimeout(() => setSuccessToast(''), 3500);
         await fetchGitAnalytics(targetAnalyticsTeam.team_id);
       }
     } catch (e) {
       console.warn('Error syncing git:', e);
     } finally {
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
       setIsSyncingGit(false);
     }
   };
@@ -673,6 +710,14 @@ export default function StudentDashboard() {
       ))}
     </div>
   );
+
+  if (!isMounted) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)' }}>
+        <Loader2 className="animate-spin" size={36} color="#38bdf8" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -1975,7 +2020,7 @@ export default function StudentDashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {displayedSubmissions.map((sub) => {
                   const isFailed = sub.status === 'FAILED' || (sub.status === 'GRADED' && Number(sub.final_score ?? sub.score) === 0);
-                  const isGrading = sub.status === 'GRADING' || sub.status === 'QUEUED' || sub.grading_status === 'PROCESSING' || sub.grading_status === 'QUEUED';
+                  const isGrading = (sub.status === 'GRADING' || sub.status === 'QUEUED' || sub.grading_status === 'PROCESSING' || sub.grading_status === 'QUEUED') && sub.status !== 'FINALIZED';
                   const scoreNum = Number(sub.final_score ?? sub.score ?? 0);
 
                   return (
@@ -2025,6 +2070,44 @@ export default function StudentDashboard() {
                               border: `1px solid ${isFailed ? 'rgba(239, 68, 68, 0.4)' : (scoreNum >= 8 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)')}`
                             }}>
                               ★ {scoreNum.toFixed(1)} / 10
+                            </span>
+                          )}
+
+                          {/* Moderation Stage Badge */}
+                          {sub.status === 'FINALIZED' ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)'
+                            }}>
+                              <CheckCircle2 size={12} /> {lang === 'vi' ? 'Điểm chính thức đã duyệt' : 'Finalized Grade'}
+                            </span>
+                          ) : sub.status === 'PENDING_SECOND_REVIEW' ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)'
+                            }}>
+                              <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 chấm chéo (BR-09)' : 'Pending 2nd Review'}
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.35)'
+                            }}>
+                              <Sparkles size={12} /> {lang === 'vi' ? 'Điểm sơ bộ (AI Sandbox)' : 'AI Pre-Graded'}
+                            </span>
+                          )}
+
+                          {/* Late Submission Badge */}
+                          {sub.is_late && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)'
+                            }}>
+                              <AlertTriangle size={12} /> {lang === 'vi' ? `Nộp muộn ${sub.late_minutes ? sub.late_minutes + 'p' : ''}` : 'Late Submission'}
                             </span>
                           )}
 
@@ -2117,6 +2200,28 @@ export default function StudentDashboard() {
                               </div>
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {/* Instructor Feedback Notes (if available) */}
+                      {(sub.consensus_notes || sub.reviewer_1_notes) && (
+                        <div style={{
+                          marginTop: '0.85rem',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          background: 'rgba(56, 189, 248, 0.08)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#38bdf8' }}>
+                            <User size={13} />
+                            <span>{lang === 'vi' ? 'Nhận xét từ Giảng viên:' : 'Instructor Feedback:'}</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.84rem', color: '#f1f5f9', lineHeight: 1.5 }}>
+                            "{sub.consensus_notes || sub.reviewer_1_notes}"
+                          </p>
                         </div>
                       )}
 
@@ -2229,9 +2334,9 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* ───── TAB: GIT ANALYTICS ───── */}
+        {/* ───── TAB: GIT ANALYTICS & REPO SUBMISSION ───── */}
         {activeTab === 'analytics' && (
-          !myTeam ? (
+          !myTeam && myTeams.length === 0 ? (
             <div 
               className="glass-card" 
               style={{ 
@@ -2239,10 +2344,10 @@ export default function StudentDashboard() {
                 margin: '2rem auto', 
                 padding: '2.5rem 2rem', 
                 textAlign: 'center', 
-                borderTop: '4px solid #f59e0b',
+                borderTop: '4px solid #38bdf8',
                 background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
                 borderRadius: '20px',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
                 boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
               }}
             >
@@ -2251,8 +2356,8 @@ export default function StudentDashboard() {
                   width: '56px', 
                   height: '56px', 
                   borderRadius: '16px', 
-                  background: 'rgba(245, 158, 11, 0.15)', 
-                  color: '#fbbf24', 
+                  background: 'rgba(56, 189, 248, 0.15)', 
+                  color: '#38bdf8', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
@@ -2271,24 +2376,186 @@ export default function StudentDashboard() {
               </p>
             </div>
           ) : (
-            <div className="glass-card" style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '12px' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <GitBranch size={20} color="#38bdf8" /> {lang === 'vi' ? `Báo cáo Đóng góp Git - ${targetAnalyticsTeam.team_name}` : `Team Git Contribution - ${targetAnalyticsTeam.team_name}`}
-                </h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    onClick={handleSyncGit}
-                    disabled={isSyncingGit}
-                    className="btn-primary"
-                    style={{ fontSize: '0.8rem', padding: '6px 14px', gap: '6px' }}
-                  >
-                    <RefreshCw size={14} className={isSyncingGit ? 'animate-spin' : ''} />
-                    <span>{isSyncingGit ? (lang === 'vi' ? 'Đang đồng bộ...' : 'Syncing...') : (lang === 'vi' ? 'Đồng bộ từ GitHub' : 'Sync from GitHub')}</span>
-                  </button>
-                </div>
+            <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+              {/* Header */}
+              <div>
+                <h2 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+                  {lang === 'vi' ? 'Nộp Kho Git Để Phân Tích Nhóm' : 'Submit Git Repo for Team Analysis'}
+                </h2>
+
               </div>
-              
+
+              {/* Main Form Glass Card */}
+              <div 
+                className="glass-card"
+                style={{
+                  borderRadius: '20px',
+                  padding: '2rem 2.25rem',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                  background: 'var(--bg-card)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.5rem'
+                }}
+              >
+                {/* Field 1: Chọn Nhóm Đồ Án */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)', marginBottom: '8px' }}>
+                    {lang === 'vi' ? 'CHỌN NHÓM ĐỒ ÁN*' : 'SELECT PROJECT TEAM*'}
+                  </label>
+
+                  <select
+                    value={targetAnalyticsTeam?.team_id || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleFilterChange(val);
+                      const t = myTeams.find(item => String(item.team_id) === val);
+                      if (t) {
+                        setCustomGitRepo(t.repo_url || '');
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1.5px solid var(--border-color)',
+                      color: '#f8fafc',
+                      fontSize: '0.96rem',
+                      fontWeight: 700,
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {myTeams.map(t => (
+                      <option key={t.team_id} value={t.team_id} style={{ background: '#0f172a', color: '#f8fafc' }}>
+                        {t.team_name} ({t.course_code || 'SWD392'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Field 2: Git Repository URL */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)', marginBottom: '8px' }}>
+                    GIT REPOSITORY URL*
+                  </label>
+                  <input
+                    type="text"
+                    value={customGitRepo || targetAnalyticsTeam?.repo_url || ''}
+                    onChange={(e) => setCustomGitRepo(e.target.value)}
+                    placeholder="https://github.com/organization/repo.git"
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1.5px solid var(--border-color)',
+                      color: '#f8fafc',
+                      fontSize: '0.92rem',
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Field 3: Nhánh Phân Tích */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)', marginBottom: '8px' }}>
+                    {lang === 'vi' ? 'NHÁNH PHÂN TÍCH (DEFAULT: MAIN)' : 'ANALYSIS BRANCH (DEFAULT: MAIN)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={gitBranch}
+                    onChange={(e) => setGitBranch(e.target.value)}
+                    placeholder="main"
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1.5px solid var(--border-color)',
+                      color: 'var(--text-main)',
+                      fontSize: '0.95rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Big Action Button (Signature Cyan/Blue Gradient) */}
+                <button
+                  type="button"
+                  onClick={handleSyncGit}
+                  disabled={isSyncingGit || !targetAnalyticsTeam}
+                  style={{
+                    width: '100%',
+                    padding: '14px 24px',
+                    borderRadius: '12px',
+                    background: isSyncingGit 
+                      ? 'rgba(2, 132, 199, 0.65)' 
+                      : 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
+                    cursor: isSyncingGit ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    boxShadow: '0 6px 20px rgba(56, 189, 248, 0.4)',
+                    transition: 'all 0.2s ease',
+                    marginTop: '0.5rem'
+                  }}
+                >
+                  {isSyncingGit ? (
+                    <>
+                      <Loader2 className="animate-spin" size={20} />
+                      {lang === 'vi' ? 'Đang bóc tách & phân tích Git Repo...' : 'Analyzing Git Repo...'}
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: '1.2rem' }}>🚀</span>
+                      {lang === 'vi' ? 'Nộp & Bóc Tách Git Repo' : 'Nộp & Bóc Tách Git Repo'}
+                    </>
+                  )}
+                </button>
+
+                {/* Progress Stepper when running */}
+                {isSyncingGit && (
+                  <div style={{
+                    padding: '1.25rem',
+                    borderRadius: '12px',
+                    background: 'rgba(56, 189, 248, 0.06)',
+                    border: '1px solid rgba(56, 189, 248, 0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontWeight: 700, fontSize: '0.9rem' }}>
+                      <Loader2 className="animate-spin" size={16} />
+                      {lang === 'vi' ? 'Tiến trình bóc tách dữ liệu:' : 'Extraction Pipeline:'}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: gitAnalysisStep >= 1 ? '#38bdf8' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {gitAnalysisStep >= 1 ? '✓' : '○'} 1. Bare clone Git Repo ({customGitRepo || targetAnalyticsTeam?.repo_url || 'GitHub'}) & checkout nhánh {gitBranch || 'main'}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: gitAnalysisStep >= 2 ? '#38bdf8' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {gitAnalysisStep >= 2 ? '✓' : '○'} 2. Bóc tách commit history, map tác giả với tài khoản sinh viên
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: gitAnalysisStep >= 3 ? '#38bdf8' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {gitAnalysisStep >= 3 ? '✓' : '○'} 3. Áp dụng Noise Filter BR-07 (lọc bỏ node_modules, lockfiles, build artifacts)
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: gitAnalysisStep >= 4 ? '#10b981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {gitAnalysisStep >= 4 ? '✓' : '○'} 4. Hoàn tất & tính toán chỉ số đóng góp thực tế (LOC %)
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Telemetry Metrics & Member Distribution Chart */}
               {loadingGit && !gitAnalytics ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                   <Loader2 size={28} className="animate-spin" style={{ margin: '0 auto 10px', color: '#38bdf8' }} />
@@ -2303,8 +2570,25 @@ export default function StudentDashboard() {
                 const maxLines = Math.max(1, ...membersList.map((m: any) => Number(m.total_lines_added) || 0));
 
                 return (
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                  <div className="glass-card" style={{ padding: '2rem', borderRadius: '20px', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                      <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                        <GitBranch size={20} color="#38bdf8" /> 
+                        {lang === 'vi' ? `Báo cáo Đóng góp Git - ${targetAnalyticsTeam.team_name}` : `Git Contribution Report - ${targetAnalyticsTeam.team_name}`}
+                      </h3>
+                      <button
+                        onClick={handleSyncGit}
+                        disabled={isSyncingGit}
+                        className="btn-secondary"
+                        style={{ fontSize: '0.82rem', padding: '7px 15px', gap: '6px', display: 'flex', alignItems: 'center' }}
+                      >
+                        <RefreshCw size={14} className={isSyncingGit ? 'animate-spin' : ''} />
+                        <span>{lang === 'vi' ? 'Làm mới Telemetry' : 'Refresh Telemetry'}</span>
+                      </button>
+                    </div>
+
+                    {/* 3 Metric Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                       {[
                         { 
                           label: lang === 'vi' ? 'Lượt commit của bạn' : 'Your Commits', 
@@ -2322,73 +2606,77 @@ export default function StudentDashboard() {
                           label: lang === 'vi' ? 'Tỷ lệ đóng góp (LOC %)' : 'Contribution %', 
                           value: myContribution ? `${myContribution.contribution_percentage || 0}%` : '0%', 
                           color: (myContribution?.contribution_percentage || 0) < 5 ? '#f43f5e' : '#34d399',
-                          sub: (myContribution?.contribution_percentage || 0) < 5 ? (lang === 'vi' ? '⚠️ Ngưỡng chuẩn: ≥ 5%' : '⚠️ Minimum: ≥ 5%') : (lang === 'vi' ? '✅ Đạt ngưỡng đóng góp' : '✅ Met requirement')
-                        },
-                      ].map((stat, i) => (
-                        <div key={i} style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{stat.label}</div>
-                          <div style={{ fontSize: '2rem', fontWeight: 700, color: stat.color, margin: '4px 0' }}>{stat.value}</div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{stat.sub}</div>
+                          sub: (myContribution?.contribution_percentage || 0) < 5 ? (lang === 'vi' ? '⚠️ Ngưỡng chuẩn: ≥ 5%' : '⚠️ Minimum: ≥ 5%') : (lang === 'vi' ? '✓ Đạt ngưỡng đóng góp' : '✓ Met requirement')
+                        }
+                      ].map((item, idx) => (
+                        <div key={idx} style={{ padding: '1.25rem', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>{item.label}</span>
+                          <span style={{ fontSize: '2rem', fontWeight: 800, color: item.color, display: 'block', lineHeight: 1.1 }}>{item.value}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>{item.sub}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '8px' }}>
-                        <h4 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>
-                          {lang === 'vi' ? 'Biểu đồ phân phối đóng góp thực tế (LOC):' : 'Live Contribution Distribution (LOC):'}
+                    {/* Member LOC Progress Bars */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+                        <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+                          {lang === 'vi' ? 'Biểu đồ phân phối đóng góp thực tế (LOC):' : 'Actual Contribution Distribution (LOC):'}
                         </h4>
-                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          {lang === 'vi' ? 'Đã áp dụng bộ lọc Noise Filter BR-07' : 'BR-07 Noise Filter applied'}
+                        <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <ShieldCheck size={14} /> {lang === 'vi' ? 'Đã áp dụng bộ lọc Noise Filter BR-07' : 'Noise Filter BR-07 active'}
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {membersList.map((member: any, idx: number) => {
-                          const colors = ['#38bdf8', '#34d399', '#a78bfa', '#fbbf24', '#f43f5e'];
-                          const loc = Number(member.total_lines_added) || 0;
-                          const commitsCount = Number(member.total_commits) || 0;
-                          const isYou = (currentUser?.userId && member.user_id === currentUser.userId) ||
-                                        (currentUser?.email && member.email && member.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim());
-                          const isAlert = member.is_free_rider || (gitAnalytics?.team_total_lines_added >= 50 && (member.contribution_percentage < 5 || commitsCount === 0));
+                      {membersList.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          {lang === 'vi' ? 'Chưa có dữ liệu thành viên.' : 'No members found.'}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                          {membersList.map((member: any) => {
+                            const isMe = (currentUser?.userId && member.user_id === currentUser.userId) ||
+                              (currentUser?.email && member.email && member.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim());
+                            const lines = Number(member.total_lines_added) || 0;
+                            const pct = Number(member.contribution_percentage) || 0;
+                            const barWidth = Math.max(2, Math.round((lines / maxLines) * 100));
+                            const isUnderthreshold = pct < 5 && lines > 0;
 
-                          return (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                              <div style={{ width: '220px', minWidth: '180px', fontSize: '0.88rem', color: isAlert ? '#f43f5e' : 'var(--text-main)' }}>
-                                <div style={{ fontWeight: 600 }}>{member.full_name} {isYou && `(${lang === 'vi' ? 'Bạn' : 'You'})`}</div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{commitsCount} commits • {member.assigned_module || 'Chưa gán phân hệ'}</div>
+                            return (
+                              <div key={member.user_id || member.email} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem' }}>
+                                  <span style={{ fontWeight: isMe ? 800 : 600, color: isMe ? '#38bdf8' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {member.full_name || member.name || 'Member'} {isMe && <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>{lang === 'vi' ? 'Bạn' : 'You'}</span>}
+                                    {member.role === 'LEADER' && <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24' }}>{lang === 'vi' ? 'Trưởng nhóm' : 'Leader'}</span>}
+                                  </span>
+                                  <span style={{ fontWeight: 700, color: isUnderthreshold ? '#f43f5e' : isMe ? '#38bdf8' : 'var(--text-main)' }}>
+                                    {lines.toLocaleString()} LOC ({pct}%)
+                                  </span>
+                                </div>
+                                <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                  <div style={{ 
+                                    width: `${barWidth}%`, 
+                                    height: '100%', 
+                                    borderRadius: '4px', 
+                                    background: isMe 
+                                      ? 'linear-gradient(90deg, #0284c7, #38bdf8)' 
+                                      : isUnderthreshold 
+                                        ? 'linear-gradient(90deg, #e11d48, #f43f5e)' 
+                                        : 'linear-gradient(90deg, #475569, #94a3b8)',
+                                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)' 
+                                  }} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                  <span>{member.total_commits || 0} commits • {member.assigned_module || 'Fullstack'}</span>
+                                  {isUnderthreshold && <span style={{ color: '#f43f5e', fontWeight: 600 }}>{lang === 'vi' ? '⚠️ Dưới ngưỡng 5% LOC' : '⚠️ Below 5% LOC'}</span>}
+                                </div>
                               </div>
-                              <div style={{ flex: 1, minWidth: '150px', background: 'rgba(0,0,0,0.3)', height: '14px', borderRadius: '7px', overflow: 'hidden' }}>
-                                <div style={{ 
-                                  width: `${Math.min(100, (loc / maxLines) * 100)}%`, 
-                                  background: isAlert ? 'linear-gradient(90deg, #f43f5e, #fb7185)' : colors[idx % colors.length], 
-                                  height: '100%', 
-                                  borderRadius: '7px',
-                                  transition: 'width 0.5s ease'
-                                }} />
-                              </div>
-                              <div style={{ width: '130px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                                <strong style={{ color: isAlert ? '#f43f5e' : 'var(--text-main)' }}>{loc.toLocaleString()} LOC</strong> ({member.contribution_percentage || 0}%)
-                              </div>
-                              {isAlert && (
-                                <span style={{
-                                  fontSize: '0.68rem',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  background: 'rgba(239, 68, 68, 0.15)',
-                                  color: '#f43f5e',
-                                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                                  fontWeight: 700
-                                }}>
-                                  {lang === 'vi' ? '⚠️ Free-Rider (< 5% LOC)' : '⚠️ Low Activity (< 5%)'}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </>
+                  </div>
                 );
               })()}
             </div>
@@ -2438,14 +2726,10 @@ export default function StudentDashboard() {
             </div>
           ) : (
             <div className="glass-card" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Users size={20} color="#f472b6" /> {lang === 'vi' ? 'Đánh giá chéo thành viên nhóm (Peer Audit)' : 'Peer Audit Evaluation'}
               </h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '2rem', lineHeight: 1.5 }}>
-                {lang === 'vi'
-                  ? 'Đánh giá đóng góp của các thành viên trong nhóm về thái độ, chất lượng mã nguồn và mức độ hoàn thành nhiệm vụ. Bảng đánh giá hoàn toàn bảo mật và chỉ giảng viên mới có thể xem.'
-                  : 'Evaluate your teammates on contribution, code quality, and attitude. Your evaluation is strictly confidential.'}
-              </p>
+              
 
               <form onSubmit={handlePeerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div>
