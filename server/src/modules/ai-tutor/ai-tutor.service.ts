@@ -380,6 +380,233 @@ ${comments.join('\n')}
   /**
    * High-quality fallback Socratic response generator
    */
+  /**
+   * HẠNG MỤC 3: AI Sinh Đề & Bộ Test Cases từ Slide / Chủ đề bài giảng
+   */
+  public async generateAssignmentFromSlide(params: {
+    topic: string;
+    slideSummary?: string;
+    language?: 'javascript' | 'python';
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  }): Promise<{
+    title: string;
+    description: string;
+    language: 'javascript' | 'python';
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+    starter_code?: string;
+    rubrics: Array<{
+      criterion: string;
+      input_data: string;
+      expected_output: string;
+      max_score: number;
+      is_hidden: boolean;
+    }>;
+  }> {
+    const lang = params.language || 'javascript';
+    const diff = params.difficulty || 'MEDIUM';
+    const topicText = params.topic.trim();
+    const slideText = params.slideSummary?.trim() || '';
+
+    const systemInstruction = `
+You are an expert Computer Science Professor and Curriculum Designer at FPT University (Department of Software Engineering).
+Your job is to generate a programming assignment and exactly 3 rigorous test cases strictly grounded in the provided lecture slide / topic.
+
+CRITICAL INSTRUCTIONS:
+1. ONLY test concepts directly related to the provided topic/slide.
+2. The output MUST be valid, parseable JSON only. Do NOT wrap in markdown \`\`\`json or add conversational text.
+3. Provide exactly 3 test cases in the "rubrics" array:
+   - Test 1 (max_score: 4.0, is_hidden: false): Standard case (Happy path / basic input).
+   - Test 2 (max_score: 3.5, is_hidden: false): Complex case (larger array / multiple elements / boundary condition).
+   - Test 3 (max_score: 2.5, is_hidden: true): Edge case / Exception (e.g. empty, not found, single element) to prevent hardcoding. Total score must equal exactly 10.0.
+4. Input and Expected Output format must match Standard I/O (stdin / stdout with \\n).
+5. Language: \${lang === 'python' ? 'Python 3' : 'Node.js (JavaScript)'}.
+   - If Python: Starter code should use sys.stdin.read() and print().
+   - If JavaScript: Starter code should use fs.readFileSync(0, 'utf-8') and console.log().
+`.trim();
+
+    const userPrompt = `
+Chủ đề bài giảng: "\${topicText}"
+\${slideText ? \`Nội dung tóm tắt Slide bài giảng:\\n\${slideText}\` : ''}
+Ngôn ngữ thực thi: \${lang === 'python' ? 'Python 3 (sys.stdin / print)' : 'Node.js (fs.readFileSync / console.log)'}
+Độ khó: \${diff}
+
+Hãy tạo đề bài và bộ 3 test cases dạng JSON chuẩn theo schema sau:
+{
+  "title": "Tên bài tập ngắn gọn (VD: CSD201: Cây nhị phân tìm kiếm BST...)",
+  "description": "Mô tả chi tiết bài toán, định dạng Input và Output",
+  "language": "\${lang}",
+  "difficulty": "\${diff}",
+  "starter_code": "Đoạn code sườn mẫu đọc stdin",
+  "rubrics": [
+    {
+      "criterion": "Test 1: ...",
+      "input_data": "...",
+      "expected_output": "...",
+      "max_score": 4.0,
+      "is_hidden": false
+    },
+    {
+      "criterion": "Test 2: ...",
+      "input_data": "...",
+      "expected_output": "...",
+      "max_score": 3.5,
+      "is_hidden": false
+    },
+    {
+      "criterion": "Test 3: ...",
+      "input_data": "...",
+      "expected_output": "...",
+      "max_score": 2.5,
+      "is_hidden": true
+    }
+  ]
+}
+`.trim();
+
+    // Try calling Gemini with Active Key
+    const activeKey = await this.getNextActiveApiKey();
+    if (activeKey && !activeKey.rawKey.startsWith('MOCK_') && !activeKey.rawKey.includes('mock_value')) {
+      try {
+        const genAI = new GoogleGenerativeAI(activeKey.rawKey);
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          systemInstruction,
+        });
+
+        const apiRes = await model.generateContent(userPrompt);
+        let rawText = apiRes.response.text().trim();
+        rawText = rawText.replace(/^```json\\s*/i, '').replace(/```$/i, '').trim();
+        const parsed = JSON.parse(rawText);
+        if (parsed.title && Array.isArray(parsed.rubrics) && parsed.rubrics.length > 0) {
+          if (activeKey.id > 0) await this.incrementKeyUsage(activeKey.id);
+          return parsed;
+        }
+      } catch (err: any) {
+        console.warn('[AiTutorService] Gemini assignment generation error, falling back:', err?.message);
+        if (err?.message?.includes('429') && activeKey.id > 0) {
+          await this.markKeyRateLimited(activeKey.id);
+        }
+      }
+    }
+
+    return this.generateFallbackAssignment(topicText, lang, diff);
+  }
+
+  /**
+   * Deterministic high-quality fallback generator when external API is offline
+   */
+  private generateFallbackAssignment(
+    topic: string,
+    language: 'javascript' | 'python',
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD'
+  ) {
+    const lower = topic.toLowerCase();
+    const isPy = language === 'python';
+
+    if (lower.includes('ngăn xếp') || lower.includes('stack') || lower.includes('ngoặc')) {
+      return {
+        title: 'CSD201: Kiểm tra dấu ngoặc hợp lệ bằng Ngăn xếp (Stack)',
+        description: 'Cho một chuỗi ký tự chỉ gồm các dấu ngoặc tròn, vuông, nhọn. Sử dụng cấu trúc dữ liệu Stack để kiểm tra tính hợp lệ. In ra "VALID" nếu mọi dấu ngoặc đều đóng mở đúng thứ tự, ngược lại in ra "INVALID".',
+        language,
+        difficulty,
+        starter_code: isPy 
+          ? `import sys\\n\\ndef solve():\\n    line = sys.stdin.read().strip()\\n    # TODO: Cài đặt thuật toán kiểm tra Stack\\n    pass\\n\\nsolve()`
+          : `const fs = require('fs');\\n\\nfunction solve() {\\n  const input = fs.readFileSync(0, 'utf-8').trim();\\n  // TODO: Cài đặt thuật toán kiểm tra Stack\\n}\\n\\nsolve();`,
+        rubrics: [
+          {
+            criterion: 'Test 1: Chuỗi dấu ngoặc cơ bản khớp chuẩn',
+            input_data: '({[]})\\n',
+            expected_output: 'VALID',
+            max_score: 4.0,
+            is_hidden: false,
+          },
+          {
+            criterion: 'Test 2: Dấu ngoặc lồng nhau phức tạp',
+            input_data: '()[]{}([{}])\\n',
+            expected_output: 'VALID',
+            max_score: 3.5,
+            is_hidden: false,
+          },
+          {
+            criterion: 'Test 3: Ngoại lệ dấu ngoặc đóng mở sai thứ tự (Edge Case)',
+            input_data: '(](\\n',
+            expected_output: 'INVALID',
+            max_score: 2.5,
+            is_hidden: true,
+          },
+        ],
+      };
+    }
+
+    if (lower.includes('cây') || lower.includes('tree') || lower.includes('bst')) {
+      return {
+        title: 'CSD201: Duyệt và Tìm kiếm trên Cây nhị phân tìm kiếm (BST)',
+        description: 'Cho dãy số nguyên biểu diễn các khóa chèn vào cây BST. Dòng 1 chứa các số nguyên cách nhau bởi dấu cách. Dòng 2 chứa giá trị khóa X cần tìm kiếm. Thực hiện chèn khóa và in ra "FOUND: X" nếu tìm thấy, ngược lại in ra "NOT_FOUND".',
+        language,
+        difficulty,
+        starter_code: isPy
+          ? `import sys\\n\\ndef solve():\\n    lines = sys.stdin.read().strip().split('\\\\n')\\n    # TODO: Cài đặt cây BST và tìm kiếm\\n    pass\\n\\nsolve()`
+          : `const fs = require('fs');\\n\\nfunction solve() {\\n  const lines = fs.readFileSync(0, 'utf-8').trim().split('\\\\n');\\n  // TODO: Cài đặt cây BST và tìm kiếm\\n}\\n\\nsolve();`,
+        rubrics: [
+          {
+            criterion: 'Test 1: Duyệt cây và tìm khóa gốc/ở giữa',
+            input_data: '50 30 70 20 40 60 80\\n40\\n',
+            expected_output: 'FOUND: 40',
+            max_score: 4.0,
+            is_hidden: false,
+          },
+          {
+            criterion: 'Test 2: Tìm phần tử ở nút lá sâu nhất',
+            input_data: '10 5 15 3 7 12 18\\n18\\n',
+            expected_output: 'FOUND: 18',
+            max_score: 3.5,
+            is_hidden: false,
+          },
+          {
+            criterion: 'Test 3: Ngoại lệ khóa không tồn tại trong cây (Edge Case)',
+            input_data: '20 10 30 5 15\\n999\\n',
+            expected_output: 'NOT_FOUND',
+            max_score: 2.5,
+            is_hidden: true,
+          },
+        ],
+      };
+    }
+
+    return {
+      title: `\${topic.trim()}: Tối ưu thuật toán & Kiểm tra biên`,
+      description: `Đặc tả bài toán dựa trên bài học "\${topic.trim()}": Hãy đọc dữ liệu từ Standard Input (stdin), xử lý thuật toán theo đúng yêu cầu đề bài và in kết quả ra Standard Output (stdout).`,
+      language,
+      difficulty,
+      starter_code: isPy
+        ? `import sys\\n\\ndef solve():\\n    input_data = sys.stdin.read().strip()\\n    # TODO: Hoàn thành giải thuật\\n    pass\\n\\nsolve()`
+        : `const fs = require('fs');\\n\\nfunction solve() {\\n  const input = fs.readFileSync(0, 'utf-8').trim();\\n  // TODO: Hoàn thành giải thuật\\n}\\n\\nsolve();`,
+      rubrics: [
+        {
+          criterion: 'Test 1: Dữ liệu chuẩn cơ bản (Standard Case)',
+          input_data: '2 7 11 15\\n9\\n',
+          expected_output: '9',
+          max_score: 4.0,
+          is_hidden: false,
+        },
+        {
+          criterion: 'Test 2: Tập dữ liệu lớn & phần tử đối xứng',
+          input_data: '1 5 3 7 9\\n12\\n',
+          expected_output: '12',
+          max_score: 3.5,
+          is_hidden: false,
+        },
+        {
+          criterion: 'Test 3: Ngoại lệ biên không thỏa mãn điều kiện (Edge Case)',
+          input_data: '1 2 3 4 5\\n100\\n',
+          expected_output: 'NOT_FOUND',
+          max_score: 2.5,
+          is_hidden: true,
+        },
+      ],
+    };
+  }
+
   private generateFallbackSocratic(studentQuestion: string): string {
     return `Chào bạn! Mình là Trợ giảng AI (AITA) đồng hành cùng bạn.
 Đối với thắc mắc của bạn: "${studentQuestion}"
