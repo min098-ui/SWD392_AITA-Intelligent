@@ -360,4 +360,47 @@ router.post(
   }
 );
 
+
+// 5. POST /api/grading/review/manual-grade/:submissionId - Quick Manual Grade by Lecturer
+router.post(
+  '/review/manual-grade/:submissionId',
+  authenticateJWT,
+  requireRole('LECTURER', 'ADMIN'),
+  async (req: Request, res: Response) => {
+    const submissionId = req.params.submissionId;
+    const reviewerId = req.user!.userId;
+    const { final_score, notes } = req.body;
+
+    if (final_score === undefined) {
+      return res.status(400).json({ message: 'final_score is required' });
+    }
+
+    try {
+      const updated = await pool.query(
+        `UPDATE submissions 
+         SET status = 'FINALIZED',
+             reviewer_1_id = $1,
+             reviewer_1_score = $2,
+             reviewer_1_notes = $3,
+             final_score = $2
+         WHERE submission_id = $4
+         RETURNING *`,
+        [reviewerId, Number(final_score), notes || 'Ch?m ?i?m tr?c ti?p b?i Gi?ng vi?n', submissionId]
+      );
+
+      if (updated.rows.length === 0) {
+        return res.status(404).json({ message: 'Submission not found' });
+      }
+
+      return res.json({
+        message: '?i?m v? nh?n x?t ?? ???c l?u v? c?ng b? th?nh c?ng.',
+        submission: updated.rows[0],
+      });
+    } catch (error) {
+      console.error('Error manual grading:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
+
 export default router;
