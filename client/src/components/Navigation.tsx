@@ -23,23 +23,32 @@ export default function Navigation({
   const { lang } = useLanguage();
 
   useEffect(() => {
-    // Kiểm tra token khi component mount hoặc khi chuyển trang
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token) {
-      setIsLoggedIn(true);
-      if (userStr) {
-        try {
-          const parsedUser = JSON.parse(userStr);
-          setUser(parsedUser);
-          setUserRole(parsedUser.role || '');
-        } catch (e) {}
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      if (token && token !== 'undefined' && token !== 'null') {
+        setIsLoggedIn(true);
+        if (userStr) {
+          try {
+            const parsedUser = JSON.parse(userStr);
+            setUser(parsedUser);
+            setUserRole(parsedUser.role || '');
+          } catch (e) {}
+        }
+      } else {
+        setIsLoggedIn(false);
+        setUser(null);
+        setUserRole('');
       }
-    } else {
-      setIsLoggedIn(false);
-      setUser(null);
-      setUserRole('');
-    }
+    };
+
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+    window.addEventListener('auth-change', checkAuth);
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+      window.removeEventListener('auth-change', checkAuth);
+    };
   }, [pathname]);
 
   const handleLogout = (e: React.MouseEvent) => {
