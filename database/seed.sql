@@ -4,14 +4,25 @@
 -- =============================================================================
 
 -- 1. Insert Users (Admins, Lecturer, 5 Official Group 4 Members)
+-- Remove obsolete/mock users and former Dr. Nguyen Van Giang (giangnv@fe.edu.vn)
 DELETE FROM users WHERE email IN (
   'student1@fpt.edu.vn', 'student2@fpt.edu.vn', 'student3@fpt.edu.vn', 'ylai.test@fpt.edu.vn',
-  'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn'
+  'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn',
+  'giangnv@fe.edu.vn'
 );
+
+-- Clean up any obsolete Course 1 and Team 1
+DELETE FROM team_members WHERE team_id = 1;
+DELETE FROM git_commits WHERE team_id = 1;
+DELETE FROM peer_audits WHERE team_id = 1;
+DELETE FROM teams WHERE team_id = 1;
+DELETE FROM course_enrollments WHERE course_id = 1;
+DELETE FROM assignments WHERE course_id = 1;
+DELETE FROM courses WHERE course_id = 1;
 
 INSERT INTO users (full_name, email, password_hash, role, status) VALUES
 ('System Administrator', 'admin@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
-('Dr. Nguyen Van Giang', 'giangnv@fe.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER', 'ACTIVE'),
+('Yen12 Yen', 'yeny36306@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER', 'ACTIVE'),
 ('AMai Administrator', 'lenguyenanhmai05@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 ('Tuong Vy Administrator', 'tuongvy22102004@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 ('Tai Administrator', 'tajjjlojjj4444@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
@@ -30,10 +41,18 @@ ON CONFLICT (email) DO UPDATE SET
 
 SELECT setval('users_user_id_seq', (SELECT COALESCE(MAX(user_id), 1) FROM users));
 
--- 2. Insert Course (SWD392)
+-- 2. Insert Official Courses (SWD392 and CSD201) taught by Yen12 Yen
 INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id)
-SELECT 1, 'SWD392', 'Software Architecture & Design Project', 'FA26', u.user_id
-FROM users u WHERE u.email = 'giangnv@fe.edu.vn'
+SELECT 1, 'SWD392', 'SWD392 - Software Architecture & Design Project', 'FA26', u.user_id
+FROM users u WHERE u.email = 'yeny36306@gmail.com'
+ON CONFLICT (course_id) DO UPDATE SET
+  course_code = EXCLUDED.course_code,
+  course_name = EXCLUDED.course_name,
+  semester = EXCLUDED.semester;
+
+INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id)
+SELECT 2, 'CSD201', 'CSD201 - Data Structures & Algorithms', 'FA26', u.user_id
+FROM users u WHERE u.email = 'yeny36306@gmail.com'
 ON CONFLICT (course_id) DO UPDATE SET
   course_code = EXCLUDED.course_code,
   course_name = EXCLUDED.course_name,
@@ -45,7 +64,7 @@ SELECT setval('courses_course_id_seq', (SELECT COALESCE(MAX(course_id), 1) FROM 
 INSERT INTO course_enrollments (course_id, user_id)
 SELECT c.course_id, u.user_id
 FROM courses c, users u
-WHERE c.course_code = 'SWD392'
+WHERE c.course_id IN (1, 2)
   AND u.email IN (
     'lenguyenlinhnhi2110@gmail.com',
     'dinhgiahuylol12345@gmail.com',
@@ -57,9 +76,16 @@ ON CONFLICT ON CONSTRAINT uq_course_enrollment DO NOTHING;
 
 SELECT setval('course_enrollments_enrollment_id_seq', (SELECT COALESCE(MAX(enrollment_id), 1) FROM course_enrollments));
 
--- 4. Insert Team (Group 4 - AITA Project)
+-- 4. Insert Team (Group 4 (AITA) - formerly Group 4 - AITA Project)
 INSERT INTO teams (team_id, team_name, course_id, repo_url) VALUES
-(1, 'Group 4 - AITA Project', 1, 'https://github.com/min098-ui/SWD392_AITA-Intelligent')
+(1, 'Group 4 (AITA)', 1, 'https://github.com/min098-ui/SWD392_AITA-Intelligent.git')
+ON CONFLICT (team_id) DO UPDATE SET
+  team_name = EXCLUDED.team_name,
+  course_id = EXCLUDED.course_id,
+  repo_url = EXCLUDED.repo_url;
+
+INSERT INTO teams (team_id, team_name, course_id, repo_url) VALUES
+(2, 'Group5_CSD201_TravelPlanner', 2, 'https://github.com/lenguyenanhmai05-dotcom/Group5_CSD201_TravelPlanner.git')
 ON CONFLICT (team_id) DO UPDATE SET
   team_name = EXCLUDED.team_name,
   course_id = EXCLUDED.course_id,
@@ -68,8 +94,7 @@ ON CONFLICT (team_id) DO UPDATE SET
 SELECT setval('teams_team_id_seq', (SELECT COALESCE(MAX(team_id), 1) FROM teams));
 
 -- 5. Insert Team Members & Assigned Modules & Roles for Group 4 (ĐÚNG 5 THÀNH VIÊN THẬT - MAI LÀ LEADER)
-DELETE FROM git_commits WHERE team_id = 1;
-DELETE FROM team_members WHERE team_id = 1;
+DELETE FROM team_members WHERE team_id IN (1, 2);
 
 INSERT INTO team_members (team_id, user_id, assigned_module, role)
 SELECT t.team_id, u.user_id, m.module, m.role
@@ -78,17 +103,17 @@ CROSS JOIN (
   VALUES
     -- TV1: Lê Nguyễn Ánh Mai (Trưởng nhóm / Leader duy nhất)
     ('lenguyenlinhnhi2110@gmail.com', 'Software Architecture, Auth & Course Core', 'LEADER'),
-    -- TV2: Đinh Gia Huy (Phần 2)
-    ('dinhgiahuylol12345@gmail.com', 'Docker Sandbox Runner & Async Grading Queue', 'MEMBER'),
+    -- TV2: Nguyễn Tường Vy (Phần 2)
+    ('vyntqe180099@fpt.edu.vn', 'Docker Sandbox Runner & Async Grading Queue', 'MEMBER'),
     -- TV3: Đỗ Trần Đăng Khoa (Phần 3)
     ('dotrandangkhoa17@gmail.com', 'AI Engine, Socratic Tutor & Key Rotation', 'MEMBER'),
-    -- TV4: Nguyễn Tường Vy (Phần 4)
-    ('vyntqe180099@fpt.edu.vn', 'Git Analytics, Noise Filter & Peer Audit', 'MEMBER'),
+    -- TV4: Đinh Gia Huy (Phần 4)
+    ('dinhgiahuylol12345@gmail.com', 'Git Analytics, Noise Filter & Peer Audit', 'MEMBER'),
     -- TV5: Nguyễn Quốc Thanh Phong (Phần 5)
     ('tfongcs05@gmail.com', 'Frontend Web App (Next.js 14) & UI/UX', 'MEMBER')
 ) AS m(email, module, role)
 JOIN users u ON u.email = m.email
-WHERE t.team_name = 'Group 4 - AITA Project'
+WHERE t.team_id = 1
 ON CONFLICT ON CONSTRAINT uq_team_user DO UPDATE SET
   assigned_module = EXCLUDED.assigned_module,
   role = EXCLUDED.role;
@@ -131,7 +156,4 @@ ON CONFLICT (ai_api_key_id) DO UPDATE SET
 
 SELECT setval('ai_api_keys_ai_api_key_id_seq', (SELECT COALESCE(MAX(ai_api_key_id), 1) FROM ai_api_keys));
 
--- 8. Clean assignments & submissions (Empty by default; Lecturer creates assignments on system)
-DELETE FROM rubric_rules;
-DELETE FROM submissions;
-DELETE FROM assignments;
+-- Note for Member 1 test compatibility: giangnv@fe.edu.vn and Group 4 - AITA Project
