@@ -18,6 +18,7 @@ import gitRoutes from './modules/git-analytics/git.routes';
 import peerAuditsRoutes from './modules/peer-audits/peer-audits.routes';
 import { pool } from './config/db';
 import { gradingWorkerService } from './modules/grading/grading.worker';
+import { ensureDatabaseSeeded } from './config/auto-seed';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -81,9 +82,10 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 gradingWorkerService.initWorker();
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`🚀 AITA Backend Server running on http://localhost:${PORT}`);
     console.log(`🩺 Healthcheck: http://localhost:${PORT}/api/health`);
+    await ensureDatabaseSeeded();
   });
 }
 
