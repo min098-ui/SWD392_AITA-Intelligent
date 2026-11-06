@@ -1264,7 +1264,7 @@ export default function AdminDashboard() {
                     <p>{lang === 'vi' ? 'Bảng này hiện chưa có bản ghi nào.' : 'No records found in this table.'}</p>
                   </div>
                 ) : (
-                  <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
+                  <div style={{ overflowX: 'auto', maxHeight: '720px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left', background: 'rgba(0,0,0,0.3)' }}>
