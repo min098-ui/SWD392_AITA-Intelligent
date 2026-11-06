@@ -30,11 +30,16 @@
    - [4.12. Tinh Chỉnh Giao Diện & Đồng Bộ Trải Nghiệm (UI Polish & Deduplication)](#412-tinh-chỉnh-giao-diện--đồng-bộ-trải-nghiệm-ui-polish--deduplication)
    - [4.13. Tích Hợp Tiện Ích Giám Sát CSDL Prisma Studio & Quản Trị Git](#413-tích-hợp-tiện-ích-giám-sát-csdl-prisma-studio--quản-trị-git)
     - [4.14. Chuẩn Hóa Phân Quyền Sinh Viên – Giảng Viên, Toàn Vẹn Bài Nộp & Bảo Toàn Quy Trình Chấm Chéo BR-09](#414-chuẩn-hóa-phân-quyền-sinh-viên--giảng-viên-toàn-vẹn-bài-nộp--bảo-toàn-quy-trình-chấm-chéo-br-09)
+   - [4.15. Chuẩn Hóa Khóa Chính Tuần Tự (Sequential PK 1..N) & Đồng Bộ Toàn Vẹn CSDL](#415-chuẩn-hóa-khóa-chính-tuần-tự-sequential-pk-1n--đồng-bộ-toàn-vẹn-csdl)
+   - [4.16. Kiến Trúc Tự Động Khởi Tạo & Nạp Dữ Liệu Mẫu (Auto-Seed on Startup)](#416-kiến-trúc-tự-động-khởi-tạo--nạp-dữ-liệu-mẫu-auto-seed-on-startup)
+   - [4.17. Xây Dựng Workspace Độc Lập "Nộp & Bóc Tách Git Repo" (Lecturer & Student)](#417-xây-dựng-workspace-độc-lập-nộp--bóc-tách-git-repo-lecturer--student)
+   - [4.18. Chuẩn Hóa Nhận Diện Thương Hiệu Dự Án (Electric Cyan / Blue) & Tối Giản Giao Diện](#418-chuẩn-hóa-nhận-diện-thương-hiệu-dự-án-electric-cyan--blue--tối-giản-giao-diện)
+   - [4.19. Xử Lý Triệt Để Lỗi Next.js 14 Hydration Failed & Đảm Bảo Cấu Hình Docker Sandbox 0.5 Core (BR-03)](#419-xử-lý-triệt-để-lỗi-nextjs-14-hydration-failed--đảm-bảo-cấu-hình-docker-sandbox-05-core-br-03)
 5. [Hệ Thống API Endpoints Chi Tiết](#5-hệ-thống-api-endpoints-chi-tiết)
 6. [Kết Quả Kiểm Thử Thực Tế (verify-member2.ts: 21/21 PASS)](#6-kết-quả-kiểm-thử-thực-tế-verify-member2ts-2121-pass)
 7. [Hướng Dẫn Demo Khi Bảo Vệ Đồ Án](#7-hướng-dẫn-demo-khi-bảo-vệ-đồ-án)
 8. [Video Minh Chứng Thực Nghiệm](#8-video-minh-chứng-thực-nghiệm-demo-video--proof-of-work)
-9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs)
+9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 10 Câu Hỏi Điển Hình)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs---10-câu-hỏi-điển-hình)
 
 ---
 
@@ -336,6 +341,84 @@ Nhằm củng cố độ tin cậy và tính bảo mật ở cấp độ Product
 
 ---
 
+### 4.15. Chuẩn Hóa Khóa Chính Tuần Tự (Sequential PK 1..N) & Đồng Bộ Toàn Vẹn CSDL
+Để đảm bảo tính trực quan, khoa học và thẩm mỹ cao nhất khi demo bảo vệ đồ án trước Hội đồng Giảng viên:
+* **Tái lập ID tự nhiên tăng dần tuần tự từ 1:**
+  * Bảng `courses`: Đánh số lại từ `3, 5` thành `1, 2` (ID 1: môn SWD392, ID 2: môn CSD201).
+  * Bảng `teams`: Đánh số lại từ `4, 5` thành `1, 2` (ID 1: Group 4 (AITA), ID 2: Group5_CSD201_TravelPlanner).
+  * Bảng `team_members`: Đánh số lại sạch sẽ toàn bộ các ID lộn xộn (`96, 97, 119..123`) thành `1..7` tuần tự (ID 1..5: 5 thành viên Group 4 [Mai LEADER, Vy, Khoa, Phong, Huy], ID 6..7: 2 thành viên Group 5 [Mai LEADER, Vy]).
+* **Đồng bộ hóa toàn vẹn khóa ngoại (Cascaded Foreign Keys):**
+  * Cập nhật đệ quy các khóa ngoại tham chiếu qua tất cả các bảng con trong CSDL: `assignments`, `course_enrollments`, `submissions`, `git_commits`, `peer_audits`.
+  * Cập nhật chỉ số chuỗi tự tăng (PostgreSQL Sequences) bằng các lệnh `setval('courses_course_id_seq', 2, true)`, `setval('teams_team_id_seq', 2, true)`, `setval('team_members_team_member_id_seq', 7, true)`. Khi người dùng tạo mới học phần hay nhóm sinh viên trên giao diện, ID mới sinh ra sẽ tự động nối tiếp là 3 và 8, hoàn toàn triệt tiêu nguy cơ trùng khóa chính (Primary Key Conflict).
+* **Nâng cấp API Database Inspection:**
+  * Cập nhật endpoint `GET /api/auth/db-inspect/:tableName` thêm mệnh đề `ORDER BY 1 ASC`. Dữ liệu trả về luôn được xếp thứ tự tăng dần từ 1, giúp Giảng viên và Hội đồng dễ dàng đối soát trên Prisma Studio và bảng tra cứu Admin.
+  * Đồng bộ hóa toàn bộ các câu lệnh vào file `database/seed.sql` đảm bảo tính tái lập 100%.
+
+---
+
+### 4.16. Kiến Trúc Tự Động Khởi Tạo & Nạp Dữ Liệu Mẫu (Auto-Seed on Startup)
+Giải quyết triệt để bài toán đồng bộ môi trường phát triển khi các thành viên nhóm hoặc Giảng viên kéo mã nguồn mới về máy:
+* **Module tự hành `auto-seed.ts` (`server/src/config/auto-seed.ts`):**
+  * Tích hợp trực tiếp vào vòng đời khởi động của máy chủ Backend Express (`server/src/index.ts`) khi `process.env.NODE_ENV !== 'test'`.
+  * Thuật toán kiểm tra thông minh: Thực hiện truy vấn kiểm đếm số lượng người dùng (`users`), học phần (`courses`) và nhóm (`teams`). Nếu phát hiện cơ sở dữ liệu trống hoặc chưa được khởi tạo, hệ thống tự động đọc và thực thi toàn bộ cấu trúc bảng `database/schema.sql` và dữ liệu mẫu `database/seed.sql`.
+* **Chuẩn hóa quy trình vận hành 3 Terminal tinh gọn:**
+  * **Terminal 1 (Database + Backend):** Chạy `docker compose up -d` và `cd server && npm run dev`. Server tự kiểm tra và nạp ngay lập tức 12 tài khoản, 2 học phần và 2 nhóm đồ án mẫu.
+  * **Terminal 2 (Frontend):** Chạy `cd client && npm run dev` để mở giao diện Next.js 14 tại cổng 3000.
+  * **Terminal 3 (Xem Database bằng Prisma Studio):** Chạy `cd server && npx prisma studio` để trực quan hóa toàn bộ các bảng CSDL trên cổng 5555.
+
+---
+
+### 4.17. Xây Dựng Workspace Độc Lập "Nộp & Bóc Tách Git Repo" (Lecturer & Student)
+Nâng cấp phân hệ phân tích mã nguồn đồ án thành một Workspace chuyên dụng hoàn chỉnh theo chuẩn quy trình đánh giá thực tế:
+* **Tab điều hướng chuyên biệt trên cả 2 phân quyền:**
+  * Trang **Giảng viên** (`lecturer/page.tsx`): Bổ sung tab độc lập **`Nộp & Bóc Tách Git Repo`** (`activeTab === 'git-submit'`) nằm ngay cạnh tab **`Báo Cáo & Free-Rider`** (`activeTab === 'analytics'`).
+  * Trang **Sinh viên** (`student/page.tsx`): Nâng cấp toàn diện tab **`Đóng góp Git`** thành giao diện nộp & bóc tách kho Git trực quan.
+* **Tùy biến linh hoạt Nhánh phân tích & Repository URL:**
+  * **Ô nhập Nhánh phân tích (Branch):** Mặc định là `main`, cho phép Giảng viên hoặc Sinh viên gõ linh hoạt các nhánh khác như `develop`, `feature-auth`,... phục vụ các nhóm sinh viên code theo mô hình Gitflow trên nhánh phụ.
+  * **Chỉnh sửa Git Repository URL:** Cho phép cập nhật link kho Git trực tiếp trên UI; hệ thống tự động cập nhật URL mới vào CSDL qua API `POST /api/git/:teamId/sync` mà không cần thao tác DB thủ công.
+* **Bóc tách Commit Log & Lọc nhiễu Noise Filter BR-07:**
+  * Tích hợp thư viện **Octokit GitHub API** bóc tách commit history theo nhánh chỉ định, map tác giả với tài khoản sinh viên qua email/tên tác giả, kèm cơ chế fallback thông minh khi gặp giới hạn rate-limit.
+  * Áp dụng nghiêm ngặt bộ lọc **Noise Filter BR-07** (18 quy tắc loại bỏ `node_modules/`, `dist/`, `build/`, lockfiles, assets, configs) để đảm bảo số dòng code (LOC) phản ánh đúng công sức viết mã thực tế.
+  * Kích hoạt Radar phát hiện **Free-Rider BR-08**, tự động gắn nhãn cảnh báo đỏ đối với các thành viên có tỷ lệ đóng góp dưới ngưỡng chuẩn 5% LOC.
+
+---
+
+### 4.18. Chuẩn Hóa Nhận Diện Thương Hiệu Dự Án (Electric Cyan / Blue) & Tối Giản Giao Diện
+Khắc phục hiện tượng lệch tông màu nguyên mẫu ban đầu và nâng tầm trải nghiệm người dùng theo phong cách thiết kế hiện đại, đạt tiêu chuẩn bảo vệ đồ án chuyên nghiệp:
+* **Đồng bộ màu sắc thương hiệu AITA-Intelligent:**
+  * Chuyển đổi toàn bộ các tab điều hướng, nút bấm hành động và hiệu ứng phát sáng từ màu cam sang dải màu xanh **Electric Blue / Cyan** chủ đạo: `linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)`, viền phát sáng `rgba(56, 189, 248, 0.4)`, chữ và biểu tượng phát sáng `#38bdf8` trên nền Dark Navy Glassmorphism.
+  * Đồng bộ nhận diện giữa giao diện Giảng viên (`lecturer/page.tsx`) và Sinh viên (`student/page.tsx`), đem lại cảm giác mượt mà, công nghệ cao và thống nhất xuyên suốt hệ sinh thái AITA.
+* **Tối giản hóa và làm sạch thông tin giao diện (UI Decluttering & Refinement):**
+  * **Loại bỏ chữ `[✓ Đã nộp bài]`:** Xóa hậu tố dư thừa trong dropdown chọn nhóm đồ án, chỉ giữ lại định danh nhóm và mã môn học chuẩn mực: `Group 4 (AITA) (SWD392)`, `Group5_CSD201_TravelPlanner (CSD201)`.
+  * **Loại bỏ khung bài nộp gán tên riêng:** Xóa bỏ hộp thông báo bài nộp có gắn tên cá nhân cụ thể (`Bài nộp chính thức: [Tên ai đó] nộp qua GitHub Repository (Nhánh main)...`) để bảo đảm tính khách quan, công bằng và tập trung vào sản phẩm nhóm đồ án.
+  * **Loại bỏ nhãn đồng bộ rườm rà:** Xóa bỏ badge `✓ Đã đồng bộ từ Cổng Nộp Bài Sinh Viên` cạnh tiêu đề chọn nhóm.
+  * **Làm sạch toàn bộ 7 dòng mô tả phụ dài dòng dưới tiêu đề các phân hệ:**
+    1. *Workspace Nộp Git:* Gỡ bỏ dòng *"Hệ thống thực hiện bare clone, bóc tách commit log, lọc commit rác và phát hiện gian lận (BR-07, BR-08, BR-09, BR-10)."*
+    2. *Dropdown Nhóm Đồ Án:* Gỡ bỏ nhãn *"✓ Đã đồng bộ từ Cổng Nộp Bài Sinh Viên"*.
+    3. *Tab Quản lý Học phần (Courses):* Gỡ bỏ dòng *"Quản lý các môn học, đề tài đồ án và nhóm sinh viên."*
+    4. *Tab Danh sách Nhóm (Teams):* Gỡ bỏ dòng *"Danh sách nhóm đồ án và phân công phụ trách module theo từng thành viên."*
+    5. *Tab Hội đồng Kiểm định / Chấm bài (Submissions / BR-09):* Gỡ bỏ dòng *"Theo dõi kết quả thực thi Docker Sandbox tự động và hội đồng kiểm định kép (BR-09)."*
+    6. *Tab Đánh giá chéo Peer Review phía Giảng viên:* Gỡ bỏ dòng *"Tổng hợp điểm số và nhận xét ẩn danh giữa các thành viên trong nhóm theo phân hệ phụ trách. Hệ thống tự động phát hiện thành viên có điểm đánh giá chéo bất thường (< 5.0)."*
+    7. *Tab Đánh giá chéo Peer Review phía Sinh viên:* Gỡ bỏ dòng *"Đánh giá đóng góp của các thành viên trong nhóm về thái độ, chất lượng mã nguồn và mức độ hoàn thành nhiệm vụ. Bảng đánh giá hoàn toàn bảo mật và chỉ giảng viên mới có thể xem."*
+  * **Tối ưu hiển thị chữ trắng sáng:**
+    * Chuyển toàn bộ màu chữ ô chọn (`select`), ô nhập liệu (`input`), và các `option` sang màu trắng sáng (`#f8fafc` / `#ffffff`) thay vì màu xám mờ hoặc xanh lục trước đây, giúp thông tin rõ ràng, sắc nét và tăng tối đa độ tương phản trên nền tối Dark Navy.
+
+---
+
+### 4.19. Xử Lý Triệt Để Lỗi Next.js 14 Hydration Failed & Đảm Bảo Cấu Hình Docker Sandbox 0.5 Core (BR-03)
+Củng cố sự ổn định và độ tin cậy tuyệt đối của hệ thống ở tầng Frontend lẫn Backend:
+* **Khắc phục lỗi Hydration Mismatch trong Next.js 14:**
+  * *Nguyên nhân:* Next.js thực hiện Server-Side Rendering (SSR) tĩnh ban đầu khi chưa có dữ liệu `localStorage` / `sessionStorage`, dẫn đến cây DOM do Server tạo ra bị lệch so với Client sau khi hydrate.
+  * *Giải pháp:* Thêm thuộc tính `suppressHydrationWarning` cho thẻ `<body>` trong `client/src/app/layout.tsx`. Đồng thời tích hợp cơ chế `isMounted` hook tại cả 2 trang `student/page.tsx` và `lecturer/page.tsx`, di dời logic đọc `sessionStorage` vào trong `useEffect` để đảm bảo render đồng nhất 100%.
+* **Kiểm chứng cơ chế Docker Sandbox cô lập tài nguyên (BR-03):**
+  * Tái khẳng định và bảo toàn các tham số cấu hình an ninh máy chủ trong `sandbox.service.ts`:
+    * `NanoCpus: 500_000_000`: Khống chế đúng **0.5 CPU core** bằng cgroups của Linux kernel.
+    * `Memory: 256MB` (`268,435,456 bytes`): Khống chế trần bộ nhớ RAM, chống tràn RAM (OOM).
+    * `Timeout: 10,000ms`: Watchdog tự động hủy tiến trình nếu sinh viên viết vòng lặp vô hạn.
+    * `NetworkMode: 'none'`: Cắt hoàn toàn mạng Internet, ngăn ngừa tuyệt đối tấn công mạng hoặc rò rỉ dữ liệu.
+
+---
+
 ## 5. Hệ Thống API Endpoints Chi Tiết
 
 | Method | Endpoint | Quyền hạn | Chức năng chi tiết |
@@ -459,9 +542,9 @@ npm run test:member2
 
 ---
 
-## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs)
+## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 10 Câu Hỏi Điển Hình)
 
-Dưới đây là tổng hợp 5 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
+Dưới đây là tổng hợp 10 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
 
 ### ❓ Câu 1: Loại Container sử dụng trong Sandbox là gì và tại sao gọi là Ephemeral Container?
 * **Trả lời phản biện:**
@@ -513,6 +596,56 @@ Dưới đây là tổng hợp 5 câu hỏi phản biện thực tế thường 
   > *"Dạ thưa thầy, theo đúng phân tích nghiệp vụ của nhóm em:
   > - **Sinh viên** là người học, cần **Trợ giảng AI Socratic** để được gợi mở tư duy khi làm bài mà không thể copy-paste đáp án có sẵn.
   > - Còn đối với **Giảng viên**, AI được tích hợp vào tính năng **AI Pre-grading** (tại tab Submissions) để đọc mã nguồn và nhận xét bài nộp tự động, giúp thầy cô duyệt điểm nhanh qua quy trình **Dual-Lecturer Moderation (BR-09)** chứ giảng viên không cần khung chat giải bài ạ!"*
+
+---
+
+### ❓ Câu 6: Tại sao hệ thống cần tính năng tùy biến Nhánh phân tích (Branch) và cho phép sửa link Git Repo trực tiếp trên giao diện?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, tính năng này xuất phát từ yêu cầu kiểm thử thực tế và quy trình phát triển phần mềm chuẩn mực:
+  > 1. **Mô hình phân nhánh (Gitflow):** Sinh viên không phải lúc nào cũng nộp code trên nhánh `main`. Rất nhiều nhóm thực hiện code trên các nhánh `develop`, `staging`, hoặc nhánh tính năng `feature-auth`. Việc cho phép nhập tên nhánh giúp Giảng viên có thể kiểm tra linh hoạt bất kỳ nhánh nào của nhóm mà không ép sinh viên phải merge vội vã vào main.
+  > 2. **Linh hoạt thay đổi Repository:** Trong quá trình làm đồ án, sinh viên có thể đổi sang repo mới, chuyển quyền sở hữu hoặc cấu hình lại Git. Việc cho phép chỉnh sửa trực tiếp URL Git trên giao diện giúp Giảng viên và Sinh viên cập nhật ngay tức thì mà không cần phải nhờ quản trị viên can thiệp trực tiếp vào database PostgreSQL, bảo đảm tính sẵn sàng cao của hệ thống."*
+
+---
+
+### ❓ Câu 7: Làm thế nào để đảm bảo khi thành viên mới clone mã nguồn về máy thì Database luôn có đầy đủ dữ liệu mà không cần chạy lệnh SQL thủ công?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, nhóm em đã phát triển cơ chế **Auto-Seed on Startup** (`server/src/config/auto-seed.ts`):
+  > - Ngay khi khởi động Backend bằng lệnh `npm run dev`, hàm `ensureDatabaseSeeded()` sẽ tự động kích hoạt.
+  > - Cơ chế này kiểm tra số lượng bản ghi trong các bảng cốt lõi (`users`, `courses`, `teams`). Nếu phát hiện cơ sở dữ liệu trống hoặc chưa có bảng, hệ thống sẽ tự động thực thi `database/schema.sql` để tạo cấu trúc và nạp `database/seed.sql` để điền đầy đủ dữ liệu mẫu (12 users, 2 courses, 2 teams, 7 team members).
+  > - Nhờ vậy, bất kỳ thành viên nào trong nhóm hoặc Giảng viên khi clone project về chỉ cần thực hiện đúng 2 bước duy nhất: `docker compose up -d` và `npm run dev` là toàn bộ hệ thống đã sẵn sàng 100% với dữ liệu mẫu hoàn chỉnh!"*
+
+---
+
+### ❓ Câu 8: Tại sao lại cần chuẩn hóa toàn bộ ID của các bảng courses, teams, team_members tuần tự từ 1 trở lên và cơ chế Foreign Key Cascading hoạt động ra sao?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, việc chuẩn hóa ID tuần tự 1..N mang lại 3 giá trị kỹ thuật cốt lõi:
+  > 1. **Tính trực quan và thẩm mỹ khi báo cáo:** Các bảng dữ liệu chính (`users` 1..12, `courses` 1..2, `teams` 1..2, `team_members` 1..7) được đánh số thứ tự tự nhiên tăng dần, giúp người xem dễ dàng đối soát khi tra cứu qua Prisma Studio hoặc Swagger API.
+  > 2. **Bảo đảm toàn vẹn khóa ngoại (Foreign Key Cascading):** Khi cập nhật lại khóa chính, nhóm em đã cập nhật đồng bộ các bảng liên kết như `assignments`, `course_enrollments`, `submissions`, `git_commits`, `peer_audits` theo đúng thứ tự logic để không bao giờ vi phạm ràng buộc toàn vẹn tham chiếu.
+  > 3. **Đồng bộ PostgreSQL Sequence:** Sau khi nạp dữ liệu, lệnh `setval()` được gọi để đưa con trỏ sequence về đúng giá trị lớn nhất hiện tại, bảo đảm khi người dùng tạo thêm học phần hay nhóm mới, ID tự động tăng kế tiếp mà không bao giờ bị lỗi trùng khóa chính (Duplicate Key Error)."*
+
+---
+
+### ❓ Câu 9: Hệ thống hiện tại có thực sự vẫn áp dụng Docker Sandbox 0.5 core không? Các thông số cô lập tài nguyên được cấu hình như thế nào?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, hệ thống hiện tại vẫn đang áp dụng nghiêm ngặt giới hạn Docker Sandbox cô lập tài nguyên theo chuẩn **BR-03**:
+  > - **Định mức CPU:** Cấu hình `NanoCpus: 500_000_000`, tương đương chính xác **0.5 CPU core**. Cơ chế cgroups CFS của Linux kernel sẽ thắt thời gian thực thi (throttling) tối đa 50ms trong mỗi chu kỳ 100ms.
+  > - **Định mức RAM:** Cấu hình `Memory: 256MB` (`256 * 1024 * 1024 bytes`), nếu code sinh viên bị rò rỉ bộ nhớ hoặc tạo mảng quá lớn sẽ bị Linux kernel ngắt ngay lập tức với mã lỗi `OOMKilled` (`MEMORY_LIMIT_EXCEEDED`).
+  > - **Watchdog Timeout:** Giới hạn 10,000ms (10 giây), tự động cưỡng chế hủy container nếu sinh viên viết vòng lặp vô tận (`while(true)`).
+  > - **Cách ly mạng:** Cấu hình `NetworkMode: 'none'`, ngắt toàn bộ card mạng Internet để bảo vệ máy chủ trường học khỏi các cuộc tấn công SSRF hoặc kết nối ra ngoài trái phép."*
+
+---
+
+### ❓ Câu 10: Lỗi "Hydration failed" trong Next.js 14 là gì và Thành viên 2 đã xử lý dứt điểm bằng kỹ thuật nào?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, lỗi **Hydration Mismatch** là một vấn đề kinh điển trong các ứng dụng React 18 / Next.js 14 kết hợp Server-Side Rendering (SSR):
+  > - **Nguyên nhân:** Khi Server render tĩnh trước HTML gửi về trình duyệt, máy chủ chưa có quyền truy cập vào `localStorage` hay `sessionStorage`. Khi trình duyệt Client nhận mã và thực hiện quá trình Hydration (gắn sự kiện tương tác vào DOM), việc đọc `sessionStorage` hoặc render dữ liệu người dùng tại thời điểm mount ban đầu làm cây DOM của Client bị lệch so với cây DOM Server tạo ra trước đó, dẫn đến lỗi `Hydration failed`.
+  > - **Kỹ thuật xử lý triệt để của nhóm:**
+  >   1. Thêm thuộc tính `suppressHydrationWarning` cho thẻ `<body>` trong `layout.tsx`.
+  >   2. Áp dụng kỹ thuật **`isMounted` hook pattern**: Chỉ khi component đã mount thành công trên Client (`useEffect` đã kích hoạt) thì các thành phần phụ thuộc vào bộ nhớ cục bộ mới được hiển thị.
+  >   3. Di dời việc đọc `sessionStorage` từ khởi tạo state đồng bộ vào trong `useEffect`.
+  > Nhờ vậy, quá trình SSR và Client Hydration diễn ra hoàn toàn ăn khớp, trang web tải mượt mà không xuất hiện bất kỳ cảnh báo đỏ nào!"*
+
+---
 
 ---
 *Báo cáo được hoàn thiện và xác thực đồng bộ trên mã nguồn thực tế của dự án AITA-INTELLIGENT (Group 4 - SWD392).*
