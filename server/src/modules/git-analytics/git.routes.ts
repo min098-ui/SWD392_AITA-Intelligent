@@ -17,12 +17,21 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
   const teamId = Number(req.params.teamId);
 
   try {
-    // 1. Fetch team info and repo_url
+    // 1. Fetch team info and repo_url, support updating repo_url and selecting branch
+    const { branch, repo_url } = req.body || {};
     const teamRes = await pool.query('SELECT team_id, team_name, repo_url FROM teams WHERE team_id = $1', [teamId]);
     if (teamRes.rows.length === 0) {
       return res.status(404).json({ message: 'Team not found' });
     }
     const team = teamRes.rows[0];
+
+    let effectiveRepoUrl = team.repo_url;
+    if (repo_url && typeof repo_url === 'string' && repo_url.trim() && repo_url.trim() !== team.repo_url) {
+      effectiveRepoUrl = repo_url.trim();
+      await pool.query('UPDATE teams SET repo_url = $1 WHERE team_id = $2', [effectiveRepoUrl, teamId]);
+    }
+
+    const targetBranch = (branch && typeof branch === 'string' && branch.trim()) ? branch.trim() : 'main';
 
     // 2. Fetch team members to map GitHub committer emails to users
     const membersRes = await pool.query(
@@ -34,7 +43,7 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
     );
     const members = membersRes.rows;
 
-    const parsed = parseGitHubUrl(team.repo_url);
+    const parsed = parseGitHubUrl(effectiveRepoUrl);
     const octokit = new Octokit({
       auth: process.env.GITHUB_TOKEN || undefined,
     });
@@ -52,11 +61,28 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
 
     if (parsed) {
       try {
-        const { data: githubCommits } = await octokit.rest.repos.listCommits({
-          owner: parsed.owner,
-          repo: parsed.repo,
-          per_page: 25,
-        });
+        let githubCommits: any[] = [];
+        try {
+          const listRes = await octokit.rest.repos.listCommits({
+            owner: parsed.owner,
+            repo: parsed.repo,
+            sha: targetBranch,
+            per_page: 30,
+          });
+          githubCommits = listRes.data;
+        } catch (branchErr: any) {
+          if (targetBranch !== 'main') {
+            console.warn(`[GitSync] Branch "${targetBranch}" not found, falling back to default branch.`);
+            const fallbackRes = await octokit.rest.repos.listCommits({
+              owner: parsed.owner,
+              repo: parsed.repo,
+              per_page: 30,
+            });
+            githubCommits = fallbackRes.data;
+          } else {
+            throw branchErr;
+          }
+        }
 
         for (const gc of githubCommits) {
           const hash = gc.sha;
