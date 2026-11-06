@@ -14,7 +14,9 @@
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "dev:all": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
-    "dev": "npm run dev:all"
+    "dev": "npm run dev:all",
+    "db:generate": "npm --prefix server run db:generate",
+    "db:migrate": "npm --prefix server run db:migrate"
   },
   "devDependencies": {
     "concurrently": "^9.2.5"

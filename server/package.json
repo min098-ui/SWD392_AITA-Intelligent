@@ -15,11 +15,14 @@
     "demo:scenarios": "ts-node src/scripts/demo-4-scenarios.ts",
     "test:noise-filter": "ts-node src/test/test-noise-filter.ts",
     "db:reset": "npx ts-node src/scripts/reset-db.ts",
-    "studio": "prisma studio --port 5555"
+    "studio": "prisma studio --port 5555 --schema=prisma/schema.prisma",
+    "db:generate": "prisma generate --schema=prisma/schema.prisma",
+    "db:migrate": "prisma db push --schema=prisma/schema.prisma"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@octokit/rest": "^20.1.1",
+    "@prisma/client": "^5.22.0",
     "@types/tar-stream": "^3.1.5",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.8.7",
