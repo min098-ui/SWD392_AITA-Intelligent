@@ -54,7 +54,7 @@ export function isNoiseFile(filename: string): boolean {
 }
 
 export function isSourceCodeFile(filename: string): boolean {
-  return !isNoiseFile(filename) && /\.(?:ts|tsx|js|jsx|mjs|cjs|py|java|sql|html|css|scss|c|h|cpp|hpp|cs|go|rs|php|vue)$/i.test(filename);
+  return !isNoiseFile(filename) && /\.(?:ts|tsx|js|jsx|mjs|cjs|py|java|sql|html|css|scss|c|h|cpp|hpp|cs|go|rs|php|vue|md)$/i.test(filename);
 }
 
 export function parseGitHubUrl(repoUrl: string): { owner: string; repo: string } | null {

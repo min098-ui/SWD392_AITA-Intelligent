@@ -28,6 +28,24 @@ router.get('/:jobId/results', authenticateJWT, async (req: Request, res: Respons
 
     const job = jobRes.rows[0];
 
+    // RBAC: Sinh viên chỉ xem kết quả của chính mình hoặc nhóm mình
+    if (user.role === 'STUDENT') {
+      const isOwner = job.submitted_by_user_id === user.userId;
+      if (!isOwner) {
+        if (job.team_id) {
+          const tmCheck = await pool.query(
+            `SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2`,
+            [job.team_id, user.userId]
+          );
+          if (tmCheck.rows.length === 0) {
+            return res.status(403).json({ message: 'Bạn không có quyền truy cập kết quả bài nộp này.' });
+          }
+        } else {
+          return res.status(403).json({ message: 'Bạn không có quyền truy cập kết quả bài nộp này.' });
+        }
+      }
+    }
+
     // 2. Fetch individual test case results
     const resultsRes = await pool.query(
       `SELECT 
@@ -101,14 +119,13 @@ router.get('/:jobId/results', authenticateJWT, async (req: Request, res: Respons
 // POST /api/grading/regrade/:submissionId - Re-trigger a grading job (Lecturer/Admin only)
 router.post('/regrade/:submissionId', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (req: Request, res: Response) => {
   const submissionId = req.params.submissionId;
+  const user = req.user!;
+  const regradeReason = (req.body.regrade_reason || req.body.reason || 'Chấm lại theo yêu cầu giảng viên').trim();
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
     // 1. Fetch submission details
-    const subRes = await client.query(
-      `SELECT s.*, a.course_id 
+    const subRes = await pool.query(
+      `SELECT s.*, a.course_id, a.title as assignment_title
        FROM submissions s 
        JOIN assignments a ON s.assignment_id = a.assignment_id 
        WHERE s.submission_id = $1`,
@@ -121,39 +138,86 @@ router.post('/regrade/:submissionId', authenticateJWT, requireRole('LECTURER', '
 
     const submission = subRes.rows[0];
 
-    // 2. Insert new grading job
-    const jobRes = await client.query(
-      `INSERT INTO grading_jobs (submission_id, priority, status)
-       VALUES ($1, 2, 'QUEUED') RETURNING *`,
+    // RBAC: Check course ownership for Lecturer
+    if (user.role === 'LECTURER') {
+      const courseCheck = await pool.query(
+        `SELECT 1 FROM courses WHERE course_id = $1 AND lecturer_id = $2`,
+        [submission.course_id, user.userId]
+      );
+      if (courseCheck.rows.length === 0) {
+        return res.status(403).json({ message: 'Bạn không có quyền quản lý bài nộp này.' });
+      }
+    }
+
+    // Concurrency check: Reject if already active
+    const activeCheck = await pool.query(
+      `SELECT grading_job_id FROM grading_jobs 
+       WHERE submission_id = $1 AND status IN ('QUEUED', 'PROCESSING')`,
       [submissionId]
+    );
+    if (activeCheck.rows.length > 0) {
+      return res.status(409).json({
+        message: `Bài nộp đang trong hàng đợi xử lý (Job #${activeCheck.rows[0].grading_job_id}). Vui lòng đợi hoàn tất trước khi yêu cầu chấm lại.`
+      });
+    }
+
+    // Strict Validation: Must use code_content (NEVER fallback to artifact_url)
+    if (!submission.code_content || typeof submission.code_content !== 'string' || submission.code_content.trim().length === 0) {
+      return res.status(400).json({ message: 'Bài nộp không có mã nguồn đã lưu để chấm lại (Không dùng artifact_url thay thế).' });
+    }
+    const codeToRun = submission.code_content.trim();
+
+    // Strict Validation: Must have valid language (NEVER default to javascript)
+    if (!submission.language || !['python', 'javascript', 'nodejs'].includes(submission.language.toLowerCase())) {
+      return res.status(400).json({ message: 'Ngôn ngữ của bài nộp không hợp lệ hoặc bị thiếu (Không tự ý mặc định JavaScript).' });
+    }
+    const cleanLang = submission.language.toLowerCase() === 'python' ? 'python' : 'javascript';
+
+    // Calculate attempt_number
+    const attemptRes = await pool.query(
+      `SELECT COALESCE(MAX(attempt_number), 0) + 1 as next_attempt FROM grading_jobs WHERE submission_id = $1`,
+      [submissionId]
+    );
+    const nextAttempt = Number(attemptRes.rows[0]?.next_attempt || 1);
+
+    // Reset status to QUEUED
+    await pool.query(
+      `UPDATE submissions 
+       SET status = 'QUEUED'
+       WHERE submission_id = $1`,
+      [submissionId]
+    );
+
+    // Insert new grading job
+    const jobRes = await pool.query(
+      `INSERT INTO grading_jobs (submission_id, priority, status, attempt_number, regrade_reason, triggered_by_user_id)
+       VALUES ($1, 2, 'QUEUED', $2, $3, $4) RETURNING *`,
+      [submissionId, nextAttempt, regradeReason, user.userId]
     );
     const newJob = jobRes.rows[0];
 
-    await client.query('COMMIT');
-
-    // 3. Push to BullMQ queue
+    // Push to BullMQ queue
     await addGradingJob({
       grading_job_id: newJob.grading_job_id,
       submission_id: submission.submission_id,
       assignment_id: submission.assignment_id,
       team_id: submission.team_id,
-      artifact_url: submission.artifact_url,
-      git_commit_hash: submission.git_commit_hash,
-      code_content: req.body.code_content || submission.artifact_url,
-      language: req.body.language || 'javascript',
+      artifact_url: submission.artifact_url || '',
+      git_commit_hash: submission.git_commit_hash || 'DIRECT_SUBMIT',
+      code_content: codeToRun,
+      language: cleanLang as 'python' | 'javascript',
       priority: 2,
     });
 
     return res.status(201).json({
-      message: 'Regrading job scheduled successfully.',
+      message: `Đã đưa bài nộp vào hàng đợi Docker Sandbox để chấm lại (Lần #${nextAttempt})!`,
       grading_job: newJob,
+      attempt_number: nextAttempt,
+      regrade_reason: regradeReason
     });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Error scheduling regrade:', error);
     return res.status(500).json({ message: 'Internal server error' });
-  } finally {
-    client.release();
   }
 });
 

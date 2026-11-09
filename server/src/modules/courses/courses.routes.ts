@@ -308,12 +308,17 @@ router.put('/:id', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req
       return res.status(403).json({ message: 'Bạn chỉ có quyền chỉnh sửa môn học do mình giảng dạy.' });
     }
 
+    let newLecturerId = course.lecturer_id;
+    if (req.user!.role === 'ADMIN' && req.body.lecturer_id) {
+      newLecturerId = parseInt(req.body.lecturer_id, 10);
+    }
+
     const result = await pool.query(
       `UPDATE courses 
-       SET course_code = $1, course_name = $2, semester = $3 
-       WHERE course_id = $4 
+       SET course_code = $1, course_name = $2, semester = $3, lecturer_id = $4 
+       WHERE course_id = $5 
        RETURNING *`,
-      [course_code.trim(), course_name.trim(), semester.trim(), courseId]
+      [course_code.trim(), course_name.trim(), semester.trim(), newLecturerId, courseId]
     );
 
     return res.json({
@@ -322,6 +327,44 @@ router.put('/:id', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req
     });
   } catch (error) {
     console.error('Error updating course:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// PATCH /api/courses/:id/lecturer - Admin đổi giảng viên phụ trách môn học
+router.patch('/:id/lecturer', authenticateJWT, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  const courseId = parseInt(req.params.id, 10);
+  const { lecturer_id } = req.body;
+
+  if (isNaN(courseId) || !lecturer_id) {
+    return res.status(400).json({ message: 'Vui lòng cung cấp mã môn học và lecturer_id hợp lệ.' });
+  }
+
+  try {
+    const lecturerCheck = await pool.query(
+      'SELECT user_id, full_name, email, role FROM users WHERE user_id = $1 AND role = \'LECTURER\'',
+      [parseInt(lecturer_id, 10)]
+    );
+
+    if (lecturerCheck.rows.length === 0) {
+      return res.status(400).json({ message: 'Giảng viên không tồn tại hoặc không có vai trò LECTURER.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE courses 
+       SET lecturer_id = $1 
+       WHERE course_id = $2 
+       RETURNING *`,
+      [parseInt(lecturer_id, 10), courseId]
+    );
+
+    return res.json({
+      message: `Đã chuyển quyền quản lý môn học cho giảng viên ${lecturerCheck.rows[0].full_name} (${lecturerCheck.rows[0].email})`,
+      course: result.rows[0],
+      lecturer: lecturerCheck.rows[0]
+    });
+  } catch (error) {
+    console.error('Error reassigning course lecturer:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

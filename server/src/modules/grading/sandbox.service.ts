@@ -9,7 +9,7 @@ export interface SandboxExecutionOptions {
   language?: 'javascript' | 'nodejs' | 'python';
   inputData?: string;
   timeoutMs?: number;       // Default: 10,000ms, max 30,000ms (BR-03)
-  cpuQuota?: number;        // Default: 0.5 core = 500,000,000 NanoCpus
+  cpuQuota?: number;        // Default: 1.0 core = 1,000,000,000 NanoCpus
   memoryLimitBytes?: number;// Default: 256MB = 256 * 1024 * 1024
 }
 
@@ -164,7 +164,7 @@ export class SandboxService {
       language = 'javascript',
       inputData,
       timeoutMs = 10000,
-      cpuQuota = 500_000_000,
+      cpuQuota = 1_000_000_000, // 1.0 core = 1,000,000,000 NanoCpus
       memoryLimitBytes = 256 * 1024 * 1024,
     } = options;
 
@@ -204,6 +204,9 @@ export class SandboxService {
         WorkingDir: '/app',
         User: 'runner',
         Tty: false,
+        Env: isPython
+          ? ['PYTHONUNBUFFERED=1', 'PYTHONDONTWRITEBYTECODE=1']
+          : ['NODE_ENV=production'],
         HostConfig: {
           Memory: memoryLimitBytes,
           MemorySwap: memoryLimitBytes,

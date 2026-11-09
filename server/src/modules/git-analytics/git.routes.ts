@@ -9,6 +9,95 @@ import { isSourceCodeFile, parseGitHubUrl } from './noise-filter.service';
 export { isNoiseFile, isSourceCodeFile, parseGitHubUrl } from './noise-filter.service';
 
 /**
+ * Known GitHub usernames, emails & aliases mapped to member accounts.
+ */
+const GITHUB_USER_ALIASES: Record<string, string[]> = {
+  // Nguyễn Tường Vy
+  'vyntqe180099@fpt.edu.vn': ['gi098', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
+  'tuongvy22102004@gmail.com': ['gi098', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
+  // Lê Nguyễn Ánh Mai
+  'lenguyenlinhnhi2110@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'min098-ui', 'anhmai', 'lenguyenlinhnhi', 'mai', 'member1'],
+  'lenguyenanhmai05@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'min098-ui', 'anhmai', 'lenguyenlinhnhi', 'mai', 'member1'],
+  // Nguyễn Quốc Thanh Phong
+  'tfongcs05@gmail.com': ['thanhfong05', 'tfongcs05', 'thanhphong', 'phong', 'member5'],
+  // Đỗ Trần Đăng Khoa
+  'dotrandangkhoa17@gmail.com': ['dotrandangkhoa17', 'dotrandangkhoa17-gif', 'khoa.dotrandang', 'dangkhoa', 'khoa', 'member3', 'ai-tutor', 'socratic'],
+  // Đinh Gia Huy
+  'dinhgiahuylol12345@gmail.com': ['dinhgiahuylol12345', 'dinhgiahuy140905', 'giahuy', 'dinhgiahuy', 'huy', 'member4', 'peer audit', 'git-analytics'],
+};
+
+/**
+ * Intelligent committer-to-member matcher supporting login, email aliases, normalized name, and commit log indicators.
+ */
+function matchCommitAuthor(gc: any, members: Array<{ user_id: number; full_name: string; email: string }>): number | null {
+  const committerEmail = (gc.commit?.author?.email || '').toLowerCase().trim();
+  const committerLogin = (gc.author?.login || '').toLowerCase().trim();
+  const committerName = (gc.commit?.author?.name || '').toLowerCase().trim();
+  const commitMsg = (gc.commit?.message || '').toLowerCase();
+
+  // 1. Exact or prefix match on email
+  for (const m of members) {
+    const memEmail = m.email.toLowerCase().trim();
+    const memUserPart = memEmail.split('@')[0];
+    if (committerEmail && (committerEmail === memEmail || committerEmail.startsWith(memUserPart) || memEmail.includes(committerEmail.split('@')[0]))) {
+      return m.user_id;
+    }
+  }
+
+  // 2. Match GitHub login or known aliases
+  for (const m of members) {
+    const memEmail = m.email.toLowerCase().trim();
+    const aliases = GITHUB_USER_ALIASES[memEmail] || [];
+    if (committerLogin && (aliases.includes(committerLogin) || committerLogin.includes(memEmail.split('@')[0]))) {
+      return m.user_id;
+    }
+    if (aliases.some((alias) => committerEmail.includes(alias) || committerName.includes(alias) || committerLogin.includes(alias))) {
+      return m.user_id;
+    }
+  }
+
+  // 3. Name similarity / normalization (Vietnamese accents removed)
+  const normalize = (str: string) =>
+    str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const normCommitterName = normalize(committerName);
+  const normCommitterLogin = normalize(committerLogin);
+
+  for (const m of members) {
+    const normMemName = normalize(m.full_name);
+    if (normCommitterName && (normMemName.includes(normCommitterName) || normCommitterName.includes(normMemName))) {
+      return m.user_id;
+    }
+    const words = m.full_name.toLowerCase().split(/\s+/);
+    if (words.length >= 2) {
+      const lastTwo = normalize(words.slice(-2).join(' '));
+      const lastName = normalize(words[words.length - 1]);
+      if (normCommitterName.includes(lastTwo) || normCommitterLogin.includes(lastTwo) || normCommitterLogin.includes(lastName)) {
+        return m.user_id;
+      }
+    }
+  }
+
+  // 4. Commit message patterns (e.g. ai_logs_vy, _vy, etc.)
+  for (const m of members) {
+    const memEmail = m.email.toLowerCase().trim();
+    const aliases = GITHUB_USER_ALIASES[memEmail] || [];
+    for (const alias of aliases) {
+      if (alias.length >= 2 && (commitMsg.includes(`_${alias}`) || commitMsg.includes(`ai_logs_${alias}`) || commitMsg.includes(`/${alias}`))) {
+        return m.user_id;
+      }
+    }
+  }
+
+  // 5. Fallback only if single member
+  if (members.length === 1) {
+    return members[0].user_id;
+  }
+
+  return null;
+}
+
+/**
  * POST /api/git/:teamId/sync
  * Trigger sync of latest commit history from GitHub repository (BR-07)
  * Uses Octokit REST API with Noise Filtering for lines of code.
@@ -45,7 +134,7 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
 
     const parsed = parseGitHubUrl(effectiveRepoUrl);
     const octokit = new Octokit({
-      auth: process.env.GITHUB_TOKEN || undefined,
+      auth: process.env.GITHUB_ACCESS_TOKEN || process.env.GITHUB_TOKEN || undefined,
     });
 
     let commitsToUpsert: Array<{
@@ -88,21 +177,9 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
           const hash = gc.sha;
           const msg = gc.commit.message || 'Commit from GitHub';
           const committedAt = gc.commit.author?.date ? new Date(gc.commit.author.date) : new Date();
-          const committerEmail = (gc.commit.author?.email || gc.author?.login || '').toLowerCase();
 
-          // Match author to team member
-          let authorUserId: number | null = null;
-          const matchedMember = members.find(
-            (m) =>
-              m.email.toLowerCase() === committerEmail ||
-              committerEmail.includes(m.email.split('@')[0].toLowerCase()) ||
-              (gc.commit.author?.name && m.full_name.toLowerCase().includes(gc.commit.author.name.toLowerCase()))
-          );
-          if (matchedMember) {
-            authorUserId = matchedMember.user_id;
-          } else if (members.length > 0) {
-            authorUserId = members[0].user_id;
-          }
+          // Intelligent committer-to-member matching
+          const authorUserId = matchCommitAuthor(gc, members);
 
           // Fetch detailed commit to apply Noise Filter (BR-07)
           let linesAdded = 0;
@@ -146,6 +223,18 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
 
     // Fallback seed if GitHub API rate-limited or repository is private/offline
     if (commitsToUpsert.length === 0) {
+      // Check if team already has existing real commits in DB
+      const existingCommits = await pool.query('SELECT COUNT(*)::int as cnt FROM git_commits WHERE team_id = $1', [teamId]);
+      if (existingCommits.rows[0]?.cnt > 0) {
+        return res.status(200).json({
+          message: 'GitHub API tạm thời giới hạn. Hệ thống bảo lưu toàn bộ dữ liệu commit đã xác thực trong cơ sở dữ liệu!',
+          team_id: teamId,
+          source: 'database_preserved',
+          synced_commits_count: existingCommits.rows[0].cnt,
+          noise_filter_applied: true,
+        });
+      }
+
       source = 'simulated_offline';
       const sampleCommits = [
         { msg: '[TV1] feat: core auth, JWT RBAC middleware & Docker setup', linesA: 340, linesD: 45, userIdx: 0, dateOffset: 5 },

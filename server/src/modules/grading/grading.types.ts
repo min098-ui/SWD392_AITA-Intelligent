@@ -1,3 +1,17 @@
+export type GradingStatus =
+  | 'ACCEPTED'
+  | 'WRONG_ANSWER'
+  | 'RUNTIME_ERROR'
+  | 'TIME_LIMIT_EXCEEDED'
+  | 'MEMORY_LIMIT_EXCEEDED'
+  | 'SYSTEM_ERROR'
+  | 'Accepted'
+  | 'Wrong Answer'
+  | 'Runtime Error'
+  | 'Time Limit Exceeded'
+  | 'Memory Limit Exceeded'
+  | 'System Error';
+
 export interface GradingJobPayload {
   grading_job_id: number;
   submission_id: number;
@@ -15,11 +29,14 @@ export interface RubricRuleItem {
   assignment_id: number;
   rule_type: 'AUTOMATED' | 'MANUAL' | 'AI_ANALYSIS';
   criterion: string;
+  description?: string;
   input_data?: string;
   expected_output?: string;
   weight: number;
   max_score: number;
   is_hidden: boolean;
+  status?: 'Draft' | 'Active' | 'Hidden' | 'Disabled';
+  order_index?: number;
 }
 
 export interface TestResultItem {
@@ -32,6 +49,7 @@ export interface TestResultItem {
   expected_output?: string;
   execution_time_ms: number;
   is_hidden: boolean;
+  status?: GradingStatus;
   error?: string;
   ai_feedback?: string;
 }

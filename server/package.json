@@ -17,7 +17,13 @@
     "db:reset": "npx ts-node src/scripts/reset-db.ts",
     "studio": "prisma studio --port 5555 --schema=prisma/schema.prisma",
     "db:generate": "prisma generate --schema=prisma/schema.prisma",
-    "db:migrate": "prisma db push --schema=prisma/schema.prisma"
+    "db:migrate": "prisma db push --schema=prisma/schema.prisma",
+    "test:direct-submission": "tsc && node dist/test/test-direct-submission.js",
+    "test:test-case-mgmt": "tsc && node dist/test/test-testcase-management.js",
+    "test:grading-engine": "tsc && node dist/test/test-grading-engine.js",
+    "test:regrade-history": "tsc && node dist/test/test-regrade-history.js",
+    "test:target-groups": "tsc && node dist/test/test-target-groups.js",
+    "test:lifecycle": "tsc && node dist/test/test-assignment-lifecycle.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
