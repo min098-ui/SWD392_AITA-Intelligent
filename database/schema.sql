@@ -89,10 +89,25 @@ CREATE TABLE IF NOT EXISTS assignments (
     description TEXT,
     start_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     due_date TIMESTAMPTZ,
+    close_date TIMESTAMPTZ,
     deadline TIMESTAMPTZ,
     max_score FLOAT NOT NULL DEFAULT 10.0,
     submission_type VARCHAR(20) NOT NULL DEFAULT 'TEAM' CHECK (submission_type IN ('INDIVIDUAL', 'TEAM')),
+    target_type VARCHAR(20) NOT NULL DEFAULT 'ALL' CHECK (target_type IN ('ALL', 'SPECIFIC_TEAMS')),
+    allowed_language VARCHAR(20) NOT NULL DEFAULT 'ALL' CHECK (allowed_language IN ('ALL', 'python', 'javascript')),
+    status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED' CHECK (status IN ('DRAFT', 'PUBLISHED', 'CLOSED', 'ARCHIVED')),
+    allow_late_submission BOOLEAN NOT NULL DEFAULT TRUE,
+    max_submissions INT DEFAULT 5,
+    allow_resubmission BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8b. Assignment Target Teams Table (Nhóm cụ thể được giao bài)
+CREATE TABLE IF NOT EXISTS assignment_target_teams (
+    assignment_id INT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+    team_id INT NOT NULL REFERENCES teams(team_id) ON DELETE CASCADE,
+    assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (assignment_id, team_id)
 );
 
 -- 9. Rubric Rules Table (Test cases & evaluation criteria)
@@ -114,8 +129,10 @@ CREATE TABLE IF NOT EXISTS submissions (
     assignment_id INT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
     team_id INT REFERENCES teams(team_id) ON DELETE CASCADE,
     submitted_by_user_id INT REFERENCES users(user_id) ON DELETE RESTRICT,
-    artifact_url VARCHAR(255) NOT NULL,
-    git_commit_hash VARCHAR(40) NOT NULL,
+    code_content TEXT,
+    language VARCHAR(20) DEFAULT 'javascript' CHECK (language IN ('python', 'javascript', 'nodejs')),
+    artifact_url VARCHAR(255),
+    git_commit_hash VARCHAR(40),
     submitted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(30) NOT NULL DEFAULT 'SUBMITTED' CHECK (status IN ('SUBMITTED', 'QUEUED', 'GRADING', 'GRADED', 'FAILED', 'AI_PREGRADED', 'FIRST_REVIEWED', 'PENDING_SECOND_REVIEW', 'FINALIZED')),
     -- BR-09: Collaborative Dual-Lecturer Moderation with AI Assistance
@@ -142,6 +159,11 @@ CREATE TABLE IF NOT EXISTS grading_jobs (
     status VARCHAR(20) NOT NULL DEFAULT 'QUEUED' CHECK (status IN ('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED')),
     sandbox_container_id VARCHAR(100),
     retry_count INT NOT NULL DEFAULT 0,
+    attempt_number INT DEFAULT 1,
+    regrade_reason TEXT,
+    triggered_by_user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
+    total_score FLOAT,
+    max_score FLOAT,
     queued_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMPTZ
 );
@@ -157,6 +179,7 @@ CREATE TABLE IF NOT EXISTS grading_results (
     execution_time_ms INT DEFAULT 0,
     ai_feedback TEXT,
     is_ai_generated BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(50) DEFAULT 'Accepted',
     graded_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -230,4 +253,9 @@ CREATE INDEX IF NOT EXISTS idx_peer_audits_team_round ON peer_audits(team_id, au
 CREATE INDEX IF NOT EXISTS idx_tutor_sessions_user ON tutor_chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_tutor_messages_session ON tutor_chat_messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_tutor_messages_submission ON tutor_chat_messages(submission_id);
+CREATE INDEX IF NOT EXISTS idx_target_teams_assignment ON assignment_target_teams(assignment_id);
+CREATE INDEX IF NOT EXISTS idx_target_teams_team ON assignment_target_teams(team_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_status ON assignments(status);
+CREATE INDEX IF NOT EXISTS idx_assignments_due_date ON assignments(due_date);
+CREATE INDEX IF NOT EXISTS idx_assignments_close_date ON assignments(close_date);
 

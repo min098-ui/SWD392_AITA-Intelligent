@@ -23,6 +23,7 @@ DELETE FROM courses WHERE course_id = 1;
 INSERT INTO users (full_name, email, password_hash, role, status) VALUES
 ('System Administrator', 'admin@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 ('Yen12 Yen', 'yeny36306@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER', 'ACTIVE'),
+('Nguyen Lan', 'n011vynt@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER', 'ACTIVE'),
 ('AMai Administrator', 'lenguyenanhmai05@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 ('Tuong Vy Administrator', 'tuongvy22102004@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 ('Tai Administrator', 'tajjjlojjj4444@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
@@ -41,22 +42,24 @@ ON CONFLICT (email) DO UPDATE SET
 
 SELECT setval('users_user_id_seq', (SELECT COALESCE(MAX(user_id), 1) FROM users));
 
--- 2. Insert Official Courses (SWD392 and CSD201) taught by Yen12 Yen
+-- 2. Insert Official Courses (SWD392 taught by Yen12 Yen, CSD201 taught by Nguyen Lan)
 INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id)
 SELECT 1, 'SWD392', 'SWD392 - Software Architecture & Design Project', 'FA26', u.user_id
 FROM users u WHERE u.email = 'yeny36306@gmail.com'
 ON CONFLICT (course_id) DO UPDATE SET
   course_code = EXCLUDED.course_code,
   course_name = EXCLUDED.course_name,
-  semester = EXCLUDED.semester;
+  semester = EXCLUDED.semester,
+  lecturer_id = EXCLUDED.lecturer_id;
 
 INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id)
 SELECT 2, 'CSD201', 'CSD201 - Data Structures & Algorithms', 'FA26', u.user_id
-FROM users u WHERE u.email = 'yeny36306@gmail.com'
+FROM users u WHERE u.email = 'n011vynt@gmail.com'
 ON CONFLICT (course_id) DO UPDATE SET
   course_code = EXCLUDED.course_code,
   course_name = EXCLUDED.course_name,
-  semester = EXCLUDED.semester;
+  semester = EXCLUDED.semester,
+  lecturer_id = EXCLUDED.lecturer_id;
 
 SELECT setval('courses_course_id_seq', (SELECT COALESCE(MAX(course_id), 1) FROM courses));
 
@@ -93,27 +96,43 @@ ON CONFLICT (team_id) DO UPDATE SET
 
 SELECT setval('teams_team_id_seq', (SELECT COALESCE(MAX(team_id), 1) FROM teams));
 
--- 5. Insert Team Members & Assigned Modules & Roles for Group 4 (ĐÚNG 5 THÀNH VIÊN THẬT - MAI LÀ LEADER)
+-- 5. Insert Team Members & Assigned Modules & Roles for Group 4 (SWD392) & Group 5 (CSD201)
 DELETE FROM team_members WHERE team_id IN (1, 2);
 
+-- 5.1. Nhóm SWD392: Group 4 (AITA) - Đủ 5 thành viên
 INSERT INTO team_members (team_id, user_id, assigned_module, role)
 SELECT t.team_id, u.user_id, m.module, m.role
 FROM teams t
 CROSS JOIN (
   VALUES
-    -- TV1: Lê Nguyễn Ánh Mai (Trưởng nhóm / Leader duy nhất)
-    ('lenguyenlinhnhi2110@gmail.com', 'Software Architecture, Auth & Course Core', 'LEADER'),
+    -- TV1: Lê Nguyễn Ánh Mai
+    ('lenguyenlinhnhi2110@gmail.com', 'Software Architecture, Auth & Course Core', 'MEMBER'),
     -- TV2: Nguyễn Tường Vy (Phần 2)
     ('vyntqe180099@fpt.edu.vn', 'Docker Sandbox Runner & Async Grading Queue', 'MEMBER'),
     -- TV3: Đỗ Trần Đăng Khoa (Phần 3)
     ('dotrandangkhoa17@gmail.com', 'AI Engine, Socratic Tutor & Key Rotation', 'MEMBER'),
-    -- TV4: Đinh Gia Huy (Phần 4)
-    ('dinhgiahuylol12345@gmail.com', 'Git Analytics, Noise Filter & Peer Audit', 'MEMBER'),
+    -- TV4: Đinh Gia Huy (Trưởng nhóm / Leader)
+    ('dinhgiahuylol12345@gmail.com', 'Git Analytics, Noise Filter & Peer Audit', 'LEADER'),
     -- TV5: Nguyễn Quốc Thanh Phong (Phần 5)
     ('tfongcs05@gmail.com', 'Frontend Web App (Next.js 14) & UI/UX', 'MEMBER')
 ) AS m(email, module, role)
 JOIN users u ON u.email = m.email
 WHERE t.team_id = 1
+ON CONFLICT ON CONSTRAINT uq_team_user DO UPDATE SET
+  assigned_module = EXCLUDED.assigned_module,
+  role = EXCLUDED.role;
+
+-- 5.2. Nhóm CSD201: Group5_CSD201_TravelPlanner - 2 thành viên: Ánh Mai (Leader) & Tường Vy (Member)
+INSERT INTO team_members (team_id, user_id, assigned_module, role)
+SELECT t.team_id, u.user_id, m.module, m.role
+FROM teams t
+CROSS JOIN (
+  VALUES
+    ('lenguyenlinhnhi2110@gmail.com', 'Graph Algorithms & Shortest Travel Path (Dijkstra)', 'LEADER'),
+    ('vyntqe180099@fpt.edu.vn', 'BST Location Indexing & Budget Sorting (Min-Heap)', 'MEMBER')
+) AS m(email, module, role)
+JOIN users u ON u.email = m.email
+WHERE t.team_id = 2
 ON CONFLICT ON CONSTRAINT uq_team_user DO UPDATE SET
   assigned_module = EXCLUDED.assigned_module,
   role = EXCLUDED.role;
