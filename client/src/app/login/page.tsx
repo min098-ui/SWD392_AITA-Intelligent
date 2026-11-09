@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Bot, Loader2, GraduationCap, School, AlertCircle, Clock, ShieldAlert } from 'lucide-react';
 import Navigation from '../../components/Navigation';
+import AitaLogo from '../../components/AitaLogo';
 import { useLanguage } from '../../context/LanguageContext';
 
 // Biểu tượng Google 4 màu chuẩn thương hiệu
@@ -155,17 +156,12 @@ function LoginContent() {
         }}>
           {/* Logo icon */}
           <div style={{
-            background: 'var(--accent-gradient)',
-            width: '56px',
-            height: '56px',
-            borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 8px 24px -4px rgba(59, 130, 246, 0.45)',
             margin: '0 auto 1.2rem'
           }}>
-            <Bot size={30} color="#fff" />
+            <AitaLogo size={56} />
           </div>
 
           {/* Heading */}
@@ -205,12 +201,12 @@ function LoginContent() {
                 padding: '10px 14px',
                 borderRadius: '10px',
                 border: 'none',
-                background: selectedRole === 'STUDENT' ? 'rgba(59, 130, 246, 0.22)' : 'transparent',
+                background: selectedRole === 'STUDENT' ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
                 color: selectedRole === 'STUDENT' ? '#ffffff' : 'var(--text-dim)',
-                boxShadow: selectedRole === 'STUDENT' ? '0 2px 8px rgba(59, 130, 246, 0.3)' : 'none',
+                boxShadow: selectedRole === 'STUDENT' ? '0 2px 8px rgba(139, 92, 246, 0.3)' : 'none',
                 borderWidth: '1px',
                 borderStyle: 'solid',
-                borderColor: selectedRole === 'STUDENT' ? 'rgba(59, 130, 246, 0.5)' : 'transparent',
+                borderColor: selectedRole === 'STUDENT' ? 'rgba(139, 92, 246, 0.5)' : 'transparent',
                 fontSize: '0.9rem',
                 fontWeight: selectedRole === 'STUDENT' ? 600 : 500,
                 cursor: 'pointer',

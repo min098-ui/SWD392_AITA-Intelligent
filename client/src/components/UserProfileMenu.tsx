@@ -123,9 +123,9 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
         display: 'inline-flex',
         alignItems: 'center',
         gap: '4px',
-        background: 'rgba(59, 130, 246, 0.2)',
-        color: '#60a5fa',
-        border: '1px solid rgba(59, 130, 246, 0.4)',
+        background: 'rgba(139, 92, 246, 0.2)',
+        color: '#c4b5fd',
+        border: '1px solid rgba(139, 92, 246, 0.4)',
         borderRadius: '9999px',
         padding: '2px 8px',
         fontSize: '0.72rem',
@@ -153,8 +153,8 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
           width: '40px',
           height: '40px',
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #1e40af 0%, #0284c7 48%, #38bdf8 100%)',
-          border: isOpen ? '2px solid #38bdf8' : '2px solid rgba(255, 255, 255, 0.35)',
+          background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 48%, #a855f7 100%)',
+          border: isOpen ? '2px solid #a78bfa' : '2px solid rgba(255, 255, 255, 0.35)',
           color: '#ffffff',
           fontWeight: 800,
           fontSize: '1.05rem',
@@ -164,8 +164,8 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
           cursor: 'pointer',
           outline: 'none',
           boxShadow: isOpen
-            ? '0 0 18px rgba(56, 189, 248, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.45)'
-            : '0 4px 14px rgba(2, 132, 199, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35)',
+            ? '0 0 18px rgba(139, 92, 246, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.45)'
+            : '0 4px 14px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35)',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           transform: isOpen ? 'scale(1.05)' : 'scale(1)'
         }}
@@ -187,7 +187,7 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
             border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.1)',
             borderRadius: '16px',
             boxShadow: theme === 'dark' 
-              ? '0 20px 45px -10px rgba(0, 0, 0, 0.75), 0 0 20px rgba(59, 130, 246, 0.15)' 
+              ? '0 20px 45px -10px rgba(0, 0, 0, 0.75), 0 0 20px rgba(139, 92, 246, 0.15)' 
               : '0 20px 40px -10px rgba(0, 0, 0, 0.15)',
             zIndex: 1000,
             padding: '1rem',
@@ -203,7 +203,7 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
               width: '44px',
               height: '44px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #1e40af 0%, #0284c7 48%, #38bdf8 100%)',
+              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 48%, #a855f7 100%)',
               color: '#ffffff',
               fontWeight: 800,
               fontSize: '1.2rem',
@@ -212,7 +212,7 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
               justifyContent: 'center',
               flexShrink: 0,
               border: '1.5px solid rgba(255, 255, 255, 0.35)',
-              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+              boxShadow: '0 4px 14px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
             }}>
               {initial}
             </div>
@@ -265,8 +265,8 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
                   padding: '4px 9px',
                   borderRadius: '7px',
                   border: 'none',
-                  background: theme === 'dark' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-                  color: theme === 'dark' ? '#93c5fd' : '#64748b',
+                  background: theme === 'dark' ? 'rgba(139, 92, 246, 0.25)' : 'transparent',
+                  color: theme === 'dark' ? '#c4b5fd' : '#64748b',
                   fontSize: '0.76rem',
                   fontWeight: theme === 'dark' ? 700 : 500,
                   cursor: 'pointer',
@@ -286,8 +286,8 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
                   padding: '4px 9px',
                   borderRadius: '7px',
                   border: 'none',
-                  background: theme === 'light' ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
-                  color: theme === 'light' ? '#2563eb' : '#64748b',
+                  background: theme === 'light' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                  color: theme === 'light' ? '#7c3aed' : '#64748b',
                   fontSize: '0.76rem',
                   fontWeight: theme === 'light' ? 700 : 500,
                   cursor: 'pointer',

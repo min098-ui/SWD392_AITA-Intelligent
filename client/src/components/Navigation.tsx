@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bot } from 'lucide-react';
+import AitaLogo from './AitaLogo';
 import LanguageSwitcher from './LanguageSwitcher';
+import ThemeToggle from './ThemeToggle';
 import UserProfileMenu from './UserProfileMenu';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -90,22 +92,23 @@ export default function Navigation({
       }}>
         {/* Phần Hình 1: Logo sát mép trái */}
         <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, position: 'relative', zIndex: 2 }}>
-          <Link href={getDashboardHref()} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+          <Link href={getDashboardHref()} style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
             <div style={{
-              background: 'var(--accent-gradient)',
-              width: '38px',
-              height: '38px',
-              borderRadius: '11px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'var(--shadow-neon)'
-            }}>
-              <Bot size={22} color="#fff" />
+              flexShrink: 0,
+              transition: 'transform 0.2s ease',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <AitaLogo size={38} />
             </div>
             <div>
               <span style={{ fontWeight: 800, fontSize: '1.18rem', letterSpacing: '-0.02em', color: 'var(--text-main)', lineHeight: 1.15, display: 'block' }}>
-                AITA<span style={{ color: 'var(--accent-cyan)' }}>.INTELLIGENT</span>
+                AITA<span style={{ color: 'var(--accent-primary, #a855f7)' }}>.INTELLIGENT</span>
               </span>
               <span style={{ display: 'block', fontSize: '0.66rem', color: 'var(--text-muted)', lineHeight: 1, marginTop: '2px', fontWeight: 600, letterSpacing: '0.04em' }}>
                 SWD392 • GROUP 4
@@ -152,6 +155,7 @@ export default function Navigation({
             <UserProfileMenu user={user} onLogout={handleLogout} />
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <ThemeToggle />
               <LanguageSwitcher />
               <Link href="/login" className="pill-btn-white" style={{ padding: '7px 18px', fontSize: '0.88rem' }}>
                 <span>{lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}</span>
