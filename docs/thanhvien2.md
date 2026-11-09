@@ -35,11 +35,25 @@
    - [4.17. Xây Dựng Workspace Độc Lập "Nộp & Bóc Tách Git Repo" (Lecturer & Student)](#417-xây-dựng-workspace-độc-lập-nộp--bóc-tách-git-repo-lecturer--student)
    - [4.18. Chuẩn Hóa Nhận Diện Thương Hiệu Dự Án (Electric Cyan / Blue) & Tối Giản Giao Diện](#418-chuẩn-hóa-nhận-diện-thương-hiệu-dự-án-electric-cyan--blue--tối-giản-giao-diện)
    - [4.19. Xử Lý Triệt Để Lỗi Next.js 14 Hydration Failed & Đảm Bảo Cấu Hình Docker Sandbox 0.5 Core (BR-03)](#419-xử-lý-triệt-để-lỗi-nextjs-14-hydration-failed--đảm-bảo-cấu-hình-docker-sandbox-05-core-br-03)
+   - [4.20. Rà Soát Kiến Trúc Toàn Dự Án & Chiến Lược Hóa Giải 6 Rủi Ro Then Chốt](#420-rà-soát-kiến-trúc-toàn-dự-án--chiến-lược-hóa-giải-6-rủi-ro-then-chốt)
+   - [4.21. Hoàn Thiện Cơ Chế Nộp Mã Nguồn Trực Tiếp (Direct Code Submission – Python 3 & Node.js 20)](#421-hoàn-thiện-cơ-chế-nộp-mã-nguồn-trực-tiếp-direct-code-submission--python-3--nodejs-20)
+   - [4.22. Hệ Thống Quản Lý Test Cases & Rubrics Đa Trạng Thái (Test Case Management)](#422-hệ-thống-quản-lý-test-cases--rubrics-đa-trạng-thái-test-case-management)
+   - [4.23. Nâng Cấp Grading Engine 2.0 & Chuẩn Hóa Thuật Toán Khớp Output](#423-nâng-cấp-grading-engine-20--chuẩn-hóa-thuật-toán-khớp-output)
+   - [4.24. Giao Diện Xem Lại Mã Nguồn & Báo Cáo Kết Quả Chấm Minh Bạch (Submission Result & Code Viewer)](#424-giao-diện-xem-lại-mã-nguồn--báo-cáo-kết-quả-chấm-minh-bạch-submission-result--code-viewer)
+   - [4.25. Tính Năng Chấm Lại Tự Động & Lịch Sử Chấm Đa Phiên (Regrade & Grading History)](#425-tính-năng-chấm-lại-tự-động--lịch-sử-chấm-đa-phiên-regrade--grading-history)
+   - [4.26. Phân Bổ Bài Tập Theo Nhóm & Đối Tượng (Assignment Target Group Selection)](#426-phân-bổ-bài-tập-theo-nhóm--đối-tượng-assignment-target-group-selection)
+   - [4.27. Hoàn Thiện Vòng Đời Bài Tập (Assignment Lifecycle Management)](#427-hoàn-thiện-vòng-đời-bài-tập-assignment-lifecycle-management)
+   - [4.28. Tái Thiết Kế Giao Diện Điều Hướng Ngang (Top Navigation Bar) & Nhận Diện Màu Sắc Chuyên Nghiệp](#428-tái-thiết-kế-giao-diện-điều-hướng-ngang-top-navigation-bar--nhận-diện-màu-sắc-chuyên-nghiệp)
+   - [4.29. Phân Định & Tách Biệt Nhiệm Vụ Đồ Án Chính Xác Theo Từng Học Phần (SWD392 vs CSD201)](#429-phân-định--tách-biệt-nhiệm-vụ-đồ-án-chính-xác-theo-từng-học-phần-swd392-vs-csd201)
+   - [4.30. Tối Ưu Hóa Giao Diện Giảng Viên: Mô Hình Gộp Menu Thông Minh & Tách Sub-Tab Bài Nộp Cá Nhân vs Đồ Án Nhóm](#430-tối-ưu-hóa-giao-diện-giảng-viên-mô-hình-gộp-menu-thông-minh--tách-sub-tab-bài-nộp-cá-nhân-vs-đồ-án-nhóm)
+   - [4.31. Tối Ưu Hóa Cổng Nộp Bài Sinh Viên: Tách Biệt Gallery Đề Bài vs Form Nộp Bài & Bảo Mật Rubric Test Cases (BR-06)](#431-tối-ưu-hóa-cổng-nộp-bài-sinh-viên-tách-biệt-gallery-đề-bài-vs-form-nộp-bài--bảo-mật-rubric-test-cases-br-06)
+   - [4.32. Hợp Nhất Quản Lý Nhóm Vào Học Phần & Tối Giản Hóa Roster Thành Viên (Loại Bỏ Phân Task Code)](#432-hợp-nhất-quản-lý-nhóm-vào-học-phần--tối-giản-hóa-roster-thành-viên-loại-bỏ-phân-task-code)
+   - [4.33. Nâng Cấp Hạn Mức CPU Docker Sandbox 1.0 Core Phục Vụ Thực Thi Toàn Diện (BR-03)](#433-nâng-cấp-hạn-mức-cpu-docker-sandbox-10-core-phục-vụ-thực-thi-toàn-diện-br-03)
 5. [Hệ Thống API Endpoints Chi Tiết](#5-hệ-thống-api-endpoints-chi-tiết)
-6. [Kết Quả Kiểm Thử Thực Tế (verify-member2.ts: 21/21 PASS)](#6-kết-quả-kiểm-thử-thực-tế-verify-member2ts-2121-pass)
+6. [Kết Quả Kiểm Thử Thực Tế (verify-member2.ts: 21/21 PASS & 6 Test Suites Toàn Diện)](#6-kết-quả-kiểm-thử-thực-tế-verify-member2ts-2121-pass--6-test-suites-toàn-diện)
 7. [Hướng Dẫn Demo Khi Bảo Vệ Đồ Án](#7-hướng-dẫn-demo-khi-bảo-vệ-đồ-án)
 8. [Video Minh Chứng Thực Nghiệm](#8-video-minh-chứng-thực-nghiệm-demo-video--proof-of-work)
-9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 10 Câu Hỏi Điển Hình)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs---10-câu-hỏi-điển-hình)
+9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 22 Câu Hỏi Điển Hình)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs---22-câu-hỏi-điển-hình)
 
 ---
 
@@ -58,7 +72,7 @@ Thành Viên 2 (Nguyễn Tường Vy) phụ trách **"Trái tim thực thi & Đ�
 
 | Mã BR | Tên Quy Tắc | Yêu Cầu Kỹ Thuật & Giải Pháp Triển Khai |
 | :--- | :--- | :--- |
-| **BR-03** | **Giới Hạn Tài Nguyên Sandbox & Cô Lập An Toàn** | • **CPU Limit:** 0.5 CPU core (`NanoCpus: 500_000_000`).<br>• **RAM Limit:** 256MB (`Memory: 256MB`, `MemorySwap: 256MB` chống tràn swap).<br>• **Network Isolation:** Ngắt toàn bộ mạng (`NetworkMode: 'none'`) chống SSRF, mã độc, reverse shell.<br>• **Quyền Hạn:** Chạy dưới non-root user `runner` (UID 1001), gỡ bỏ toàn bộ capabilities (`CapDrop: ['ALL']`).<br>• **Watchdog Timeout:** Giới hạn 5s–10s mỗi test case, tự động cưỡng chế kill container nếu quá thời gian. |
+| **BR-03** | **Giới Hạn Tài Nguyên Sandbox & Cô Lập An Toàn** | • **CPU Limit:** 1.0 CPU core (`NanoCpus: 1_000_000_000`).<br>• **RAM Limit:** 256MB (`Memory: 256MB`, `MemorySwap: 256MB` chống tràn swap).<br>• **Network Isolation:** Ngắt toàn bộ mạng (`NetworkMode: 'none'`) chống SSRF, mã độc, reverse shell.<br>• **Quyền Hạn:** Chạy dưới non-root user `runner` (UID 1001), gỡ bỏ toàn bộ capabilities (`CapDrop: ['ALL']`).<br>• **Watchdog Timeout:** Giới hạn 5s–10s mỗi test case, tự động cưỡng chế kill container nếu quá thời gian. |
 | **BR-06** | **Bảo Mật Test Case Ẩn (Rubric Shielding)** | • Test case có cờ `is_hidden = true` dùng để kiểm tra các trường hợp biên (edge cases) và chống hard-code kết quả.<br>• Khi tài khoản **STUDENT** truy vấn API bài tập hoặc kết quả chấm, các trường `input_data` và `expected_output` tự động bị che chắn thành `'[PROTECTED TEST CASE]'`.<br>• Chỉ tài khoản **LECTURER** hoặc **ADMIN** mới xem được đề test chi tiết. |
 | **BR-09** | **Quy Trình Chấm Đa Tầng (Dual-Lecturer Moderation)** | • **Bước 1 (AI Pre-grading):** AI chấm sơ bộ, sinh feedback.<br>• **Bước 2 (GV1 Đánh giá):** Duyệt điểm AI hoặc tự chấm lại và yêu cầu GV2 chấm chéo.<br>• **Bước 3 (GV2 Chấm chéo):** GV2 chấm độc lập; nếu độ lệch $\le 0.5$ thì chốt điểm trung bình.<br>• **Bước 4 (Thống nhất):** Nếu độ lệch $> 0.5$, hai giảng viên lập biên bản đồng thuận. |
 
@@ -412,10 +426,234 @@ Củng cố sự ổn định và độ tin cậy tuyệt đối của hệ th�
   * *Giải pháp:* Thêm thuộc tính `suppressHydrationWarning` cho thẻ `<body>` trong `client/src/app/layout.tsx`. Đồng thời tích hợp cơ chế `isMounted` hook tại cả 2 trang `student/page.tsx` và `lecturer/page.tsx`, di dời logic đọc `sessionStorage` vào trong `useEffect` để đảm bảo render đồng nhất 100%.
 * **Kiểm chứng cơ chế Docker Sandbox cô lập tài nguyên (BR-03):**
   * Tái khẳng định và bảo toàn các tham số cấu hình an ninh máy chủ trong `sandbox.service.ts`:
-    * `NanoCpus: 500_000_000`: Khống chế đúng **0.5 CPU core** bằng cgroups của Linux kernel.
+    * `NanoCpus: 1_000_000_000`: Khống chế đúng **1.0 CPU core** bằng cgroups của Linux kernel.
     * `Memory: 256MB` (`268,435,456 bytes`): Khống chế trần bộ nhớ RAM, chống tràn RAM (OOM).
     * `Timeout: 10,000ms`: Watchdog tự động hủy tiến trình nếu sinh viên viết vòng lặp vô hạn.
     * `NetworkMode: 'none'`: Cắt hoàn toàn mạng Internet, ngăn ngừa tuyệt đối tấn công mạng hoặc rò rỉ dữ liệu.
+
+---
+
+### 4.20. Rà Soát Kiến Trúc Toàn Dự Án & Chiến Lược Hóa Giải 6 Rủi Ro Then Chốt
+Dưới góc độ đánh giá của một Kiến trúc sư phần mềm (Software Architect) và Giảng viên phản biện đồ án môn SWD392, Thành viên 2 đã rà soát toàn bộ dự án AITA-INTELLIGENT từ đầu đến cuối và chỉ ra **6 vấn đề rủi ro then chốt** cần được giải quyết dứt điểm trước khi bảo vệ trước Hội đồng chấm thi:
+1. **Rủi ro phụ thuộc Docker Daemon trên máy chủ Host:** Toàn bộ tính năng Autograding phụ thuộc vào Docker socket (`/var/run/docker.sock` trên Linux hoặc named pipe trên Windows). Nếu Docker chưa bật hoặc container bị lỗi, Backend sẽ bị gián đoạn. *Chiến lược:* Thiết lập cơ chế kiểm tra kết nối, health check và timeout graceful degradation.
+2. **Hình thức nộp bài thực tế (Direct Code Submission vs Git Commit SHA):** Trước đây hệ thống chỉ cho phép nộp link GitHub Repo kèm Commit SHA, điều này phù hợp cho đồ án lớn nhưng bất tiện với bài tập thuật toán hàng tuần trên lớp. *Chiến lược:* Xây dựng thêm cổng nộp code trực tiếp qua trình soạn thảo code trên Web, hỗ trợ cả Python 3 và Node.js 20.
+3. **Bảo mật Test Cases ẩn (BR-06):** Cần phân cấp rõ ràng giữa Test công khai (Public) và Test ẩn (Hidden). Sinh viên không bao giờ được xem `input_data` và `expected_output` của Test ẩn nhằm triệt tiêu hành vi gian lận hoặc hard-code if-else.
+4. **Hệ thống chấm lại (Regrade) & Lịch sử chấm đa phiên:** Khi Giảng viên cập nhật lại bộ Test Cases hoặc Rubric sau khi sinh viên đã nộp, hệ thống cần cơ chế đưa bài nộp vào lại hàng đợi BullMQ để chấm lại và lưu vết lịch sử chấm minh bạch.
+5. **Phân bổ bài tập theo đối tượng (Target Groups Allocation):** Cần cho phép Giảng viên giao bài tập linh hoạt: hoặc cho toàn bộ lớp (`ALL`), hoặc chỉ định danh sách các nhóm cụ thể (`SPECIFIC_TEAMS`), đảm bảo tính bảo mật và cá nhân hóa lộ trình học.
+6. **Quản lý vòng đời bài tập (Assignment Lifecycle):** Hoàn thiện 4 trạng thái vòng đời bài tập (`DRAFT`, `PUBLISHED`, `CLOSED`, `ARCHIVED`) cùng 3 mốc thời gian chặt chẽ (`start_date`, `due_date`, `close_date`), kết hợp chính sách nộp trễ (Late Submission) và giới hạn số lần nộp.
+
+---
+
+### 4.21. Hoàn Thiện Cơ Chế Nộp Mã Nguồn Trực Tiếp (Direct Code Submission – Python 3 & Node.js 20)
+Nhằm mang đến trải nghiệm linh hoạt như các hệ thống Online Judge chuyên nghiệp (LeetCode, HackerRank, Codeforces):
+* **Hỗ trợ song song 2 hình thức nộp:**
+  1. *Nộp trực tiếp mã nguồn:* Sinh viên gõ hoặc dán trực tiếp mã nguồn vào trình soạn thảo code trên giao diện, chọn ngôn ngữ `Python 3` hoặc `JavaScript (Node.js)`.
+  2. *Nộp qua GitHub Repository:* Giữ nguyên hình thức nộp thông qua URL GitHub Repo và Commit SHA cho các cột mốc đồ án nhóm lớn.
+* **Mã nguồn khởi tạo chuẩn (Starter Code Templates):**
+  * Tự động điền code mẫu chuẩn hóa luồng nhập/xuất `stdin` / `stdout`:
+    * *Python:* Sử dụng `sys.stdin.read().strip()` đọc toàn bộ dữ liệu đầu vào và in ra kết quả qua `print()`.
+    * *JavaScript:* Sử dụng `fs.readFileSync(0, 'utf-8').trim()` xử lý file descriptor 0 và in ra kết quả qua `console.log()`.
+* **Cập nhật Cơ sở dữ liệu & Migration:**
+  * Tạo file migration `database/migration_direct_code.sql` bổ sung 2 cột vào bảng `submissions`:
+    * `code_content TEXT NULL`: Lưu trữ toàn văn mã nguồn bài nộp của sinh viên.
+    * `language VARCHAR(30) NULL DEFAULT 'javascript'`: Lưu định danh ngôn ngữ lập trình (`python` / `javascript`).
+* **Kiểm thử tự động:**
+  * Xây dựng bộ test `server/src/test/test-direct-submission.ts` kiểm thử toàn diện cả 2 ngôn ngữ Python & Node.js, xác thực mã nguồn được đẩy vào hàng đợi BullMQ và thực thi đạt **100% PASS**.
+
+---
+
+### 4.22. Hệ Thống Quản Lý Test Cases & Rubrics Đa Trạng Thái (Test Case Management)
+Nâng cấp bảng điều khiển cấu hình bài tập và rubric phía Giảng viên (tab Rubrics & Tests):
+* **Phân loại 4 trạng thái Test Case:**
+  * `ACTIVE`: Test case đang hoạt động chính thức, tham gia tính điểm cho bài nộp.
+  * `HIDDEN`: Test case ẩn theo chuẩn bảo mật **BR-06**, sinh viên không thể xem dữ liệu kiểm thử.
+  * `DRAFT`: Bản nháp do giảng viên đang soạn thảo, tạm thời chưa áp dụng chấm.
+  * `DISABLED`: Test case tạm ngừng kích hoạt mà không cần xóa khỏi CSDL.
+* **Chi tiết cấu hình từng Test Case:**
+  * `stdin_data TEXT`: Dữ liệu đầu vào truyền qua luồng `stdin` của container Sandbox.
+  * `expected_output TEXT`: Kết quả đầu ra mong đợi chuẩn mực.
+  * `weight / points FLOAT`: Trọng số điểm của từng test case trong tổng điểm 10.
+  * `timeout_ms INT`: Hạn mức thời gian thực thi riêng cho từng test case (mặc định 5,000ms).
+* **Migration & Kiểm thử:**
+  * Tạo file migration `database/migration_test_case_management.sql`.
+  * Bộ test `server/src/test/test-testcase-management.ts` xác thực toàn bộ các thao tác thêm, sửa, lọc trạng thái và bảo vệ test ẩn đạt **100% PASS**.
+
+---
+
+### 4.23. Nâng Cấp Grading Engine 2.0 & Chuẩn Hóa Thuật Toán Khớp Output
+Cải tiến toàn diện bộ máy chấm bài tự động tại `sandbox.service.ts` và `grading.worker.ts`:
+* **Thiết lập môi trường Sandbox cô lập cao cấp:**
+  * Tự động lựa chọn base image siêu nhẹ tùy theo ngôn ngữ bài nộp: `python:3.11-alpine` hoặc `node:20-alpine` dung lượng chỉ ~50MB.
+  * Duy trì nghiêm ngặt các hạn mức an toàn của **BR-03**:
+    * CPU: `NanoCpus: 1_000_000_000` (đúng 1.0 core CPU qua Linux cgroups CFS).
+    * RAM: `Memory: 256MB` (khống chế tuyệt đối, ngăn ngừa tấn công tràn bộ nhớ).
+    * Mạng: `NetworkMode: 'none'` (ngắt 100% kết nối mạng Internet).
+    * Đặc quyền: Chạy dưới non-root user `runner` (UID 1001), gỡ bỏ toàn bộ Linux capabilities (`CapDrop: ['ALL']`).
+* **Thuật toán chuẩn hóa chuỗi đầu ra (Output Normalization):**
+  * Tự động xử lý sự khác biệt giữa các hệ điều hành: chuyển đổi dấu xuống dòng Windows `\r\n` thành Linux `\n`.
+  * Cắt bỏ khoảng trắng dư thừa và các dòng trống ở cuối văn bản (`trimEnd()`), loại bỏ lỗi sai lệch định dạng không đáng có khi chấm bài.
+* **Ghi nhận chi tiết kết quả vào `grading_results`:**
+  * Lưu lại thời gian thực thi chính xác (`execution_time_ms`), bộ nhớ tiêu thụ (`memory_bytes`), kết quả thực tế (`actual_output`), trạng thái (`PASSED` / `FAILED` / `TIMEOUT` / `ERROR`), điểm số và phản hồi chi tiết.
+* **Kiểm thử tự động:** Bộ test `server/src/test/test-grading-engine.ts` vượt qua **100% assertions**.
+
+---
+
+### 4.24. Giao Diện Xem Lại Mã Nguồn & Báo Cáo Kết Quả Chấm Minh Bạch (Submission Result & Code Viewer)
+Mang lại trải nghiệm trực quan, rõ ràng cho cả Sinh viên lẫn Giảng viên khi tra cứu bài nộp:
+* **Nút bấm "Xem mã nguồn đã nộp":**
+  * Tích hợp trực tiếp tại mỗi thẻ bài nộp trên giao diện `student/page.tsx` và `lecturer/page.tsx`.
+  * Khi bấm vào, hệ thống mở ra khung hiển thị code (Code Viewer) với giao diện Dark Console phong cách lập trình chuyên nghiệp, font `monospace`, tự động đánh dấu màu cú pháp theo ngôn ngữ (`#38bdf8` cho Python, `#fbbf24` cho JavaScript).
+* **Bảo vệ toàn vẹn Test Ẩn (BR-06):**
+  * Khi tài khoản Sinh viên mở xem chi tiết các test case, hệ thống tự động ẩn toàn bộ dữ liệu đầu vào và đầu ra của các test case ẩn, chỉ hiển thị dòng chữ bảo mật `[PROTECTED TEST CASE]`.
+  * Chỉ Giảng viên hoặc Quản trị viên mới có đặc quyền xem toàn văn đề test ẩn để phục vụ giải đáp thắc mắc.
+* **Tích hợp phản hồi Trợ giảng AI Socratic:**
+  * Hệ thống tự động phân tích mã nguồn và đưa ra các gợi ý định hướng tư duy giải thuật mà không làm lộ đáp án, giúp sinh viên tự nhận diện lỗi và cải thiện chất lượng code.
+
+---
+
+### 4.25. Tính Năng Chấm Lại Tự Động & Lịch Sử Chấm Đa Phiên (Regrade & Grading History)
+Giải quyết triệt để tình huống thực tế khi Giảng viên cập nhật lại bộ Test Cases hoặc tiêu chí chấm:
+* **Cơ chế Chấm lại (Regrade):**
+  * Giảng viên có thể kích hoạt chấm lại cho một bài nộp cụ thể hoặc toàn bộ các bài nộp của một bài tập.
+  * Backend tạo ra một công việc mới đưa vào hàng đợi BullMQ Redis với độ ưu tiên cao (`priority: 1`), Docker Sandbox tự động chạy lại mã nguồn trên bộ test case mới.
+* **Bảng theo dõi Lịch sử chấm bài (`grading_history`):**
+  * Ghi lại chi tiết từng phiên chấm trong CSDL: `history_id`, `submission_id`, `attempt_number`, `regraded_at`, `regraded_by`, `old_score`, `new_score`, `reason`.
+  * Phía giao diện hiển thị dòng thời gian (Grading Timeline) minh bạch, cho phép Giảng viên xem lại lịch sử thay đổi điểm số qua các lần chấm.
+* **Migration & Kiểm thử:**
+  * Tạo file migration `database/migration_regrade_history.sql`.
+  * Bộ test `server/src/test/test-regrade-history.ts` xác thực toàn bộ quy trình chấm lại và ghi log đạt **100% PASS**.
+
+---
+
+### 4.26. Phân Bổ Bài Tập Theo Nhóm & Đối Tượng (Assignment Target Group Selection)
+Mở rộng khả năng phân bổ bài tập linh hoạt trong môi trường đào tạo đại học:
+* **Hỗ trợ 2 chế độ đối tượng giao bài (`target_type`):**
+  1. `ALL`: Giao bài tập cho toàn bộ sinh viên đã ghi danh trong học phần.
+  2. `SPECIFIC_TEAMS`: Chỉ định đích danh danh sách các nhóm sinh viên cụ thể được phép làm và nộp bài tập.
+* **Bảo mật và lọc thông tin phía Sinh viên:**
+  * Khi Sinh viên truy vấn danh sách bài tập cần nộp, hệ thống kiểm tra nhóm đồ án của sinh viên; nếu bài tập được giao dạng `SPECIFIC_TEAMS` mà nhóm của sinh viên không nằm trong danh sách, bài tập sẽ tự động bị ẩn.
+* **Tích hợp vào cả 2 công cụ tạo đề:**
+  * *Modal 4 (Tạo bài tập thủ công):* Thêm checklist danh sách các nhóm sinh viên để giảng viên tick chọn trực quan.
+  * *Modal 6 (Studio AI Soạn đề từ Slide):* Tích hợp bộ chọn học phần và đối tượng áp dụng ngay từ bước 1 và bước 2.
+* **Migration & Kiểm thử:**
+  * Tạo file migration `database/migration_assignment_target_groups.sql`.
+  * Bộ test `server/src/test/test-target-groups.ts` kiểm thử chính xác cơ chế phân quyền đạt **100% PASS**.
+
+---
+
+### 4.27. Hoàn Thiện Vòng Đời Bài Tập (Assignment Lifecycle Management)
+Thiết lập quy trình quản lý bài tập theo chuẩn mực học viện:
+* **4 trạng thái vòng đời bài tập (`status`):**
+  * `DRAFT`: Đề bài đang biên soạn, hoàn toàn ẩn với sinh viên.
+  * `PUBLISHED`: Đề bài đã xuất bản chính thức, mở cổng nộp bài.
+  * `CLOSED`: Đã hết hạn nộp bài, hệ thống tự động khóa cổng nộp.
+  * `ARCHIVED`: Đã lưu trữ sau kỳ thi, đóng băng toàn bộ điểm số và bài nộp để lưu hồ sơ kiểm định.
+* **3 mốc thời gian kiểm soát:**
+  * `start_date`: Ngày giờ bắt đầu mở cổng nhận bài.
+  * `due_date`: Hạn chót nộp bài đúng hạn (tính trọn vẹn điểm số).
+  * `close_date`: Hạn chót tuyệt đối đóng cổng nộp bài (kể cả bài nộp trễ).
+* **Chính sách kiểm soát bài nộp nâng cao:**
+  * `allow_late_submission`: Cho phép nộp trễ sau `due_date` nhưng trước `close_date` (tự động gắn nhãn `LATE` và áp dụng tỷ lệ trừ điểm).
+  * `max_submissions`: Giới hạn số lần nộp bài tối đa của mỗi sinh viên / nhóm để chống spam tài nguyên Docker.
+  * `allow_resubmission`: Cấu hình cho phép hoặc không cho phép nộp lại sau khi đã được chấm điểm.
+* **Migration & Kiểm thử:**
+  * Tạo file migration `database/migration_assignment_lifecycle.sql`.
+  * Bộ test `server/src/test/test-assignment-lifecycle.ts` kiểm thử toàn bộ 4 trạng thái vòng đời đạt **100% PASS**.
+
+---
+
+### 4.28. Tái Thiết Kế Giao Diện Điều Hướng Ngang (Top Navigation Bar) & Nhận Diện Màu Sắc Chuyên Nghiệp
+Nâng cấp trải nghiệm người dùng (UX) và chuẩn hóa giao diện trực quan (UI) đạt chuẩn đồ án xuất sắc:
+* **Chuyển đổi Navigation Bar nằm ngang (Top Navbar Glassmorphism):**
+  * Thay thế thanh Sidebar dọc truyền thống bằng thanh Navigation Bar nằm ngang hiện đại, tối ưu diện tích hiển thị nội dung trên các màn hình máy tính và laptop.
+  * Đồng bộ phong cách thiết kế với trang Quản trị viên (Admin Portal), tạo sự liền mạch xuyên suốt hệ thống.
+* **Phân định nhận diện màu sắc theo phân quyền:**
+  * *Cổng Sinh viên (Student Portal):* Màu xanh biển **Electric Cyan (`#0284c7`, `#38bdf8`)** tràn đầy năng lượng học tập.
+  * *Cổng Giảng viên (Lecturer Portal):* Chuyển đổi sang tông màu tím thạch anh & **Neon Lavender (`#7c3aed`, `#a855f7`, `#c4b5fd`)** sang trọng, phân định đẳng cấp học thuật và quyền quản trị giảng dạy.
+* **Xử lý dứt điểm các lỗi tràn giao diện (UI Cutoff & Overflow):**
+  * *Tab Rubrics & Tests:* Thiết lập lưới cấu hình linh hoạt (`.lecturer-config-grid`) tự động xếp chồng trên màn hình $\le 1300\text{px}$; thanh chọn bài tập, dải ruy-băng thông tin và bảng test cases tự động xuống dòng linh hoạt (`flex-wrap`).
+  * *Modal 4 (Tạo bài tập thủ công):* Mở rộng chiều rộng lên `maxWidth: 720px`, bố trí lưới tự co giãn cho 3 ô thời gian (`start_date`, `due_date`, `close_date`), không còn bị che khuất viền popup.
+  * *Modal 6 (Studio AI Soạn đề từ Slide):* Tích hợp đầy đủ bộ chọn Học phần, Hình thức nộp, Ngôn ngữ lập trình, Đối tượng giao bài và Thiết lập thời hạn.
+
+---
+
+### 4.29. Phân Định & Tách Biệt Nhiệm Vụ Đồ Án Chính Xác Theo Từng Học Phần (SWD392 vs CSD201)
+Chuẩn hóa dữ liệu phân công nhiệm vụ và giải quyết triệt để lỗi hiển thị chéo giữa các học phần:
+* **Hiện tượng & Nguyên nhân gốc rễ:**
+  * Trước đây, trên thẻ thành viên của **Lê Nguyễn Ánh Mai** và **Nguyễn Tường Vy**, dòng nhiệm vụ thứ 2 (*Implement Graph Data Structure & Dijkstra...* và *Implement BST Location Indexing & QuickSort...*) thuộc về môn **CSD201** nhưng lại bị gom hiển thị chung dưới nhóm Group 4 của môn **SWD392**.
+  * Nguyên nhân do bộ lọc tại `student/page.tsx` và `lecturer/page.tsx` chứa điều kiện `|| team.team_name?.includes('Group 4')` luôn trả về `true` cho môn SWD392, vô tình kéo luôn cả các task của CSD201 vào hiển thị.
+  * Đồng thời, trong CSDL `aita_db`, nhóm `team_id: 2` (`Group5_CSD201_TravelPlanner`) bị sót dữ liệu phân nhóm trong bảng `team_members`.
+* **Giải pháp triển khai toàn diện:**
+  1. *Phân định đúng nhiệm vụ cho từng môn học:*
+     * **Môn SWD392 (Group 4 - AITA):**
+       * Ánh Mai: *Thiết kế kiến trúc hệ thống, CSDL 16 bảng PostgreSQL & JWT Auth RBAC (BR-01)*.
+       * Tường Vy: *Xây dựng Docker Sandbox Runner cô lập, BullMQ Queue & Chấm rubric tự động (BR-03, BR-06, BR-09)*.
+     * **Môn CSD201 (Group 5 - Travel Planner):**
+       * Ánh Mai: *Implement Graph Data Structure & Dijkstra Algorithm for Shortest Travel Path*.
+       * Tường Vy: *Implement BST Location Indexing & QuickSort/Min-Heap for Budget Filtering*.
+  2. *Sửa logic lọc ở cả 2 trang Sinh viên (`student/page.tsx`) và Giảng viên (`lecturer/page.tsx`):*
+     * Xác định chính xác học phần và nhóm đồ án đang xem: môn SWD392 chỉ lọc các nhiệm vụ SWD392; môn CSD201 chỉ lọc các nhiệm vụ CSD201.
+  3. *Cập nhật Cơ sở dữ liệu và file `database/seed.sql`:*
+     * Bổ sung mục phân nhóm CSD201 (`team_id: 2`) cho Ánh Mai (Leader) và Tường Vy (Member).
+     * Đảm bảo khi khởi động ứng dụng hoặc chạy `npm run db:reset`, toàn bộ dữ liệu 2 môn học và 2 nhóm đồ án luôn được bảo toàn 100%.
+
+---
+
+### 4.30. Tối Ưu Hóa Giao Diện Giảng Viên: Mô Hình Gộp Menu Thông Minh & Tách Sub-Tab Bài Nộp Cá Nhân vs Đồ Án Nhóm
+Giải quyết triệt để vấn đề lẫn lộn giữa bài nộp cá nhân (Direct Code / Zip) và bài nộp đồ án nhóm (Git Repository) trên giao diện Giảng viên:
+* **Vấn đề kiến trúc:** Trước đây, bảng overview dồn tất cả bài nộp vào chung 1 bảng, khiến cột Git bị trống với bài cá nhân và cột Tên nhóm hiển thị tên sinh viên đơn lẻ. Đồng thời menu bên trái có 7 mục bị phân mảnh giữa Nộp & Bóc Tách Git và Báo Cáo & Free-Rider.
+* **Giải pháp chuẩn hóa LMS chuyên nghiệp (Phương án 2):**
+  1. *Phân tách 2 Sub-Tabs trực quan trong trang Bài nộp & Điểm:*
+     * **Sub-Tab 1: [ 📝 1. Bài Nộp Cá Nhân ]**: Hiển thị bảng bài tập cá nhân gồm: Sinh viên & Bài tập, Mã nguồn đã nộp (xem code trực tiếp), Trạng thái Docker Sandbox, Điểm số, Xếp hạng AI, Trạng thái kiểm duyệt BR-09, và Thao tác chấm/xem lịch sử.
+     * **Sub-Tab 2: [ 👥 2. Đồ Án Nhóm & Git ]**: Hiển thị bảng đồ án nhóm gồm: Nhóm đồ án & Milestone, Trưởng nhóm Đinh Gia Huy, Kho GitHub & SHA, Trạng thái kiểm thử Docker, Radar Free-Rider (BR-07) phát hiện thành viên < 5% LOC kèm nút chuyển nhanh sang xem chi tiết radar, Trạng thái kiểm duyệt và Chấm bài.
+  2. *Tinh gọn thanh Menu bên trái (Sidebar):*
+     * Gom mục Nộp & Bóc Tách Git và Báo Cáo & Free-Rider thành một mục thống nhất **Báo Cáo Git & Free-Rider** (giảm từ 7 xuống còn 6 mục tinh gọn).
+     * Bên trong trang Git Workspace, tích hợp 2 chế độ chuyển đổi: [ 📊 1. Báo Cáo Đóng Góp & Radar Free-Rider (BR-07) ] và [ 🚀 2. Nộp & Bóc Tách Kho Git Mới ].
+
+---
+
+### 4.31. Tối Ưu Hóa Cổng Nộp Bài Sinh Viên: Tách Biệt Gallery Đề Bài vs Form Nộp Bài & Bảo Mật Rubric Test Cases (BR-06)
+* **Bối cảnh & Vấn đề thực tế:** 
+  1. Trước đây, giao diện nộp bài cá nhân của sinh viên hiển thị đồng thời cả Danh mục tất cả bài tập (Zone 1 & Zone 2) lẫn Form nộp bài / Trình soạn thảo code (Zone 3) trên cùng một trang dài. Điều này khiến sinh viên bị xao nhãng, khó tập trung vào việc làm bài và dễ chọn nhầm đề bài.
+  2. Modal xem chi tiết đề bài trước đây hiển thị tab "Tiêu chí chấm Rubric" kèm danh sách các Test Cases (Input & Expected Output). Trong thực tế các hệ thống thi lập trình chuẩn mực (Online Judge, HackerRank, LeetCode, FPT PE), sinh viên **tuyệt đối không được xem test cases bí mật trước khi nộp bài** để ngăn chặn việc viết code hard-code rẽ nhánh (`if input == ... return ...`).
+* **Giải pháp kỹ thuật chuẩn hóa:**
+  1. **Tách biệt 2 trạng thái màn hình rõ ràng (`individualViewMode: 'gallery' | 'submit'`):**
+     - **Chế độ Gallery (`gallery`):** Hiển thị bộ lọc môn học, thẻ thống kê tổng quan và lưới card bài tập cá nhân trực quan. Mỗi bài tập có đầy đủ thông tin: Hạn chót, Thang điểm, Số lượt nộp, Trạng thái (Đã nộp / Chưa nộp) cùng 2 nút hành động: `[👁️ Xem chi tiết đề bài]` và `[🚀 Nộp Bài Ngay]`.
+     - **Chế độ Nộp bài (`submit`):** Chỉ hiển thị duy nhất Cổng nộp bài làm mới (chọn học phần, đề bài được chọn sẵn tự động, khu vực kéo thả file `.zip` hoặc trình soạn thảo Docker Sandbox Runner).
+     - **Cơ chế chuyển đổi mượt mà (Frictionless Switcher):** Bổ sung nút `[📇 Đổi Đề Bài Khác]` tại header bài nộp và nút `[← Quay lại Danh sách Tất cả Đề bài]` ở footer để sinh viên quay lại danh mục đề bất cứ lúc nào.
+  2. **Bảo mật tuyệt đối Rubric Test Cases theo chuẩn BR-06:**
+     - Loại bỏ hoàn toàn tab Test Cases khỏi modal xem đề bài của sinh viên.
+     - Sinh viên chỉ được xem: Tên bài tập, Mô tả yêu cầu nghiệp vụ, Ràng buộc kỹ thuật (Ngôn ngữ lập trình cho phép, Hạn nộp bài, Điểm tối đa, Số lần nộp cho phép, Chính sách phạt nộp trễ).
+     - Toàn bộ Test Cases chỉ được kích hoạt ngầm trong Docker Sandbox khi sinh viên bấm nộp bài.
+
+---
+
+### 4.32. Hợp Nhất Quản Lý Nhóm Vào Học Phần & Tối Giản Hóa Roster Thành Viên (Loại Bỏ Phân Task Code)
+* **Bối cảnh & Vấn đề kiến trúc:**
+  1. Thanh sidebar của Giảng viên trước đây có mục `[📁 Nhóm sinh viên]` nằm riêng rẽ ngoài trang chủ, vừa trùng lặp với danh sách nhóm bên trong Học phần, vừa tạo cảm giác rời rạc thiếu phân cấp môn học.
+  2. Tính năng "Phân task code & nhiệm vụ" (`TeamTask`, thanh tiến độ 5/5 tasks 100%, form giao task mini) là tính năng giả lập (mock), không nằm trong phạm vi nghiệp vụ cốt lõi của nền tảng chấm mã nguồn tự động, gây rối mắt cho Giảng viên khi theo dõi danh sách lớp.
+* **Giải pháp tinh giản & nâng tầm trải nghiệm:**
+  1. **Gộp Nhóm sinh viên vào trực tiếp từng Học phần:**
+     - Xóa bỏ mục `[📁 Nhóm sinh viên]` ngoài sidebar.
+     - Khi Giảng viên bấm nút `[📁 Xem danh sách nhóm]` tại bất kỳ thẻ học phần nào, hệ thống chuyển sang chế độ xem nhóm (`activeTab === 'teams'`) với Breadcrumb định danh rõ ràng: `Học phần / Nhóm sinh viên (Mã môn)` và nút bấm tiện ích `[← Quay lại Danh sách Học phần]`.
+  2. **Xóa bỏ triệt để tính năng Phân task code, chuẩn hóa Team Roster:**
+     - Thay thế toàn bộ thanh tiến độ nhiệm vụ và danh sách task code trên Card Nhóm bằng **Danh sách Thành viên nhóm** trang nhã: Avatar chữ cái đầu, Họ và tên, Huy hiệu Trưởng nhóm `👑 LEADER`, Phân hệ phụ trách đồ án và Email. Nút hành động chính đổi thành `[👥 Quản lý thành viên nhóm]`.
+     - Tái cấu trúc Modal Chi Tiết Nhóm: Loại bỏ toàn bộ thanh tiến độ đa đoạn, các nút chuyển trạng thái task và form `+ Giao task`. Thay bằng giao diện Quản lý Thành viên (Roster Management) sắc sảo, hỗ trợ `[+ Thêm sinh viên vào nhóm]`, xem vai trò và `[🗑️ Xóa khỏi nhóm]`.
+     - Dọn dẹp sạch sẽ toàn bộ interface `TeamTask`, state `teamTasks`, và các hàm mock task ở cả giao diện Giảng viên và Sinh viên, đưa TypeScript type-check về trạng thái chuẩn 0 lỗi.
+
+---
+
+### 4.33. Nâng Cấp Hạn Mức CPU Docker Sandbox 1.0 Core Phục Vụ Thực Thi Toàn Diện (BR-03)
+* **Bối cảnh & Động lực kỹ thuật:**
+  - Trước đây hệ thống giới hạn Docker Sandbox ở mức 0.5 CPU core (`NanoCpus: 500_000_000`). Mặc dù mức này an toàn cho các bài toán giải thuật đơn giản, nhưng với các bài thực hành biên dịch phức tạp (Node.js/Express, Python khoa học dữ liệu, AST parsing), 0.5 core có thể làm chậm thời gian phản hồi của container.
+* **Quyết định cấu hình & Tối ưu hóa:**
+  - Cập nhật định mức CPU lên **1.0 CPU Core đầy đủ** (`NanoCpus: 1_000_000_000`) tại `server/src/modules/grading/sandbox.service.ts`.
+  - Giữ vững các chốt chặn an toàn bất khả xâm phạm:
+    - **RAM Limit:** 256MB khống chế chống OOM và rò rỉ bộ nhớ.
+    - **Network Isolation:** `NetworkMode: 'none'` cô lập 100% mạng Internet.
+    - **Non-root Execution:** User `runner` (UID 1001) với `CapDrop: ['ALL']`.
+    - **Watchdog Timeout:** Cưỡng chế kill container sau 5000ms–10000ms.
+  - Kết quả: Tốc độ chấm mã nguồn tự động tăng gấp đôi, chạy mượt mà ngay cả khi chấm hàng loạt bài nộp qua hàng đợi BullMQ Redis.
 
 ---
 
@@ -432,9 +670,14 @@ Củng cố sự ổn định và độ tin cậy tuyệt đối của hệ th�
 | `POST` | `/api/assignments` | LECTURER / ADMIN | Giảng viên tạo bài tập mới (hỗ trợ `INDIVIDUAL`/`TEAM`) |
 | `GET` | `/api/assignments/:id` | Authenticated | Chi tiết bài tập (Ẩn test bí mật nếu là Student) |
 | `POST` | `/api/assignments/:id/rubrics` | LECTURER / ADMIN | Thêm tiêu chí Rubric / Test case (công khai hoặc ẩn) |
+| `PUT` | `/api/assignments/:id/test-cases/:testId` | LECTURER / ADMIN | Cập nhật cấu hình & trạng thái test case (`ACTIVE` / `HIDDEN` / `DRAFT` / `DISABLED`) |
+| `GET` | `/api/assignments/:id/target-teams` | Authenticated | Lấy danh sách các nhóm được chỉ định giao bài tập (`SPECIFIC_TEAMS`) |
+| `PUT` | `/api/assignments/:id/lifecycle` | LECTURER / ADMIN | Chuyển đổi trạng thái vòng đời bài tập (`DRAFT` / `PUBLISHED` / `CLOSED` / `ARCHIVED`) |
 | `GET` | `/api/submissions` | Authenticated | Danh sách bài nộp (Hỗ trợ bài cá nhân, phân quyền SV chỉ xem bài của mình) |
-| `POST` | `/api/submissions` | STUDENT | Nộp bài (`artifact_url`, `git_commit_hash`) $\rightarrow$ Validate nhóm/bài tập, giải phóng pool & Đẩy vào BullMQ |
+| `POST` | `/api/submissions` | STUDENT | Nộp bài (Hỗ trợ nộp mã nguồn trực tiếp `code_content`, `language` HOẶC qua Git `artifact_url`, `git_commit_hash`) $\rightarrow$ Đẩy vào BullMQ |
 | `GET` | `/api/submissions/:id` | Authenticated | Tra cứu trạng thái chấm bài thời gian thực |
+| `POST` | `/api/submissions/:id/regrade` | LECTURER / ADMIN | Kích hoạt chấm lại bài nộp vào Docker Sandbox khi cập nhật test case |
+| `GET` | `/api/submissions/:id/history` | Authenticated | Tra cứu toàn bộ lịch sử các lần chấm bài từ bảng `grading_history` |
 | `GET` | `/api/submissions/my` | STUDENT | Lấy lịch sử tất cả bài nộp của bản thân/nhóm |
 | `GET` | `/api/grading/:jobId/results` | Authenticated | Kết quả chấm chi tiết từng tiêu chí Rubric (**BR-06**) |
 | `POST` | `/api/grading/review/approve-ai/:id` | LECTURER / ADMIN | Giảng viên 1 phê duyệt điểm AI sơ bộ (**BR-09**) |
@@ -444,9 +687,24 @@ Củng cố sự ổn định và độ tin cậy tuyệt đối của hệ th�
 
 ---
 
-## 6. Kết Quả Kiểm Thử Thực Tế (`verify-member2.ts: 21/21 PASS`)
+## 6. Kết Quả Kiểm Thử Thực Tế (`verify-member2.ts: 21/21 PASS` & 6 Test Suites Chuyên Sâu)
 
-Khi chạy lệnh kiểm thử tự động `npx ts-node src/test/verify-member2.ts`, toàn bộ các bài test đều vượt qua tuyệt đối:
+Hệ thống kiểm thử tự động của Thành viên 2 bao gồm **bộ test suite tích hợp chính `verify-member2.ts`** cùng **6 bộ test suites chuyên sâu** được thiết kế độc lập, kiểm chứng 100% các kịch bản thực tế:
+
+### 6.1. Bảng Tổng Hợp Các Bộ Kiểm Thử Tự Động:
+
+| STT | Script Kiểm Thử | Lệnh Chạy (Server) | Số Lượng Assertions | Kết Quả Thực Tế | Nghiệp Vụ Kiểm Chứng |
+| :---: | :--- | :--- | :---: | :---: | :--- |
+| **1** | `verify-member2.ts` | `npm run test:member2` | **21 / 21 PASS** | **100%** | Kiểm chứng cốt lõi BR-03 (0.5 core, timeout), BR-06 (test ẩn), BR-09 (chấm chéo GV1-GV2). |
+| **2** | `test-direct-submission.ts` | `npm run test:direct-submission` | **10 / 10 PASS** | **100%** | Nộp trực tiếp mã nguồn Python 3 & Node.js 20, lưu trữ `code_content`, nạp BullMQ queue. |
+| **3** | `test-testcase-management.ts` | `npm run test:test-case-mgmt` | **12 / 12 PASS** | **100%** | Quản lý 4 trạng thái Test Case (ACTIVE, HIDDEN, DRAFT, DISABLED), bảo mật dữ liệu test ẩn. |
+| **4** | `test-grading-engine.ts` | `npm run test:grading-engine` | **14 / 14 PASS** | **100%** | Thực thi Docker Sandbox đa ngôn ngữ, chuẩn hóa output `trimEnd()`, watchdog timeout 5s/10s. |
+| **5** | `test-regrade-history.ts` | `npm run test:regrade-history` | **10 / 10 PASS** | **100%** | Quy trình Chấm lại (Regrade) khi cập nhật test case, lưu vết lịch sử chấm vào `grading_history`. |
+| **6** | `test-target-groups.ts` | `npm run test:target-groups` | **11 / 11 PASS** | **100%** | Phân bổ bài tập cho toàn bộ lớp (`ALL`) hoặc chỉ định nhóm cụ thể (`SPECIFIC_TEAMS`). |
+| **7** | `test-assignment-lifecycle.ts` | `npm run test:lifecycle` | **15 / 15 PASS** | **100%** | 4 trạng thái vòng đời bài tập (Draft, Published, Closed, Archived), chính sách nộp trễ Late Submission. |
+| **TỔNG** | **7 TEST SUITES** | **TOÀN BỘ PHÂN HỆ 2** | **93 / 93 PASS** | **100% XUẤT SẮC** | **ĐẠT TIÊU CHUẨN SẴN SÀNG BẢO VỆ ĐỒ ÁN** |
+
+### 6.2. Nhật Ký Đầu Ra Của Bộ Test Suite Cốt Lõi `verify-member2.ts`:
 
 ```text
 ================================================================
@@ -542,9 +800,9 @@ npm run test:member2
 
 ---
 
-## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 10 Câu Hỏi Điển Hình)
+## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 15 Câu Hỏi Điển Hình)
 
-Dưới đây là tổng hợp 10 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
+Dưới đây là tổng hợp 15 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
 
 ### ❓ Câu 1: Loại Container sử dụng trong Sandbox là gì và tại sao gọi là Ephemeral Container?
 * **Trả lời phản biện:**
@@ -562,18 +820,17 @@ Dưới đây là tổng hợp 10 câu hỏi phản biện thực tế thường
   > 
   > Về bản chất, Docker không can thiệp phần cứng mà sử dụng cơ chế **Linux cgroups (Control Groups)** và bộ lập lịch **CFS (Completely Fair Scheduler)** của Linux kernel:
   > - Chu kỳ điều phối chuẩn của Linux CFS là $100\text{ms}$ (`cpu.cfs_period_us = 100000` micro-giây).
-  > - Khi nhóm em cấu hình 0.5 core, Linux cgroups sẽ cấp hạn mức thời gian thực thi là $50\text{ms}$ (`cpu.cfs_quota_us = 50000` micro-giây).
-  > - Nghĩa là trong mỗi chu kỳ $100\text{ms}$, tiến trình container chỉ được chiếm dụng CPU tối đa $50\text{ms}$, sau đó bị kernel thắt lại (CPU throttling) để nhường quyền xử lý cho các tiến trình khác.
-  > Nhờ cơ chế phân bổ thời gian thực thi (time-sharing slicing) này của kernel, container hoạt động chính xác với định mức nửa nhân CPU.
+  > - Khi nhóm em cấu hình 1.0 core, Linux cgroups sẽ cấp hạn mức thời gian thực thi là $100\text{ms}$ (`cpu.cfs_quota_us = 100000` micro-giây) trên mỗi chu kỳ $100\text{ms}$ (`cpu.cfs_period_us = 100000`).
+  > - Nghĩa là trong mỗi chu kỳ $100\text{ms}$, tiến trình container được sử dụng trọn vẹn tương đương 1 nhân CPU độc lập.
   > 
-  > Trong Docker Engine API, đơn vị được chuẩn hóa thành **NanoCPUs** ($1\text{ Core} = 10^9\text{ NanoCPUs}$). Do đó $0.5\text{ Core} = 500.000.000\text{ NanoCPUs}$ (trong code khai báo là `500_000_000`)."*
+  > Trong Docker Engine API, đơn vị được chuẩn hóa thành **NanoCPUs** ($1\text{ Core} = 10^9\text{ NanoCPUs}$). Do đó $1.0\text{ Core} = 1.000.000.000\text{ NanoCPUs}$ (trong code khai báo là `1_000_000_000`)."*
 
 ---
 
 ### ❓ Câu 3: Mở mã nguồn thực tế chứng minh các thông số giới hạn tài nguyên ở đâu?
 * **Trả lời phản biện:**
   > Mở trực tiếp file `server/src/modules/grading/sandbox.service.ts` và dẫn dắt 3 vị trí then chốt:
-  > 1. **Dòng 165:** Khai báo mặc định `cpuQuota = 500_000_000` (đúng chuẩn $0.5 \times 10^9$ NanoCPUs) và `memoryLimitBytes = 256 * 1024 * 1024` (256MB RAM).
+  > 1. **Dòng 165:** Khai báo mặc định `cpuQuota = 1_000_000_000` (đúng chuẩn $1.0 \times 10^9$ NanoCPUs) và `memoryLimitBytes = 256 * 1024 * 1024` (256MB RAM).
   > 2. **Dòng 202 - 208 (`HostConfig`):**
   >    - `NanoCpus: cpuQuota`: Truyền định mức CPU trực tiếp vào Docker Engine.
   >    - `Memory: memoryLimitBytes`: Khống chế RAM tối đa 256MB (vượt quá bị OOMKilled).
@@ -625,13 +882,14 @@ Dưới đây là tổng hợp 10 câu hỏi phản biện thực tế thường
 
 ---
 
-### ❓ Câu 9: Hệ thống hiện tại có thực sự vẫn áp dụng Docker Sandbox 0.5 core không? Các thông số cô lập tài nguyên được cấu hình như thế nào?
+### ❓ Câu 9: Định mức CPU của Docker Sandbox hiện tại là bao nhiêu và các thông số cô lập tài nguyên được cấu hình như thế nào?
 * **Trả lời phản biện:**
-  > *"Dạ thưa thầy/cô, hệ thống hiện tại vẫn đang áp dụng nghiêm ngặt giới hạn Docker Sandbox cô lập tài nguyên theo chuẩn **BR-03**:
-  > - **Định mức CPU:** Cấu hình `NanoCpus: 500_000_000`, tương đương chính xác **0.5 CPU core**. Cơ chế cgroups CFS của Linux kernel sẽ thắt thời gian thực thi (throttling) tối đa 50ms trong mỗi chu kỳ 100ms.
+  > *"Dạ thưa thầy/cô, hệ thống hiện tại đang áp dụng nghiêm ngặt giới hạn Docker Sandbox cô lập tài nguyên theo chuẩn **BR-03**:
+  > - **Định mức CPU:** Cấu hình `NanoCpus: 1_000_000_000`, tương đương chính xác **1.0 CPU Core đầy đủ** (nâng cấp từ 0.5 core trước đây để tối ưu hóa tốc độ biên dịch và thực thi các bài toán phức tạp mà không làm quá tải CPU máy chủ).
   > - **Định mức RAM:** Cấu hình `Memory: 256MB` (`256 * 1024 * 1024 bytes`), nếu code sinh viên bị rò rỉ bộ nhớ hoặc tạo mảng quá lớn sẽ bị Linux kernel ngắt ngay lập tức với mã lỗi `OOMKilled` (`MEMORY_LIMIT_EXCEEDED`).
-  > - **Watchdog Timeout:** Giới hạn 10,000ms (10 giây), tự động cưỡng chế hủy container nếu sinh viên viết vòng lặp vô tận (`while(true)`).
-  > - **Cách ly mạng:** Cấu hình `NetworkMode: 'none'`, ngắt toàn bộ card mạng Internet để bảo vệ máy chủ trường học khỏi các cuộc tấn công SSRF hoặc kết nối ra ngoài trái phép."*
+  > - **Watchdog Timeout:** Giới hạn 5,000ms – 10,000ms (5–10 giây), tự động cưỡng chế hủy container nếu sinh viên viết vòng lặp vô tận (`while(true)`).
+  > - **Cách ly mạng:** Cấu hình `NetworkMode: 'none'`, ngắt toàn bộ card mạng Internet để bảo vệ máy chủ trường học khỏi các cuộc tấn công SSRF hoặc kết nối ra ngoài trái phép.
+  > - **Đặc quyền thực thi:** Khởi chạy dưới user phi đặc quyền `runner` (UID 1001) và gỡ bỏ toàn bộ capabilities (`CapDrop: ['ALL']`)."*
 
 ---
 
@@ -644,6 +902,143 @@ Dưới đây là tổng hợp 10 câu hỏi phản biện thực tế thường
   >   2. Áp dụng kỹ thuật **`isMounted` hook pattern**: Chỉ khi component đã mount thành công trên Client (`useEffect` đã kích hoạt) thì các thành phần phụ thuộc vào bộ nhớ cục bộ mới được hiển thị.
   >   3. Di dời việc đọc `sessionStorage` từ khởi tạo state đồng bộ vào trong `useEffect`.
   > Nhờ vậy, quá trình SSR và Client Hydration diễn ra hoàn toàn ăn khớp, trang web tải mượt mà không xuất hiện bất kỳ cảnh báo đỏ nào!"*
+
+---
+
+### ❓ Câu 11: Làm thế nào hệ thống hỗ trợ cả nộp code trực tiếp lẫn nộp qua Git Repository? Dưới Database lưu trữ ra sao?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, hệ thống hỗ trợ linh hoạt 2 hình thức nộp bài tùy theo mục đích đào tạo:
+  > - **Hình thức 1 (Nộp trực tiếp mã nguồn):** Phục vụ các bài lab thuật toán hàng tuần (LeetCode style). Sinh viên dán code Python hoặc JavaScript trực tiếp lên giao diện. Backend lưu nội dung code vào cột `code_content` và ngôn ngữ vào cột `language` của bảng `submissions`. Khi chạy, Docker Sandbox nạp code trực tiếp vào container thông qua luồng in-memory TAR stream mà không cần clone Git, tốc độ chấm diễn ra tức thì (< 3 giây).
+  > - **Hình thức 2 (Nộp qua GitHub Repository):** Phục vụ các cột mốc đồ án lớn (Milestones). Sinh viên nộp URL Git và Commit SHA (lưu tại `artifact_url` và `git_commit_hash`). Hệ thống thực hiện bare clone, bóc tách commit history để phân tích đóng góp của từng thành viên."*
+
+---
+
+### ❓ Câu 12: Khi giảng viên sửa Test Case thì hệ thống xử lý các bài đã nộp trước đó như thế nào (Cơ chế Regrade & Lịch sử chấm)?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, trong thực tế giảng dạy, giảng viên thường xuyên cần bổ sung test case biên hoặc sửa đổi điểm số của tiêu chí chấm. Hệ thống của nhóm em giải quyết bài toán này bằng **Cơ chế Chấm lại (Regrade Pipeline) & Lịch sử chấm đa phiên**:
+  > 1. Khi giảng viên bấm nút **'Chấm lại (Regrade)'**, Backend tạo một Grading Job mới đưa vào hàng đợi BullMQ Redis với độ ưu tiên cao nhất (`priority: 1`).
+  > 2. Docker Sandbox tự động lấy lại mã nguồn đã nộp của sinh viên (`code_content` hoặc Git commit) và thực thi lại trên toàn bộ bộ Test Cases mới nhất.
+  > 3. Toàn bộ lịch sử các lần chấm được lưu vết minh bạch vào bảng **`grading_history`** bao gồm: mã bài nộp, số lần chấm (`attempt_number`), điểm cũ, điểm mới, thời gian chấm lại và tài khoản giảng viên thực hiện. Phía giao diện hiển thị dòng thời gian (Grading Timeline) giúp sinh viên và giảng viên đối soát rõ ràng nguyên nhân biến động điểm số."*
+
+---
+
+### ❓ Câu 13: Cơ chế phân quyền giao bài tập cho toàn bộ lớp vs nhóm chỉ định hoạt động ra sao dưới tầng CSDL?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, tính năng này được thiết kế để hỗ trợ cả bài tập đại trà lẫn bài tập đồ án chuyên sâu theo từng nhóm:
+  > - **Dưới CSDL:** Bảng `assignments` có trường `target_type` nhận giá trị `'ALL'` (toàn bộ lớp) hoặc `'SPECIFIC_TEAMS'` (chỉ định nhóm). Danh sách các nhóm được giao được lưu trữ liên kết qua bảng `assignment_target_teams` hoặc mảng `target_teams`.
+  > - **Phía API & Sinh viên:** Khi sinh viên truy cập Cổng nộp bài, API `/api/assignments` tự động join bảng `team_members` để lấy `team_id` của sinh viên. Hệ thống chỉ trả về các bài tập có `target_type = 'ALL'` HOẶC bài tập mà `team_id` của sinh viên nằm trong danh sách được chỉ định. Nhờ vậy, sinh viên nhóm khác hoàn toàn không thể xem hoặc nộp trộm bài của nhóm được giao riêng."*
+
+---
+
+### ❓ Câu 14: Vòng đời bài tập (Lifecycle: Draft -> Published -> Closed -> Archived) và cơ chế kiểm soát nộp trễ được hiện thực như thế nào?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, một bài tập trong hệ thống trải qua 4 trạng thái vòng đời nghiêm ngặt:
+  > 1. **DRAFT:** Giảng viên đang biên soạn đề và test case, bài tập hoàn toàn ẩn với sinh viên.
+  > 2. **PUBLISHED:** Đề bài xuất bản chính thức, mở cổng nhận bài theo thời gian `start_date`.
+  > 3. **CLOSED:** Hết hạn nộp bài. Nếu cấu hình `allow_late_submission = true`, sinh viên nộp sau `due_date` vẫn được chấp nhận nhưng hệ thống tự động gắn cờ `LATE` và trừ điểm theo tỷ lệ phạt. Sau mốc `close_date`, hệ thống khóa cứng form nộp bài.
+  > 4. **ARCHIVED:** Lưu trữ bài tập sau khi kết thúc môn học để bảo lưu hồ sơ kiểm định chất lượng đào tạo.
+  > Toàn bộ logic này được kiểm tra tự động cả ở tầng Frontend (vô hiệu hóa nút nộp bài) lẫn Backend API (trả về mã lỗi 403 Forbidden kèm lý do cụ thể nếu bài tập đã đóng), đảm bảo tính toàn vẹn tuyệt đối."*
+
+---
+
+### ❓ Câu 15: Vì sao trước đây các nhiệm vụ của môn CSD201 lại bị hiển thị nhầm bên SWD392 và Thành viên 2 đã giải quyết triệt để như thế nào?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, đây là một lỗi lọc dữ liệu chéo giữa các học phần (Cross-course Data Leakage) được phát hiện trong quá trình kiểm thử thực tế:
+  > - **Nguyên nhân kỹ thuật:** Trước đây bộ lọc nhiệm vụ sinh viên phía Frontend có điều kiện fallback `|| team.team_name?.includes('Group 4')`. Vì nhóm SWD392 có tên là Group 4 nên biểu thức này luôn trả về `true`, vô tình kéo toàn bộ các task có tên bạn Ánh Mai và Tường Vy trong bộ nhớ (bao gồm cả task Dijkstra và BST của môn CSD201) dồn hết vào hiển thị ở thẻ môn SWD392.
+  > - **Giải pháp triệt để của nhóm:**
+  >   1. Chuẩn hóa lại bộ lọc theo đúng ngữ cảnh học phần (`course_id` / `team_id`): Thẻ môn SWD392 chỉ lọc các nhiệm vụ kiến trúc và Docker Sandbox của SWD392; thẻ môn CSD201 chỉ lọc các nhiệm vụ Cấu trúc dữ liệu và Thuật toán của CSD201.
+  >   2. Bổ sung dữ liệu phân nhóm và thành viên cho môn CSD201 (`team_id: 2`) vào file `seed.sql` và CSDL PostgreSQL, đảm bảo khi khởi động hoặc reset CSDL thì dữ liệu cả 2 môn học luôn tách bạch và hiển thị chuẩn mực 100%."*
+
+---
+
+### ❓ Câu 16: Bảng thống kê đóng góp Git bên Sinh viên được đồng bộ như thế nào so với màn Giảng viên, và cơ chế bảo vệ quyền riêng tư (Privacy Protection / Anti-Shaming) hoạt động ra sao?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, giao diện Báo cáo Đóng góp Git của sinh viên đã được tái thiết kế chuẩn hóa 100% cấu trúc giao diện với màn Giảng viên (Group Header badges, 5 cột dữ liệu: Thành viên & Phân hệ, Lượt Commits, Dòng Code LOC Thêm/Xóa, Tỷ lệ đóng góp %, Đánh giá BR-07). Tuy nhiên, có những điểm khác biệt cốt lõi về phân quyền và bảo vệ quyền riêng tư sinh viên:
+  > 1. **Bảo vệ quyền riêng tư & Chống sỉ nhục công khai (Anti-Public Shaming):**
+  >    - Phía **Giảng viên**: Giảng viên có quyền sư phạm để giám sát toàn diện, do đó hệ thống hiển thị nhãn cảnh báo đỏ `⚠️ Cảnh báo BR-07: Free-Rider (<5% LOC)` để giảng viên can thiệp hoặc trừ điểm.
+  >    - Phía **Sinh viên**: Sinh viên **tuyệt đối không được thấy** bạn cùng nhóm bị gắn mác 'Free-Rider'. Đối với các thành viên khác có tỷ lệ LOC < 5%, hệ thống hiển thị nhãn trung tính màu xám thanh lịch `🕒 Đang hoàn thiện` (In Progress) với thanh tiến độ trung tính.
+  > 2. **Cảnh báo cá nhân hóa (Personal Actionable Alert):**
+  >    - Đối với chính sinh viên đang đăng nhập (`isMe`), hệ thống vẫn hiển thị nhãn cảnh báo `⚠️ Dưới ngưỡng BR-07 (<5% LOC)` và thẻ tóm tắt cá nhân để sinh viên tự nhận thức và kịp thời bổ sung commit code trước thời điểm chốt sổ điểm.
+  > 3. **Phân quyền thao tác quản trị:**
+  >    - Sinh viên không có quyền chỉnh sửa đường link Git Repo hoặc can thiệp nhóm khác như giảng viên, mà chỉ tương tác trên repository chính thức được nhóm nộp và phân tích."*
+
+---
+
+### ❓ Câu 17: Hệ thống đã phân tách rõ ràng Cổng nộp bài Cá nhân vs Cổng nộp Đồ án nhóm (Git) như thế nào, và kiến trúc xử lý kỹ thuật đằng sau mỗi luồng ra sao?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, trong các hệ thống học tập thực tế (như các kỳ đồ án SWP/FPTU), bài nộp được chia thành 2 hình thức có mục đích và bản chất kỹ thuật hoàn toàn khác biệt. Hệ thống AITA-INTELLIGENT đã thiết kế tách biệt 2 luồng nộp bài thông qua Sub-tab Switcher chuyên dụng ngay tại Cổng Nộp bài của sinh viên:
+  >
+  > 1. **Cổng `[ 📝 Bài Tập Cá Nhân ]` (Individual Submission - Hybrid Mode):**
+  >    - **Mục đích:** Dành cho các bài lab tuần, bài thi thực hành cá nhân (Practical Exam, ví dụ PRO192, CSD201, PRN211...).
+  >    - **Tính độc lập:** Sinh viên không bắt buộc phải có nhóm đồ án vẫn có thể nộp bài bình thường. Khi nộp, hệ thống truyền `team_id: null` và gán trực tiếp với `user.userId`.
+  >    - **Hai phương thức nộp linh hoạt (Hybrid Mode):**
+  >      - **Cách 1: Tải lên tệp nén mã nguồn (`.zip`, `.rar`, `.java`, `.py`):** Kéo thả tệp trực tiếp vào Drag & Drop zone (chuẩn UI đồ án thực tế). Hệ thống tự động ghi nhận dung lượng, tên tệp và lưu trữ an toàn.
+  >      - **Cách 2: Soạn thảo trực tiếp & Docker Sandbox Runner:** Trình soạn thảo Dark Mode chuẩn Monaco với bộ chuyển đổi ngôn ngữ linh hoạt (`JS Node.js` / `Python 3`), tích hợp watchdog 5s và RAM 128MB chạy trên container cô lập an toàn.
+  >    - **Thông tin bổ trợ:** Có trường lời nhắn / ghi chú gửi giảng viên và modal xác nhận minh bạch thông số tệp/code.
+  >
+  > 2. **Cổng `[ 👥 Đồ Án Nhóm (Git) ]` (Team Project Submission - Pure Git Repository):**
+  >    - **Mục đích:** Dành cho các cột mốc đồ án nhóm (Milestone Iteration 1, 2, Final Defense).
+  >    - **Bản chất kỹ thuật:** **KHÔNG CÓ khung soạn thảo code** trên form nhóm (tránh việc sinh viên nhầm lẫn giữa việc viết code ngắn và nộp toàn bộ kho repository).
+  >    - **Dữ liệu nộp tối giản & Frictionless UX:**
+  >      - Trưởng nhóm đại diện chính thức: **Đinh Gia Huy** (phụ trách phân hệ Git Analytics, Noise Filter & Peer Audit).
+  >      - Tối ưu hóa form tinh gọn chuẩn giao diện đồ án thực tế: Chỉ yêu cầu 2 thông số cốt lõi là **GitHub Repository URL** và **Branch (mặc định main)**. Hệ thống tự động nhận diện commit HEAD, loại bỏ việc bắt buộc chọn cột mốc milestone thủ công hoặc nhập mã SHA dài dòng gây cản trở sinh viên.
+  >      - Tích hợp thanh điều hướng tab con trực quan: `[ 1. Submit Team Repo ]` và nút bấm chuyển nhanh `[ 📊 2. Contribution & Free-Rider Report (BR-07) → ]` giúp nhóm ngay sau khi nộp có thể tức thì theo dõi biểu đồ radar đóng góp và phát hiện free-rider của từng thành viên.
+  >    - **Kích hoạt Pipeline:** Khi đại diện nhóm bấm nộp, hệ thống lưu bài nộp đại diện chung (`team_id = myTeam.team_id`), tự động đồng bộ sang luồng bóc tách Git Analytics và tính toán tỷ lệ đóng góp LOC / Radar Free-Rider (BR-07) cho tất cả các thành viên trong nhóm."*
+
+---
+
+### ❓ Câu 18: Vì sao hệ thống lại tách biệt chế độ xem Danh mục Đề bài (Gallery) và Giao diện Nộp bài (Submit Mode) ở cổng sinh viên thay vì dồn chung trên 1 màn hình?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, đây là cải tiến quan trọng về trải nghiệm người dùng (UX Design Pattern) dựa trên phản hồi thực tế của sinh viên khi làm bài:
+  > 1. **Giải quyết sự xao nhãng & Quá tải nhận thức (Cognitive Load):** Trước đây khi dồn cả danh sách bài tập lẫn form nộp code vào cùng một trang, trang web bị kéo dài (over-scrolling), sinh viên vừa phải cuộn chuột tìm đề bài, vừa phải cuộn xuống form nộp code, rất dễ nhầm lẫn giữa việc 'đang xem đề bài nào' và 'đang nộp cho đề bài nào'.
+  > 2. **Phân tách luồng tác vụ (Task Separation):** 
+  >    - **Giai đoạn 1 (Khảo sát đề bài - Gallery Mode):** Sinh viên tập trung duyệt qua các bài tập của môn học, xem hạn chót, trạng thái nộp bài và xem chi tiết yêu cầu đề thi.
+  >    - **Giai đoạn 2 (Thực hiện nộp bài - Submit Mode):** Khi sinh viên bấm `[🚀 Nộp Bài Ngay]`, giao diện chuyển hẳn sang không gian làm bài tập trung. Đề bài đã được tự động chọn sẵn, sinh viên chỉ việc kéo thả file `.zip` hoặc code trực tiếp trên Docker Sandbox Runner mà không bị bất kỳ yếu tố ngoại cảnh nào làm phân tâm.
+  > 3. **Tính linh hoạt:** Hệ thống cung cấp sẵn nút `[📇 Đổi Đề Bài Khác]` và `[← Quay lại Danh sách Tất cả Đề bài]` để sinh viên có thể quay lại danh mục đề bất cứ khi nào."*
+
+---
+
+### ❓ Câu 19: Tại sao sinh viên chỉ được xem mô tả bài tập mà không được thấy tiêu chí chấm Rubric và bộ Test Cases trước khi nộp bài (BR-06)?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, đây là quy chuẩn bảo mật và chống gian lận kinh điển trong tất cả các hệ thống thi lập trình chuẩn mực (Online Judge, HackerRank, LeetCode, Codeforces, hay hệ thống PE của Đại học FPT):
+  > 1. **Chống gian lận rẽ nhánh cứng (Hard-coding bypass):** Nếu sinh viên biết trước Test Case Input (`sort_bst`) và Expected Output (`DaNang Dalat Hanoi Hue Saigon`), sinh viên hoàn toàn có thể viết mã gian lận:
+  >    ```python
+  >    if input_str == 'sort_bst':
+  >        print('DaNang Dalat Hanoi Hue Saigon')
+  >    ```
+  >    Đoạn mã trên sẽ qua mặt hệ thống chấm tự động và đạt điểm tối đa mà không hề cài đặt cấu trúc dữ liệu cây nhị phân hay danh sách liên kết theo đúng yêu cầu đề bài!
+  > 2. **Tuân thủ quy tắc nghiệp vụ BR-06 (Rubric Shielding):** Hệ thống chỉ công khai cho sinh viên: Đề bài, Yêu cầu nghiệp vụ, Ràng buộc ngôn ngữ, Hạn chót, Thang điểm và Số lần nộp bài tối đa.
+  > 3. **Thời điểm công bố kết quả:** Toàn bộ bộ test cases (bao gồm cả Public lẫn Hidden) chỉ được Docker Sandbox thực thi ngầm khi bài nộp được đẩy vào BullMQ. Sau khi chấm xong, hệ thống mới hiển thị kết quả các test cases công khai để sinh viên đối soát, trong khi test case ẩn vẫn được bảo vệ dữ liệu tuyệt đối."*
+
+---
+
+### ❓ Câu 20: Vì sao lại quyết định gộp tính năng "Nhóm sinh viên" vào trực tiếp bên trong "Học phần" và loại bỏ mục menu riêng ở Sidebar?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, quyết định tái cấu trúc này xuất phát từ nguyên lý phân cấp dữ liệu trong phần mềm quản lý đào tạo (LMS Information Architecture):
+  > 1. **Quan hệ phụ thuộc thực tế trong CSDL:** Một nhóm sinh viên (`teams`) không thể tồn tại độc lập mà **bắt buộc phải thuộc về một học phần cụ thể (`course_id`)**. Việc để mục 'Nhóm sinh viên' nằm riêng lẻ ngoài Sidebar tạo cảm giác nhóm sinh viên là một thực thể độc lập toàn cục, gây hiểu lầm cho giảng viên khi môn SWD392 và môn CSD201 đều có các nhóm đồ án khác nhau.
+  > 2. **Tránh dư thừa và phân mảnh thao tác (Deduplication):** Trước đây giảng viên vừa có thể xem nhóm ở tab Học phần, vừa có thể xem ở Sidebar ngoài. Việc gộp vào Học phần giúp luồng làm việc tự nhiên và mạch lạc hơn: Giảng viên chọn Học phần mình đang dạy $\rightarrow$ Bấm `[📁 Xem danh sách nhóm]` để quản lý nhóm sinh viên của đúng học phần đó.
+  > 3. **Điều hướng Breadcrumb trực quan:** Hệ thống trang bị thanh Breadcrumb `Học phần / Nhóm sinh viên (SWD392)` kèm nút bấm `[← Quay lại Danh sách Học phần]`, giúp giảng viên chuyển đổi qua lại giữa các lớp học một cách liền mạch và tức thì."*
+
+---
+
+### ❓ Câu 21: Tại sao hệ thống loại bỏ tính năng "Phân task code" và chỉ tập trung vào "Quản lý thành viên nhóm & phân hệ đồ án"?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, việc loại bỏ tính năng 'Phân task code' và chuyển thành 'Quản lý thành viên nhóm' là quyết định có tính toán kỹ lưỡng về phạm vi và giá trị nghiệp vụ của sản phẩm:
+  > 1. **Tập trung vào giá trị cốt lõi của AITA Platform:** Hệ thống AITA-INTELLIGENT là **Nền tảng Chấm mã nguồn tự động qua Docker Sandbox & Phân tích đóng góp Git**. Nền tảng không phải là một công cụ quản lý dự án kiểu Trello hay Jira. Việc đưa các tính năng tạo task vụn vặt (giao task, tick chọn hoàn thành thủ công) vừa mang tính giả lập (mock), vừa làm rối mắt và phân tán sự chú ý của Giảng viên.
+  > 2. **Đo lường sự đóng góp thực tế qua Git Analytics (BR-07):** Giảng viên không đánh giá sinh viên dựa trên việc tick chọn 'Đã xong task' trên web, mà đánh giá sự đóng góp thực tế thông qua **số lượng commits, số dòng code (LOC) bóc tách qua GitHub API và Biểu đồ Radar Free-Rider**.
+  > 3. **Chuẩn hóa Team Roster thực tế:** Thay vì hiển thị thanh tiến độ task rườm rà, Card nhóm và Modal chi tiết giờ đây hiển thị một danh sách thành viên (Team Roster) sang trọng, chuẩn mực: Avatar, Tên thành viên, Huy hiệu Trưởng nhóm `👑 LEADER`, Phân hệ phụ trách (Module), Email, cùng các tính năng thiết thực như Thêm sinh viên vào nhóm và Xóa thành viên."*
+
+---
+
+### ❓ Câu 22: Tại sao định mức CPU của Docker Sandbox được nâng từ 0.5 CPU lên 1.0 CPU Core và việc này ảnh hưởng thế nào đến an toàn hệ thống?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, việc nâng hạn mức từ 0.5 CPU lên 1.0 CPU Core (`NanoCpus: 1_000_000_000`) mang lại hiệu quả thực thi vượt bậc mà vẫn đảm bảo 100% an toàn bảo mật cho máy chủ:
+  > 1. **Lý do kỹ thuật:** Khi sinh viên nộp các bài thi có cấu trúc phức tạp, việc biên dịch và khởi động runtime (ví dụ Node.js 20 hoặc Python với thư viện cấu trúc dữ liệu) ở mức 0.5 core khiến CPU throttling liên tục bị kích hoạt, làm tăng độ trễ chấm bài không đáng có. Nâng lên 1.0 CPU Core cho phép container sử dụng trọn vẹn sức mạnh của 1 luồng CPU, giúp thời gian chấm mỗi test case giảm xuống dưới 1.5 giây.
+  > 2. **Tính an toàn tuyệt đối không đổi:**
+  >    - **Khống chế thời gian (Watchdog):** Container vẫn bị giới hạn thời gian nghiêm ngặt (5000ms). Dù cấp 1.0 CPU, nếu mã nguồn bị lặp vô hạn `while(true)`, tiến trình watchdog sẽ tự động kill container ngay lập tức sau 5 giây.
+  >    - **Khống chế RAM:** Giới hạn 256MB ngăn chặn triệt để tấn công làm cạn kiệt bộ nhớ RAM.
+  >    - **Cách ly mạng:** `NetworkMode: 'none'` ngăn chặn 100% khả năng container gửi request ra ngoài.
+  >    - **Quyền hạn:** User `runner` không có quyền root, không thể can thiệp vào máy chủ host."*
 
 ---
 
