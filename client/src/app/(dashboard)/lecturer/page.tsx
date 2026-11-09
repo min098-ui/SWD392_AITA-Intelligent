@@ -2,13 +2,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Navigation from '../../../components/Navigation';
+import AitaLogo from '../../../components/AitaLogo';
 import { useLanguage } from '../../../context/LanguageContext';
+import LanguageSwitcher from '../../../components/LanguageSwitcher';
+import ThemeToggle from '../../../components/ThemeToggle';
 import { 
   Users, BookOpen, GitBranch, GitPullRequest, Settings, CheckCircle2, 
   AlertTriangle, Filter, Search, ShieldCheck, Download, FolderOpen, Plus, 
   Link as LinkIcon, Edit3, RotateCw, Loader2, Sparkles, Terminal, X, Check,
-  Clock, UserCheck, FileText, Award, ArrowRight, UserPlus, Mail, Trash2, Crown,
-  CheckSquare, ListTodo, AlertCircle, ExternalLink, XCircle, Upload
+  Clock, UserCheck, FileText, Award, ArrowRight, ArrowLeft, UserPlus, Mail, Trash2, Crown,
+  CheckSquare, ListTodo, AlertCircle, ExternalLink, XCircle, Upload,
+  ArrowUp, ArrowDown, Play, Code, History,
+  ChevronRight, LogOut, GraduationCap, School,
+  BarChart2, FileCode, Code2, Eye
 } from 'lucide-react';
 
 interface SubmissionItem {
@@ -43,6 +49,10 @@ interface SubmissionItem {
   consensus_notes?: string;
   final_score?: number;
   submitter_name?: string;
+  submitter_email?: string;
+  submission_type?: 'INDIVIDUAL' | 'TEAM';
+  code_content?: string;
+  language?: string;
   test_results?: Array<{
     result_id: number;
     criterion: string;
@@ -88,16 +98,6 @@ interface TeamItem {
   members: TeamMemberItem[];
 }
 
-export interface TeamTask {
-  task_id: string;
-  team_id: number;
-  assigned_to_name: string;
-  title: string;
-  description?: string;
-  status: 'DONE' | 'IN_PROGRESS' | 'PENDING';
-  due_date: string;
-}
-
 interface StudentUser {
   user_id: number;
   full_name: string;
@@ -110,11 +110,14 @@ interface RubricRuleItem {
   assignment_id: number;
   rule_type: string;
   criterion: string;
+  description?: string;
   input_data: string;
   expected_output: string;
   weight: number;
   max_score: number;
   is_hidden: boolean;
+  status?: 'Draft' | 'Active' | 'Hidden' | 'Disabled';
+  order_index?: number;
 }
 
 interface AssignmentItem {
@@ -126,8 +129,17 @@ interface AssignmentItem {
   description: string;
   deadline?: string;
   due_date?: string;
+  start_date?: string;
+  close_date?: string;
   max_score: number;
   submission_type: string;
+  target_type?: 'ALL' | 'SPECIFIC_TEAMS';
+  allowed_language?: 'ALL' | 'python' | 'javascript';
+  status?: 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'ARCHIVED';
+  allow_late_submission?: boolean;
+  max_submissions?: number;
+  allow_resubmission?: boolean;
+  target_teams?: Array<{ team_id: number; team_name: string }>;
   rubric_count?: number;
   submission_count?: number;
 }
@@ -185,15 +197,27 @@ export default function LecturerDashboard() {
   const [tcSubmissionType, setTcSubmissionType] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
   const [editingRubric, setEditingRubric] = useState<RubricRuleItem | null>(null);
   const [submittingTestCase, setSubmittingTestCase] = useState<boolean>(false);
+  const [tcDescription, setTcDescription] = useState<string>('');
+  const [tcStatus, setTcStatus] = useState<'Draft' | 'Active' | 'Hidden' | 'Disabled'>('Active');
+  const [tcFilterStatus, setTcFilterStatus] = useState<string>('ALL');
 
-  // Modal: Chi tiết Nhóm & Quản lý Task
+  // Preview Reference Solution State
+  const [showPreviewSection, setShowPreviewSection] = useState<boolean>(false);
+  const [previewLanguage, setPreviewLanguage] = useState<'python' | 'javascript'>('python');
+  const [previewCode, setPreviewCode] = useState<string>('');
+  const [previewRunning, setPreviewRunning] = useState<boolean>(false);
+  const [previewResult, setPreviewResult] = useState<{
+    passed: boolean;
+    status: string;
+    actual_output: string;
+    expected_output: string;
+    execution_time_ms: number;
+    stderr?: string;
+    error_message?: string;
+  } | null>(null);
+
+  // Modal: Chi tiết Nhóm & Quản lý Thành viên
   const [selectedTeamDetails, setSelectedTeamDetails] = useState<TeamItem | null>(null);
-  const [showAddTaskFormForMember, setShowAddTaskFormForMember] = useState<string | null>(null);
-  const [newTaskTitle, setNewTaskTitle] = useState<string>('');
-  const [newTaskDueDate, setNewTaskDueDate] = useState<string>('');
-
-  // Hệ thống Tasks theo từng thành viên của nhóm
-  const [teamTasks, setTeamTasks] = useState<TeamTask[]>([]);
 
   // Modal 1: Create Course State
   const [showCourseModal, setShowCourseModal] = useState(false);
@@ -234,6 +258,13 @@ export default function LecturerDashboard() {
   const [assignModule, setAssignModule] = useState('');
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
+  // Grading History & Comparison State
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [historySubmissionId, setHistorySubmissionId] = useState<number | null>(null);
+  const [historyData, setHistoryData] = useState<any | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [selectedAttemptIndex, setSelectedAttemptIndex] = useState<number>(0);
+
   // Modal 4: Tạo Bài Tập Thủ Công (Manual Assignment)
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [assignmentTitle, setAssignmentTitle] = useState('');
@@ -242,6 +273,17 @@ export default function LecturerDashboard() {
   const [assignmentMaxScore, setAssignmentMaxScore] = useState('10');
   const [assignmentCourseId, setAssignmentCourseId] = useState<number | string>('');
   const [assignmentSubmissionType, setAssignmentSubmissionType] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
+  const [assignmentTargetType, setAssignmentTargetType] = useState<'ALL' | 'SPECIFIC_TEAMS'>('ALL');
+  const [assignmentTargetTeamIds, setAssignmentTargetTeamIds] = useState<number[]>([]);
+  const [assignmentAllowedLanguage, setAssignmentAllowedLanguage] = useState<'ALL' | 'python' | 'javascript'>('ALL');
+  const [assignmentStartDate, setAssignmentStartDate] = useState('');
+  const [assignmentDueDate, setAssignmentDueDate] = useState('');
+  const [assignmentCloseDate, setAssignmentCloseDate] = useState('');
+  const [assignmentStatus, setAssignmentStatus] = useState<'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'ARCHIVED'>('PUBLISHED');
+  const [assignmentAllowLate, setAssignmentAllowLate] = useState<boolean>(true);
+  const [assignmentMaxSubmissions, setAssignmentMaxSubmissions] = useState<string>('0');
+  const [assignmentAllowResubmit, setAssignmentAllowResubmit] = useState<boolean>(true);
+  const [assignmentStatusFilter, setAssignmentStatusFilter] = useState<'ALL' | 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'ARCHIVED'>('ALL');
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
 
   // Modal 6: Studio AI Soạn Đề Tự Động Từ Slide (Tách Biệt Hoàn Toàn)
@@ -270,9 +312,25 @@ export default function LecturerDashboard() {
   const [aiCourseId, setAiCourseId] = useState<number | string>('');
   const [aiDeadline, setAiDeadline] = useState<string>('');
   const [aiSubmissionType, setAiSubmissionType] = useState<'INDIVIDUAL' | 'TEAM'>('INDIVIDUAL');
+  const [aiTargetType, setAiTargetType] = useState<'ALL' | 'SPECIFIC_TEAMS'>('ALL');
+  const [aiTargetTeamIds, setAiTargetTeamIds] = useState<number[]>([]);
   const [submittingAiAssignment, setSubmittingAiAssignment] = useState(false);
   const [aiModalError, setAiModalError] = useState('');
   const [aiSuccessMessage, setAiSuccessMessage] = useState('');
+
+  const openAiStudioModal = () => {
+    const defaultCourse = selectedCourseId || (courses.length > 0 ? courses[0].course_id : '');
+    setAiCourseId(defaultCourse);
+    if (!aiDeadline) {
+      const d = new Date(Date.now() + 7 * 86400000);
+      d.setHours(23, 59, 0, 0);
+      const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setAiDeadline(localIso);
+    }
+    setAiModalError('');
+    setAiSuccessMessage('');
+    setShowAiSlideModal(true);
+  };
 
   const handleSlideFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -302,6 +360,20 @@ export default function LecturerDashboard() {
 
   // Submissions state (Trống theo mặc định, chỉ hiển thị khi sinh viên nộp bài thật)
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
+  // Phân hệ Bài Nộp: Cá nhân vs Nhóm Đồ án
+  const [overviewSubTab, setOverviewSubTab] = useState<'individual' | 'team'>('individual');
+  // Phân hệ Báo cáo Git: Radar đóng góp vs Nộp repo mới
+  const [gitViewMode, setGitViewMode] = useState<'radar' | 'submit'>('radar');
+  const [teamViewMode, setTeamViewMode] = useState<'table' | 'radar'>('table');
+
+  // Auto redirect legacy analytics tab to integrated team radar view
+  useEffect(() => {
+    if (activeTab === 'analytics' || activeTab === 'git-submit') {
+      setActiveTab('overview');
+      setOverviewSubTab('team');
+      setTeamViewMode('radar');
+    }
+  }, [activeTab]);
 
   // Modal chấm bài / xem chi tiết
   const [selectedSub, setSelectedSub] = useState<SubmissionItem | null>(null);
@@ -601,17 +673,23 @@ export default function LecturerDashboard() {
           const mapped: SubmissionItem[] = subData.submissions.map((s: any) => {
             const finalScore = s.final_score != null ? parseFloat(s.final_score) : (s.reviewer_1_score != null ? parseFloat(s.reviewer_1_score) : (s.ai_score != null ? parseFloat(s.ai_score) : (s.score != null ? parseFloat(s.score) : 0)));
             const autoScore = s.ai_score != null ? parseFloat(s.ai_score) : (s.score != null ? parseFloat(s.score) : finalScore);
+            const isTeam = Boolean(s.team_id || s.assignment_submission_type === 'TEAM' || (s.team_name && s.team_name.trim() !== ''));
             return {
               id: s.submission_id,
-              team: s.team_name || `Nhóm #${s.team_id}`,
+              team: s.team_name || (s.team_id ? `Nhóm #${s.team_id}` : (s.submitter_name || `Sinh viên #${s.submitted_by_user_id || s.user_id || s.submission_id}`)),
               team_id: s.team_id,
               assignment_id: s.assignment_id,
               assignment_title: s.assignment_title,
+              submission_type: isTeam ? 'TEAM' : 'INDIVIDUAL',
+              submitter_name: s.submitter_name || (isTeam ? 'Đại diện nhóm' : 'Sinh viên'),
+              submitter_email: s.submitter_email || (isTeam ? '' : 'student@fpt.edu.vn'),
               is_late: s.is_late,
               late_minutes: s.late_minutes,
               submitted_at_raw: s.submitted_at,
               repo: s.artifact_url || '',
               commit: (s.git_commit_hash || '').substring(0, 12),
+              code_content: s.code_content || '',
+              language: s.language || 'javascript',
               status: (s.grading_status === 'PROCESSING' || s.grading_status === 'QUEUED' || s.status === 'QUEUED' || s.status === 'GRADING') && s.status !== 'FINALIZED'
                 ? 'Pending'
                 : (finalScore < 5 || s.status === 'FAILED' || s.grading_status === 'FAILED' ? 'Failed' : 'Passed'),
@@ -639,7 +717,6 @@ export default function LecturerDashboard() {
               reviewer_2_score: s.reviewer_2_score != null ? parseFloat(s.reviewer_2_score) : undefined,
               reviewer_2_notes: s.reviewer_2_notes,
               consensus_notes: s.consensus_notes,
-              submitter_name: s.submitter_name || '',
               test_results: s.test_results || []
             };
           });
@@ -701,6 +778,79 @@ export default function LecturerDashboard() {
     fetchRubricsForAssignment(assignId);
   };
 
+  const handleRunPreview = async () => {
+    if (!previewCode.trim()) {
+      alert(lang === 'vi' ? 'Vui lòng nhập Reference Solution code để chạy thử!' : 'Please enter Reference Solution code!');
+      return;
+    }
+    const targetAssignId = selectedAssignmentId && selectedAssignmentId !== -1 ? selectedAssignmentId : (assignments[0]?.assignment_id || 1);
+    setPreviewRunning(true);
+    setPreviewResult(null);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/assignments/${targetAssignId}/test-cases/preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          code_content: previewCode,
+          language: previewLanguage,
+          input_data: tcInputData,
+          expected_output: tcExpectedOutput,
+          time_limit_ms: 5000,
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPreviewResult(data);
+      } else {
+        alert(data.message || 'Lỗi khi chạy thử Reference Solution');
+      }
+    } catch (err: any) {
+      alert('Không thể kết nối đến máy chủ: ' + err.message);
+    } finally {
+      setPreviewRunning(false);
+    }
+  };
+
+  const handleReorderTestCases = async (index: number, direction: 'UP' | 'DOWN') => {
+    if (!selectedAssignmentId) return;
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= rubricRules.length) return;
+
+    const newRules = [...rubricRules];
+    const temp = newRules[index];
+    newRules[index] = newRules[targetIndex];
+    newRules[targetIndex] = temp;
+
+    const orders = newRules.map((rule, idx) => ({
+      rubric_rule_id: rule.rubric_rule_id,
+      order_index: idx + 1,
+    }));
+
+    setRubricRules(newRules);
+
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/assignments/${selectedAssignmentId}/rubrics/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ orders })
+      });
+      if (!res.ok) {
+        await fetchRubricsForAssignment(selectedAssignmentId);
+      }
+    } catch (err) {
+      console.error('Error reordering rubrics:', err);
+      await fetchRubricsForAssignment(selectedAssignmentId);
+    }
+  };
+
   const handleAddTestCase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tcCriterion.trim()) {
@@ -711,6 +861,8 @@ export default function LecturerDashboard() {
     setModalError('');
     try {
       const token = await getToken();
+      const effectiveStatus = tcIsHidden ? 'Hidden' : tcStatus;
+      const effectiveIsHidden = tcIsHidden || effectiveStatus === 'Hidden';
 
       // Kịch bản 0: Cập nhật Test Case có sẵn (Edit Mode)
       if (editingRubric && selectedAssignmentId) {
@@ -719,10 +871,12 @@ export default function LecturerDashboard() {
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
             criterion: tcCriterion.trim(),
+            description: tcDescription.trim(),
             input_data: tcInputData,
             expected_output: tcExpectedOutput,
             max_score: parseFloat(tcMaxScore) || 3.0,
-            is_hidden: tcIsHidden,
+            is_hidden: effectiveIsHidden,
+            status: effectiveStatus,
           })
         });
         const data = await res.json();
@@ -731,10 +885,15 @@ export default function LecturerDashboard() {
           setShowAddTestCaseModal(false);
           setEditingRubric(null);
           setTcCriterion('');
+          setTcDescription('');
           setTcInputData('');
           setTcExpectedOutput('');
           setTcMaxScore('3.0');
           setTcIsHidden(false);
+          setTcStatus('Active');
+          setPreviewResult(null);
+          setPreviewCode('');
+          setShowPreviewSection(false);
           await fetchRubricsForAssignment(selectedAssignmentId);
           setTimeout(() => setSuccessToast(''), 3500);
         } else {
@@ -765,11 +924,13 @@ export default function LecturerDashboard() {
               {
                 rule_type: 'AUTOMATED',
                 criterion: tcCriterion.trim(),
+                description: tcDescription.trim(),
                 input_data: tcInputData,
                 expected_output: tcExpectedOutput,
                 weight: 1.0,
                 max_score: parseFloat(tcMaxScore) || 3.0,
-                is_hidden: tcIsHidden,
+                is_hidden: effectiveIsHidden,
+                status: effectiveStatus,
               }
             ]
           })
@@ -780,10 +941,15 @@ export default function LecturerDashboard() {
           setShowAddTestCaseModal(false);
           setTcNewAssignmentTitle('');
           setTcCriterion('');
+          setTcDescription('');
           setTcInputData('');
           setTcExpectedOutput('');
           setTcMaxScore('3.0');
           setTcIsHidden(false);
+          setTcStatus('Active');
+          setPreviewResult(null);
+          setPreviewCode('');
+          setShowPreviewSection(false);
           if (data.assignment) {
             setSelectedAssignmentId(data.assignment.assignment_id);
           }
@@ -802,11 +968,13 @@ export default function LecturerDashboard() {
         body: JSON.stringify({
           rule_type: 'AUTOMATED',
           criterion: tcCriterion.trim(),
+          description: tcDescription.trim(),
           input_data: tcInputData,
           expected_output: tcExpectedOutput,
           weight: 1.0,
           max_score: parseFloat(tcMaxScore) || 3.0,
-          is_hidden: tcIsHidden,
+          is_hidden: effectiveIsHidden,
+          status: effectiveStatus,
         })
       });
       const data = await res.json();
@@ -814,10 +982,15 @@ export default function LecturerDashboard() {
         setSuccessToast(lang === 'vi' ? 'Thêm Test Case thành công!' : 'Test case added successfully!');
         setShowAddTestCaseModal(false);
         setTcCriterion('');
+        setTcDescription('');
         setTcInputData('');
         setTcExpectedOutput('');
         setTcMaxScore('3.0');
         setTcIsHidden(false);
+        setTcStatus('Active');
+        setPreviewResult(null);
+        setPreviewCode('');
+        setShowPreviewSection(false);
         await fetchRubricsForAssignment(selectedAssignmentId);
         setTimeout(() => setSuccessToast(''), 3500);
       } else {
@@ -832,19 +1005,24 @@ export default function LecturerDashboard() {
 
   const handleDeleteTestCase = async (rubricId: number) => {
     if (!selectedAssignmentId) return;
-    if (!confirm(lang === 'vi' ? 'Bạn có chắc chắn muốn xóa Test Case này?' : 'Are you sure you want to delete this test case?')) return;
+    if (!confirm(lang === 'vi' ? 'Bạn có chắc chắn muốn xóa hoặc vô hiệu hóa Test Case này?' : 'Are you sure you want to delete or disable this test case?')) return;
     try {
       const token = await getToken();
       const res = await fetch(`http://localhost:5000/api/assignments/${selectedAssignmentId}/rubrics/${rubricId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      const data = await res.json();
       if (res.ok) {
-        setSuccessToast(lang === 'vi' ? 'Xóa Test Case thành công!' : 'Test case deleted!');
+        if (data.disabled) {
+          setSuccessToast(data.message || (lang === 'vi' ? 'Đã vô hiệu hóa Test Case do có lịch sử nộp bài!' : 'Test Case disabled due to existing submissions!'));
+        } else {
+          setSuccessToast(lang === 'vi' ? 'Xóa Test Case thành công!' : 'Test case deleted!');
+        }
         await fetchRubricsForAssignment(selectedAssignmentId);
-        setTimeout(() => setSuccessToast(''), 3000);
+        setTimeout(() => setSuccessToast(''), 4000);
       } else {
-        alert('Lỗi khi xóa test case');
+        alert(data.message || 'Lỗi khi xóa test case');
       }
     } catch (err) {
       console.error('Delete rubric error:', err);
@@ -877,113 +1055,12 @@ export default function LecturerDashboard() {
     }
   };
 
-  const getDefaultGroup4Tasks = (teamId: number): TeamTask[] => [
-    {
-      task_id: `g4-mai-${teamId}`,
-      team_id: teamId,
-      assigned_to_name: 'Lê Nguyễn Ánh Mai',
-      title: 'Thiết kế kiến trúc hệ thống, CSDL 16 bảng PostgreSQL & JWT Auth RBAC (BR-01)',
-      status: 'DONE',
-      due_date: '31/10/2026'
-    },
-    {
-      task_id: `g4-vy-${teamId}`,
-      team_id: teamId,
-      assigned_to_name: 'Nguyễn Tường Vy',
-      title: 'Xây dựng Docker Sandbox Runner cô lập, BullMQ Queue & Chấm rubric tự động (BR-03, BR-06, BR-09)',
-      status: 'DONE',
-      due_date: '31/10/2026'
-    },
-    {
-      task_id: `g4-phong-${teamId}`,
-      team_id: teamId,
-      assigned_to_name: 'Nguyễn Quốc Thanh Phong',
-      title: 'Xây dựng toàn bộ Next.js 14 Glassmorphic UI Dashboards (Sinh viên, Giảng viên, Quản trị viên)',
-      status: 'DONE',
-      due_date: '31/10/2026'
-    },
-    {
-      task_id: `g4-khoa-${teamId}`,
-      team_id: teamId,
-      assigned_to_name: 'Đỗ Trần Đăng Khoa',
-      title: 'Tích hợp Gemini AI Socratic Tutor, Prompt Versioning & Key Pool Rotation AES-256 (BR-02, BR-04, BR-05)',
-      status: 'DONE',
-      due_date: '31/10/2026'
-    },
-    {
-      task_id: `g4-huy-${teamId}`,
-      team_id: teamId,
-      assigned_to_name: 'Đinh Gia Huy',
-      title: 'Kéo commit GitHub Octokit API, LOC Noise Filter & Đánh giá chéo Peer Audit (BR-07, BR-08)',
-      status: 'DONE',
-      due_date: '31/10/2026'
-    }
-  ];
-
-  const getDefaultGroup5Tasks = (teamId: number): TeamTask[] => [
-    {
-      task_id: `g5-mai-${teamId}`,
-      team_id: teamId,
-      assigned_to_name: 'Lê Nguyễn Ánh Mai',
-      title: 'Implement Graph Data Structure & Dijkstra Algorithm for Shortest Travel Path',
-      status: 'DONE',
-      due_date: '31/10/2026'
-    },
-    {
-      task_id: `g5-vy-${teamId}`,
-      team_id: teamId,
-      assigned_to_name: 'Nguyễn Tường Vy',
-      title: 'Implement BST Location Indexing & QuickSort/Min-Heap for Budget Filtering',
-      status: 'DONE',
-      due_date: '31/10/2026'
-    }
-  ];
-
-  const handleSeedGroup4Tasks = (teamId: number) => {
-    const defaults = getDefaultGroup4Tasks(teamId);
-    setTeamTasks(prev => {
-      const otherTeamTasks = prev.filter(t => t.team_id !== teamId);
-      const updated = [...otherTeamTasks, ...defaults];
-      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
-      return updated;
-    });
-    setSuccessToast(lang === 'vi' ? '⚡ Đã nạp 5 nhiệm vụ thực tế của Group 4 (SWD)!' : '⚡ Loaded 5 real tasks for Group 4 (SWD)!');
-    setTimeout(() => setSuccessToast(''), 3000);
-  };
-
   useEffect(() => {
     try {
       const u = localStorage.getItem('user');
       if (u) {
         setCurrentUser(JSON.parse(u));
       }
-
-      // Khởi tạo nhiệm vụ đồ án SWD392 Group 4 & CSD201 Group 5 (Hoàn thành 100%)
-      let existingTasks: TeamTask[] = [];
-      try {
-        const stored = localStorage.getItem('aita_lecturer_team_tasks');
-        if (stored) existingTasks = JSON.parse(stored);
-      } catch(e) {}
-
-      const g4Tasks = getDefaultGroup4Tasks(4);
-      const g5Tasks = getDefaultGroup5Tasks(5);
-
-      // Khởi tạo tất cả nhiệm vụ của Group 4 & Group 5 hoàn thành 100%
-      let merged: TeamTask[] = existingTasks.length > 0 ? existingTasks : [...g4Tasks, ...g5Tasks];
-      merged = merged.filter(t => t.team_id !== 6).map(t => {
-        // Đảm bảo toàn bộ thành viên Group 4 & Group 5 mặc định hoàn thành 100%
-        if (t.team_id === 4 || t.team_id === 5) {
-          return { ...t, status: 'DONE' as const };
-        }
-        return t;
-      });
-      g5Tasks.forEach(gt => {
-        if (!merged.some(t => t.title === gt.title)) {
-          merged.push(gt);
-        }
-      });
-      setTeamTasks(merged);
-      localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(merged));
     } catch (e) {}
     fetchData();
   }, []);
@@ -995,56 +1072,6 @@ export default function LecturerDashboard() {
       if (updated) setSelectedTeamDetails(updated);
     }
   }, [teams]);
-
-  // Handler: Đổi trạng thái nhiệm vụ (Task)
-  const handleToggleTaskStatus = (taskId: string) => {
-    setTeamTasks(prev => {
-      const updated = prev.map(t => {
-        if (t.task_id === taskId) {
-          const nextStatus: 'DONE' | 'IN_PROGRESS' | 'PENDING' = 
-            t.status === 'PENDING' ? 'IN_PROGRESS' : (t.status === 'IN_PROGRESS' ? 'DONE' : 'PENDING');
-          return { ...t, status: nextStatus };
-        }
-        return t;
-      });
-      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
-      return updated;
-    });
-  };
-
-  // Handler: Thêm Task mới cho Thành viên cụ thể
-  const handleCreateNewTask = (teamId: number, memberName: string) => {
-    if (!newTaskTitle.trim()) return;
-    const newTask: TeamTask = {
-      task_id: `t-${Date.now()}`,
-      team_id: teamId,
-      assigned_to_name: memberName,
-      title: newTaskTitle.trim(),
-      status: 'PENDING',
-      due_date: newTaskDueDate.trim() || '30/10/2026'
-    };
-    setTeamTasks(prev => {
-      const updated = [...prev, newTask];
-      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
-      return updated;
-    });
-    setNewTaskTitle('');
-    setNewTaskDueDate('');
-    setShowAddTaskFormForMember(null);
-    setSuccessToast(lang === 'vi' ? `Đã giao task "${newTask.title}" cho ${memberName}!` : `Task assigned to ${memberName}!`);
-    setTimeout(() => setSuccessToast(''), 3000);
-  };
-
-  // Handler: Xóa Task
-  const handleDeleteTask = (taskId: string) => {
-    setTeamTasks(prev => {
-      const updated = prev.filter(t => t.task_id !== taskId);
-      try { localStorage.setItem('aita_lecturer_team_tasks', JSON.stringify(updated)); } catch(e) {}
-      return updated;
-    });
-    setSuccessToast(lang === 'vi' ? 'Đã xóa task thành công!' : 'Task deleted!');
-    setTimeout(() => setSuccessToast(''), 3000);
-  };
 
 
 
@@ -1409,6 +1436,10 @@ export default function LecturerDashboard() {
       setAiModalError(lang === 'vi' ? 'Vui lòng chọn học phần để giao bài!' : 'Please select a course!');
       return;
     }
+    if (aiTargetType === 'SPECIFIC_TEAMS' && aiTargetTeamIds.length === 0) {
+      setAiModalError(lang === 'vi' ? 'Vui lòng chọn ít nhất một nhóm sinh viên nhận đề!' : 'Please select at least one team!');
+      return;
+    }
     setSubmittingAiAssignment(true);
     setAiModalError('');
     try {
@@ -1423,6 +1454,9 @@ export default function LecturerDashboard() {
           deadline: aiDeadline ? new Date(aiDeadline).toISOString() : new Date(Date.now() + 7 * 86400000).toISOString(),
           max_score: 10.0,
           submission_type: aiSubmissionType,
+          target_type: aiTargetType,
+          target_team_ids: aiTargetType === 'SPECIFIC_TEAMS' ? aiTargetTeamIds : [],
+          allowed_language: aiLanguage,
           rubrics: aiGeneratedAssignment.rubrics.map(r => ({
             rule_type: 'AUTOMATED',
             criterion: r.criterion,
@@ -1463,13 +1497,41 @@ export default function LecturerDashboard() {
     }
   };
 
+  // Handler: Cập nhật vòng đời trạng thái Assignment (DRAFT, PUBLISHED, CLOSED, ARCHIVED)
+  const handleUpdateAssignmentStatus = async (assignId: number, newStatus: 'DRAFT' | 'PUBLISHED' | 'CLOSED' | 'ARCHIVED') => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/assignments/${assignId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessToast(lang === 'vi' ? `Đã chuyển trạng thái bài tập thành ${newStatus}!` : `Assignment status updated to ${newStatus}!`);
+        await fetchData();
+        setTimeout(() => setSuccessToast(''), 3500);
+      } else {
+        alert(data.message || 'Lỗi khi cập nhật trạng thái bài tập');
+      }
+    } catch (err) {
+      console.error('Update status error:', err);
+      alert('Không thể kết nối đến máy chủ.');
+    }
+  };
+
   // Handler: Tạo Assignment thủ công (Modal 4 - Không dùng AI)
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError('');
     const targetCourseId = assignmentCourseId || selectedCourseId || (courses.length > 0 ? courses[0].course_id : null);
-    if (!assignmentTitle.trim() || !assignmentDeadline || !targetCourseId) {
+    const effectiveDeadline = assignmentDueDate || assignmentDeadline;
+    if (!assignmentTitle.trim() || !effectiveDeadline || !targetCourseId) {
       setModalError(lang === 'vi' ? 'Vui lòng nhập đầy đủ tiêu đề, học phần và hạn nộp!' : 'Please fill in title, course, and deadline!');
+      return;
+    }
+    if (assignmentTargetType === 'SPECIFIC_TEAMS' && assignmentTargetTeamIds.length === 0) {
+      setModalError(lang === 'vi' ? 'Vui lòng chọn ít nhất một nhóm sinh viên được giao bài tập!' : 'Please select at least one team!');
       return;
     }
     setSubmittingAssignment(true);
@@ -1482,9 +1544,19 @@ export default function LecturerDashboard() {
           course_id: Number(targetCourseId),
           title: assignmentTitle.trim(),
           description: assignmentDesc.trim(),
-          deadline: new Date(assignmentDeadline).toISOString(),
+          start_date: assignmentStartDate ? new Date(assignmentStartDate).toISOString() : new Date().toISOString(),
+          due_date: new Date(effectiveDeadline).toISOString(),
+          close_date: assignmentCloseDate ? new Date(assignmentCloseDate).toISOString() : new Date(effectiveDeadline).toISOString(),
+          deadline: new Date(effectiveDeadline).toISOString(),
           max_score: parseFloat(assignmentMaxScore) || 10.0,
           submission_type: assignmentSubmissionType,
+          target_type: assignmentTargetType,
+          target_team_ids: assignmentTargetType === 'SPECIFIC_TEAMS' ? assignmentTargetTeamIds : [],
+          allowed_language: assignmentAllowedLanguage,
+          status: assignmentStatus,
+          allow_late_submission: assignmentAllowLate,
+          max_submissions: parseInt(assignmentMaxSubmissions, 10) || 0,
+          allow_resubmission: assignmentAllowResubmit,
           rubrics: []
         })
       });
@@ -1495,7 +1567,17 @@ export default function LecturerDashboard() {
         setAssignmentTitle('');
         setAssignmentDesc('');
         setAssignmentDeadline('');
+        setAssignmentStartDate('');
+        setAssignmentDueDate('');
+        setAssignmentCloseDate('');
+        setAssignmentStatus('PUBLISHED');
+        setAssignmentAllowLate(true);
+        setAssignmentMaxSubmissions('0');
+        setAssignmentAllowResubmit(true);
         setAssignmentSubmissionType('INDIVIDUAL');
+        setAssignmentTargetType('ALL');
+        setAssignmentTargetTeamIds([]);
+        setAssignmentAllowedLanguage('ALL');
         if (data.assignment) {
           setSelectedAssignmentId(data.assignment.assignment_id);
           fetchRubricsForAssignment(data.assignment.assignment_id);
@@ -1828,20 +1910,64 @@ export default function LecturerDashboard() {
     fetchData();
   };
 
+  // HẠNG MỤC 2: Xem lịch sử các lần chấm & So sánh Diff
+  const handleViewGradingHistory = async (submissionId: number) => {
+    setHistorySubmissionId(submissionId);
+    setShowHistoryModal(true);
+    setLoadingHistory(true);
+    setSelectedAttemptIndex(0);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/submissions/${submissionId}/grading-history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryData(data);
+        if (data.attempts && data.attempts.length > 0) {
+          setSelectedAttemptIndex(data.attempts.length - 1); // Select latest attempt by default
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || 'Không thể tải lịch sử chấm điểm');
+        setShowHistoryModal(false);
+      }
+    } catch (e) {
+      console.error('Error fetching grading history:', e);
+      alert('Lỗi kết nối khi tải lịch sử chấm điểm');
+      setShowHistoryModal(false);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   // HẠNG MỤC 2: Chấm lại 1 bài nộp cụ thể qua Docker Sandbox
   const handleRerunGrading = async () => {
     if (!selectedSub) return;
+    const reasonPrompt = prompt(
+      lang === 'vi' ? 'Nhập lý do chấm lại (tùy chọn):' : 'Enter regrade reason (optional):',
+      lang === 'vi' ? 'Chỉnh sửa Test Case hoặc yêu cầu chấm lại' : 'Test Case update or re-evaluation request'
+    );
+    if (reasonPrompt === null) return; // User cancelled
+
     setIsRegrading(true);
     try {
       const token = await getToken();
       const res = await fetch(`http://localhost:5000/api/submissions/${selectedSub.id}/regrade`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          regrade_reason: reasonPrompt.trim() || undefined
+        })
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
         setSuccessToast(lang === 'vi' 
-          ? 'Đã đưa bài nộp vào hàng đợi Docker Sandbox để chấm lại!' 
-          : 'Submission queued for Docker Sandbox re-grading!'
+          ? `Đã đưa bài nộp vào hàng đợi Docker Sandbox để chấm lại (Lần #${data.attempt_number || 2})!` 
+          : `Submission queued for Docker Sandbox re-grading (Attempt #${data.attempt_number || 2})!`
         );
         setSelectedSub(null);
         setTimeout(() => {
@@ -1876,6 +2002,12 @@ export default function LecturerDashboard() {
 
     if (!confirm(confirmMsg)) return;
 
+    const reasonPrompt = prompt(
+      lang === 'vi' ? 'Nhập lý do chấm lại toàn bộ bài tập (tùy chọn):' : 'Enter batch regrade reason (optional):',
+      lang === 'vi' ? 'Cập nhật bộ Test Cases của bài tập' : 'Assignment Test Cases update'
+    );
+    if (reasonPrompt === null) return; // User cancelled
+
     setIsRegrading(true);
     try {
       const token = await getToken();
@@ -1884,19 +2016,31 @@ export default function LecturerDashboard() {
       if (targetAssignId) {
         const res = await fetch(`http://localhost:5000/api/assignments/${targetAssignId}/regrade`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            regrade_reason: reasonPrompt.trim() || undefined
+          })
         });
         const data = await res.json().catch(() => ({}));
-        totalRegraded = data.regradedCount || 0;
+        totalRegraded = data.queued_count != null ? data.queued_count : (data.regradedCount || 0);
       } else {
         const uniqueAssignIds = Array.from(new Set(submissions.map(s => s.assignment_id).filter(Boolean)));
         for (const aId of uniqueAssignIds) {
           const res = await fetch(`http://localhost:5000/api/assignments/${aId}/regrade`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              regrade_reason: reasonPrompt.trim() || undefined
+            })
           });
           const data = await res.json().catch(() => ({}));
-          totalRegraded += (data.regradedCount || 0);
+          totalRegraded += (data.queued_count != null ? data.queued_count : (data.regradedCount || 0));
         }
       }
 
@@ -1915,107 +2059,670 @@ export default function LecturerDashboard() {
     }
   };
 
-  const lecturerTabs = (
-    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'center', margin: '0 auto', flexWrap: 'nowrap' }}>
-      <button 
-        type="button"
-        onClick={() => setActiveTab('courses')}
-        className={activeTab === 'courses' ? 'btn-primary' : 'btn-secondary'}
-        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-      >
-        <BookOpen size={14} /> {lang === 'vi' ? 'Học phần' : 'Courses'}
-        {courses.length > 0 && (
-          <span style={{
-            marginLeft: '4px',
-            background: 'rgba(59, 130, 246, 0.35)',
-            color: '#93c5fd',
-            padding: '1px 6px',
-            borderRadius: '10px',
-            fontSize: '0.72rem',
-            fontWeight: 700
-          }}>
-            {courses.length}
-          </span>
-        )}
-      </button>
-      <button 
-        type="button"
-        onClick={() => setActiveTab('teams')}
-        className={activeTab === 'teams' ? 'btn-primary' : 'btn-secondary'}
-        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-      >
-        <FolderOpen size={14} /> {lang === 'vi' ? 'Nhóm sinh viên' : 'Teams'}
-      </button>
-      <button 
-        type="button"
-        onClick={() => setActiveTab('overview')}
-        className={activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}
-        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-      >
-        <Users size={14} /> {lang === 'vi' ? 'Bài nộp & Điểm' : 'Submissions'}
-      </button>
-      <button 
-        type="button"
-        onClick={() => setActiveTab('config')}
-        className={activeTab === 'config' ? 'btn-primary' : 'btn-secondary'}
-        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-      >
-        <Settings size={14} /> {lang === 'vi' ? 'Rubrics & Tests' : 'Rubrics & Tests'}
-      </button>
-      <button 
-        type="button"
-        onClick={() => setActiveTab('git-submit')}
-        style={{
-          fontSize: '0.82rem',
-          padding: '6px 14px',
-          borderRadius: '8px',
-          height: '36px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          whiteSpace: 'nowrap',
-          cursor: 'pointer',
-          background: activeTab === 'git-submit' ? 'linear-gradient(135deg, #0284c7, #38bdf8)' : 'rgba(56, 189, 248, 0.08)',
-          color: activeTab === 'git-submit' ? '#ffffff' : '#38bdf8',
-          border: activeTab === 'git-submit' ? 'none' : '1px solid rgba(56, 189, 248, 0.35)',
-          fontWeight: 700,
-          boxShadow: activeTab === 'git-submit' ? '0 4px 14px rgba(56, 189, 248, 0.4)' : 'none',
-          transition: 'all 0.2s ease'
-        }}
-      >
-        <GitPullRequest size={14} /> {lang === 'vi' ? 'Nộp & Bóc Tách Git Repo' : 'Nộp & Bóc Tách Git Repo'}
-      </button>
-      <button 
-        type="button"
-        onClick={() => setActiveTab('analytics')}
-        className={activeTab === 'analytics' ? 'btn-primary' : 'btn-secondary'}
-        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-      >
-        <GitBranch size={14} /> {lang === 'vi' ? 'Báo Cáo & Free-Rider' : 'Báo Cáo & Free-Rider'}
-      </button>
-      <button 
-        type="button"
-        onClick={() => setActiveTab('peer')}
-        className={activeTab === 'peer' ? 'btn-primary' : 'btn-secondary'}
-        style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
-      >
-        <ShieldCheck size={14} /> {lang === 'vi' ? 'Đánh giá chéo' : 'Peer Audit'}
-      </button>
-    </div>
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
+
+
+  // Báo Cáo Đóng Góp Git & Radar Free-Rider (BR-07) - Tích hợp trực tiếp vào Đồ Án Nhóm
+  const renderGitAnalyticsRadarView = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.35rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setTeamViewMode('table')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ← {lang === 'vi' ? 'Quay lại Bảng Bài Nộp' : 'Back to Table'}
+                  </button>
+                  <h3 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <GitBranch size={22} color="#a78bfa" /> {lang === 'vi' ? 'Thống kê đóng góp Git & Radar Free-Rider (BR-07)' : 'Git Contribution Analytics & BR-07 Radar'}
+                  </h3>
+                </div>
+                
+              </div>
+
+              {/* Live Refresh & Team Selector Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={fetchData}
+                  className="btn-secondary"
+                  style={{ padding: '8px 14px', fontSize: '0.82rem', gap: '6px', display: 'flex', alignItems: 'center' }}
+                >
+                  <RotateCw size={14} />
+                  <span>{lang === 'vi' ? 'Làm mới Git Live' : 'Refresh Git'}</span>
+                </button>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {lang === 'vi' ? 'Lọc theo nhóm:' : 'Filter Team:'}
+                </span>
+                <select
+                  value={selectedGitTeamId}
+                  onChange={(e) => setSelectedGitTeamId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    color: '#a78bfa',
+                    fontWeight: 700,
+                    fontSize: '0.86rem',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="ALL">{lang === 'vi' ? `Tất cả các nhóm (${teams.length})` : `All Teams (${teams.length})`}</option>
+                  {teams.map(t => (
+                    <option key={t.team_id} value={t.team_id}>{t.team_name} ({t.course_code})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Teams Git Telemetry Display */}
+            {teams.length === 0 ? (
+              <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', borderRadius: '20px' }}>
+                <GitBranch size={42} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Chưa có nhóm nào trong hệ thống.' : 'No teams found.'}</p>
+              </div>
+            ) : (
+              teams
+                .filter(t => selectedGitTeamId === 'ALL' || t.team_id === selectedGitTeamId)
+                .map(team => {
+                  const telemetry = gitAnalyticsMap[team.team_id];
+                  const isLoading = loadingGitMap[team.team_id];
+                  const isSyncing = syncingGitMap[team.team_id];
+                  const members = telemetry?.member_contributions || [];
+
+                  return (
+                    <div 
+                      key={team.team_id} 
+                      className="glass-card" 
+                      style={{ 
+                        borderRadius: '20px', 
+                        overflow: 'hidden', 
+                        border: '1px solid var(--border-color)',
+                        padding: '1.5rem 1.75rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.25rem'
+                      }}
+                    >
+                      {/* Team Header & Actions */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa' }}>
+                              {team.course_code}
+                            </span>
+                            <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                              {team.team_name}
+                            </h4>
+                          </div>
+                          {editingRepoTeamId !== team.team_id ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                              <a 
+                                href={editingRepoUrlMap[team.team_id] || team.repo_url} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#a78bfa', textDecoration: 'none' }}
+                              >
+                                <ExternalLink size={13} /> {editingRepoUrlMap[team.team_id] || team.repo_url}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingRepoUrlMap(prev => ({ ...prev, [team.team_id]: editingRepoUrlMap[team.team_id] || team.repo_url || '' }));
+                                  setEditingRepoTeamId(team.team_id);
+                                }}
+                                title={lang === 'vi' ? 'Sửa link Git Repo' : 'Edit Git Repo'}
+                                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                              <input
+                                type="text"
+                                value={editingRepoUrlMap[team.team_id] || ''}
+                                onChange={(e) => setEditingRepoUrlMap(prev => ({ ...prev, [team.team_id]: e.target.value }))}
+                                placeholder="https://github.com/organization/repo.git"
+                                style={{
+                                  padding: '3px 8px',
+                                  fontSize: '0.8rem',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(139, 92, 246, 0.4)',
+                                  background: 'rgba(0,0,0,0.4)',
+                                  color: '#fff',
+                                  minWidth: '260px'
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setEditingRepoTeamId(null)}
+                                style={{ padding: '2px 8px', fontSize: '0.75rem', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}
+                              >
+                                {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Summary Badges, Branch Input & Sync Button */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          {telemetry && (
+                            <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
+                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                                {telemetry.team_total_commits || 0} Commits
+                              </span>
+                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                +{telemetry.team_total_lines_added || 0} LOC
+                              </span>
+                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
+                                -{telemetry.team_total_lines_deleted || 0} LOC
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Branch Input */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.04)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Nhánh:' : 'Branch:'}</span>
+                            <input
+                              type="text"
+                              value={teamBranchMap[team.team_id] || 'main'}
+                              onChange={(e) => setTeamBranchMap(prev => ({ ...prev, [team.team_id]: e.target.value }))}
+                              placeholder="main"
+                              style={{
+                                width: '75px',
+                                padding: '2px 6px',
+                                fontSize: '0.8rem',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                                background: 'rgba(0,0,0,0.3)',
+                                color: '#a78bfa',
+                                fontWeight: 600,
+                                textAlign: 'center'
+                              }}
+                            />
+                          </div>
+
+                          <button
+                            onClick={() => syncGitForTeam(team.team_id)}
+                            disabled={isSyncing}
+                            className="btn-primary"
+                            style={{ padding: '7px 15px', fontSize: '0.82rem', gap: '6px', whiteSpace: 'nowrap' }}
+                          >
+                            {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <RotateCw size={14} />}
+                            {lang === 'vi' ? 'Đồng bộ từ GitHub' : 'Sync from GitHub'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Member Contributions Table */}
+                      <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Thành viên & Phân hệ' : 'Member & Module'}</th>
+                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'vi' ? 'Lượt Commits' : 'Commits'}</th>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Dòng Code (LOC Thêm/Xóa)' : 'LOC Added/Deleted'}</th>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Tỷ lệ đóng góp' : 'Contribution %'}</th>
+                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Đánh giá BR-07' : 'BR-07 Status'}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {isLoading ? (
+                              <tr>
+                                <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                                  <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#a78bfa' }} />
+                                  <p style={{ fontSize: '0.85rem' }}>{lang === 'vi' ? 'Đang phân tích telemetry GitHub...' : 'Analyzing GitHub telemetry...'}</p>
+                                </td>
+                              </tr>
+                            ) : members.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                                  {lang === 'vi' ? 'Chưa có dữ liệu commit. Bấm "Đồng bộ từ GitHub" để kéo commit về hệ thống.' : 'No commits recorded yet. Click "Sync from GitHub" to fetch.'}
+                                </td>
+                              </tr>
+                            ) : (
+                              members.map((m: any) => {
+                                const isFreeRider = m.is_free_rider;
+                                const isTop = m.contribution_percentage >= 35;
+
+                                return (
+                                  <tr 
+                                    key={m.user_id} 
+                                    style={{ 
+                                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                      background: isFreeRider ? 'rgba(239, 68, 68, 0.04)' : 'transparent'
+                                    }}
+                                  >
+                                    <td style={{ padding: '14px 16px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{
+                                          width: '32px', height: '32px', borderRadius: '50%',
+                                          background: isFreeRider ? 'rgba(239, 68, 68, 0.2)' : 'rgba(139, 92, 246, 0.15)',
+                                          color: isFreeRider ? '#f87171' : '#a78bfa',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          fontWeight: 700, fontSize: '0.82rem', flexShrink: 0
+                                        }}>
+                                          {(m.full_name || 'U').charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                          <strong style={{ fontSize: '0.92rem', color: isFreeRider ? '#fca5a5' : 'var(--text-main)' }}>
+                                            {m.full_name}
+                                          </strong>
+                                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                            {m.assigned_module || m.email}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '0.95rem' }}>
+                                      {m.total_commits}
+                                    </td>
+                                    <td style={{ padding: '14px 16px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                                        <span style={{ color: '#34d399' }}>+{m.total_lines_added.toLocaleString()}</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>/</span>
+                                        <span style={{ color: '#f43f5e' }}>-{m.total_lines_deleted.toLocaleString()}</span>
+                                      </div>
+                                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Net: <strong style={{ color: m.net_loc >= 0 ? '#a78bfa' : '#f43f5e' }}>{m.net_loc > 0 ? `+${m.net_loc.toLocaleString()}` : m.net_loc.toLocaleString()}</strong> LOC
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '14px 16px', minWidth: '160px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px', fontWeight: 700 }}>
+                                        <span style={{ color: isFreeRider ? '#f87171' : (isTop ? '#34d399' : '#a78bfa') }}>
+                                          {m.contribution_percentage}%
+                                        </span>
+                                      </div>
+                                      <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{
+                                          width: `${Math.min(100, Math.max(m.contribution_percentage, 0))}%`,
+                                          height: '100%',
+                                          background: isFreeRider 
+                                            ? 'linear-gradient(90deg, #ef4444, #f87171)' 
+                                            : (isTop ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #6366f1, #a855f7)'),
+                                          borderRadius: '3px',
+                                          transition: 'width 0.4s ease'
+                                        }} />
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '14px 16px' }}>
+                                      {isFreeRider ? (
+                                        <span style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                          background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
+                                          border: '1px solid rgba(239, 68, 68, 0.35)', fontWeight: 700
+                                        }}>
+                                          <AlertTriangle size={12} />
+                                          {lang === 'vi' ? 'Cảnh báo BR-07: Free-Rider (<5% LOC)' : 'BR-07 Alert: Free-Rider (<5%)'}
+                                        </span>
+                                      ) : isTop ? (
+                                        <span style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                          background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                                          border: '1px solid rgba(16, 185, 129, 0.35)', fontWeight: 700
+                                        }}>
+                                          ⭐ {lang === 'vi' ? 'Đóng góp xuất sắc' : 'Top Contributor'}
+                                        </span>
+                                      ) : (
+                                        <span style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                          background: 'rgba(139, 92, 246, 0.12)', color: '#a78bfa',
+                                          border: '1px solid rgba(139, 92, 246, 0.25)', fontWeight: 600
+                                        }}>
+                                          <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đạt chuẩn đóng góp' : 'Normal Contributor'}
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
   );
 
   if (!isMounted) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)' }}>
-        <Loader2 className="animate-spin" size={36} color="#38bdf8" />
+        <Loader2 className="animate-spin" size={36} color="#a78bfa" />
       </div>
     );
   }
 
   return (
-    <>
-      <Navigation centerContent={lecturerTabs} />
-      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '1.5rem 2rem', width: '100%', flex: 1 }}>
+    <div className="lecturer-theme" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)' }}>
+      {/* =========================================================================
+          SIDEBAR BÊN TRÁI CHO TRANG GIẢNG VIÊN (CHIA BỐ CỤC NGANG NHƯ ADMIN)
+      ========================================================================= */}
+      <aside style={{
+        width: '280px',
+        background: 'rgba(10, 14, 26, 0.96)',
+        backdropFilter: 'blur(20px)',
+        borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        zIndex: 50,
+        flexShrink: 0
+      }}>
+        {/* Brand Header */}
+        <div style={{
+          padding: '1.5rem 1.4rem',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <AitaLogo size={42} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontWeight: 800, fontSize: '1.15rem', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
+                AITA<span style={{ color: '#a78bfa' }}>.LECTURER</span>
+              </span>
+            </div>
+            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              SWD392 • Lecturer Portal
+            </span>
+          </div>
+        </div>
+
+        {/* Menu Items */}
+        <div style={{ flex: 1, padding: '1.4rem 0.8rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            padding: '0 12px',
+            marginBottom: '8px'
+          }}>
+            {lang === 'vi' ? 'Hệ thống Giảng dạy' : 'Faculty Workspace'}
+          </span>
+
+          {/* Item 1: Học phần (Tích hợp quản lý Nhóm sinh viên theo từng học phần) */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('courses')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '11px 14px',
+              borderRadius: '10px',
+              border: (activeTab === 'courses' || activeTab === 'teams') ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: (activeTab === 'courses' || activeTab === 'teams') ? 'rgba(124, 58, 237, 0.16)' : 'transparent',
+              color: (activeTab === 'courses' || activeTab === 'teams') ? '#ffffff' : 'var(--text-dim)',
+              fontSize: '0.88rem',
+              fontWeight: (activeTab === 'courses' || activeTab === 'teams') ? 600 : 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <BookOpen size={18} color={(activeTab === 'courses' || activeTab === 'teams') ? '#c4b5fd' : 'currentColor'} />
+              <span>{lang === 'vi' ? 'Học phần' : 'Courses'}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {courses.length > 0 && (
+                <span style={{
+                  background: 'rgba(124, 58, 237, 0.25)',
+                  color: '#c4b5fd',
+                  border: '1px solid rgba(139, 92, 246, 0.35)',
+                  padding: '1px 7px',
+                  borderRadius: '10px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700
+                }}>
+                  {courses.length}
+                </span>
+              )}
+              {(activeTab === 'courses' || activeTab === 'teams') && <ChevronRight size={15} color="#c4b5fd" />}
+            </div>
+          </button>
+
+          {/* Item 2: Bài nộp & Điểm */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '11px 14px',
+              borderRadius: '10px',
+              border: activeTab === 'overview' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'overview' ? 'rgba(124, 58, 237, 0.16)' : 'transparent',
+              color: activeTab === 'overview' ? '#ffffff' : 'var(--text-dim)',
+              fontSize: '0.88rem',
+              fontWeight: activeTab === 'overview' ? 600 : 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Users size={18} color={activeTab === 'overview' ? '#c4b5fd' : 'currentColor'} />
+              <span>{lang === 'vi' ? 'Bài nộp & Điểm' : 'Submissions'}</span>
+            </div>
+            {activeTab === 'overview' && <ChevronRight size={15} color="#c4b5fd" />}
+          </button>
+
+          {/* Item 4: Rubrics & Tests */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('config')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '11px 14px',
+              borderRadius: '10px',
+              border: activeTab === 'config' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'config' ? 'rgba(124, 58, 237, 0.16)' : 'transparent',
+              color: activeTab === 'config' ? '#ffffff' : 'var(--text-dim)',
+              fontSize: '0.88rem',
+              fontWeight: activeTab === 'config' ? 600 : 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Settings size={18} color={activeTab === 'config' ? '#c4b5fd' : 'currentColor'} />
+              <span>{lang === 'vi' ? 'Rubrics & Tests' : 'Rubrics & Tests'}</span>
+            </div>
+            {activeTab === 'config' && <ChevronRight size={15} color="#c4b5fd" />}
+          </button>
+
+
+
+          {/* Item 7: Đánh giá chéo */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('peer')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '11px 14px',
+              borderRadius: '10px',
+              border: activeTab === 'peer' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'peer' ? 'rgba(124, 58, 237, 0.16)' : 'transparent',
+              color: activeTab === 'peer' ? '#ffffff' : 'var(--text-dim)',
+              fontSize: '0.88rem',
+              fontWeight: activeTab === 'peer' ? 600 : 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <ShieldCheck size={18} color={activeTab === 'peer' ? '#c4b5fd' : 'currentColor'} />
+              <span>{lang === 'vi' ? 'Đánh giá chéo' : 'Peer Audit'}</span>
+            </div>
+            {activeTab === 'peer' && <ChevronRight size={15} color="#c4b5fd" />}
+          </button>
+        </div>
+
+        {/* Profile Card Bottom of Sidebar */}
+        <div style={{
+          padding: '1.2rem',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(0, 0, 0, 0.25)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+              color: '#fff',
+              fontSize: '0.9rem',
+              flexShrink: 0
+            }}>
+              {currentUser?.fullName ? currentUser.fullName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() : 'GV'}
+            </div>
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {currentUser?.fullName || 'Giảng viên'}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {currentUser?.email || 'yeny36306@gmail.com'}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '8px',
+              borderRadius: '8px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#f87171',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <LogOut size={14} />
+            <span>{lang === 'vi' ? 'Đăng xuất hệ thống' : 'Sign Out'}</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* =========================================================================
+          NỘI DUNG CHÍNH BÊN PHẢI (MAIN CONTENT AREA)
+      ========================================================================= */}
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+        {/* Top Header Bar */}
+        <header style={{
+          height: '70px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'rgba(10, 14, 26, 0.8)',
+          backdropFilter: 'blur(12px)',
+          padding: '0 2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 40
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              <span>AITA Platform</span>
+              <span>/</span>
+              <span>Lecturer Workspace</span>
+              <span>/</span>
+              <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>
+                {activeTab === 'courses' && (lang === 'vi' ? 'Học phần' : 'Courses')}
+                {activeTab === 'teams' && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span 
+                      style={{ cursor: 'pointer', color: '#a78bfa', textDecoration: 'underline' }} 
+                      onClick={() => setActiveTab('courses')}
+                    >
+                      {lang === 'vi' ? 'Học phần' : 'Courses'}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>/</span>
+                    <span style={{ color: 'var(--text-main)' }}>
+                      {lang === 'vi' ? 'Nhóm sinh viên' : 'Teams'}
+                      {selectedCourseId && courses.find(c => c.course_id === selectedCourseId) ? ` (${courses.find(c => c.course_id === selectedCourseId)?.course_code})` : ''}
+                    </span>
+                  </span>
+                )}
+                {activeTab === 'overview' && (lang === 'vi' ? 'Bài nộp & Điểm' : 'Submissions')}
+                {activeTab === 'config' && (lang === 'vi' ? 'Rubrics & Tests' : 'Rubrics & Tests')}
+                {(activeTab === 'analytics' || activeTab === 'git-submit') && (lang === 'vi' ? 'Báo Cáo Git & Free-Rider' : 'Git & Free-Rider Radar')}
+                {activeTab === 'peer' && (lang === 'vi' ? 'Đánh giá chéo' : 'Peer Audit')}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <ThemeToggle />
+            <LanguageSwitcher />
+          </div>
+        </header>
+
+        {/* Nội dung chính theo từng Tab */}
+        <div style={{ padding: '1.5rem 2rem', flex: 1, maxWidth: '1600px', width: '100%', margin: '0 auto' }}>
         {/* Toast thông báo */}
         {successToast && (
           <div style={{
@@ -2096,7 +2803,7 @@ export default function LecturerDashboard() {
                   border: '1px solid var(--border-color)',
                   borderRadius: '10px',
                   padding: '7px 14px',
-                  color: '#38bdf8',
+                  color: '#c4b5fd',
                   fontWeight: 700,
                   fontSize: '0.92rem',
                   cursor: 'pointer',
@@ -2130,34 +2837,7 @@ export default function LecturerDashboard() {
               </button>
             )}
 
-            {activeTab === 'git-submit' && (
-              <button 
-                className="btn-primary" 
-                style={{ 
-                  padding: '8px 18px', 
-                  fontSize: '0.85rem', 
-                  whiteSpace: 'nowrap', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px',
-                  background: 'linear-gradient(135deg, #0284c7, #38bdf8)',
-                  border: 'none',
-                  color: '#fff',
-                  boxShadow: '0 4px 12px rgba(56, 189, 248, 0.3)'
-                }} 
-                onClick={handleGitSubmitAnalyze}
-                disabled={isAnalyzingGitRepo}
-              >
-                {isAnalyzingGitRepo ? <Loader2 className="animate-spin" size={16} /> : <GitPullRequest size={16} />}
-                {lang === 'vi' ? 'Bóc Tách Ngay' : 'Analyze Now'}
-              </button>
-            )}
 
-            {activeTab === 'analytics' && (
-              <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={fetchData}>
-                <RotateCw size={16} /> {lang === 'vi' ? 'Làm mới Git' : 'Refresh Git'}
-              </button>
-            )}
 
             {activeTab === 'peer' && (
               <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={handleExportCSV}>
@@ -2212,14 +2892,14 @@ export default function LecturerDashboard() {
                       key={course.course_id} 
                       className="glass-card"
                       style={{
-                        background: isSelected ? 'rgba(2, 132, 199, 0.08)' : 'var(--bg-card)',
-                        border: isSelected ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid var(--border-color)',
+                        background: isSelected ? 'rgba(124, 58, 237, 0.08)' : 'var(--bg-card)',
+                        border: isSelected ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid var(--border-color)',
                         borderRadius: '20px',
                         padding: '1.65rem 1.65rem',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
-                        boxShadow: isSelected ? '0 12px 32px -8px rgba(2, 132, 199, 0.3)' : '0 10px 25px -8px rgba(0, 0, 0, 0.35)',
+                        boxShadow: isSelected ? '0 12px 32px -8px rgba(124, 58, 237, 0.35)' : '0 10px 25px -8px rgba(0, 0, 0, 0.35)',
                         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                         position: 'relative'
                       }}
@@ -2232,9 +2912,9 @@ export default function LecturerDashboard() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: '6px',
-                              background: 'rgba(56, 189, 248, 0.14)',
-                              color: '#38bdf8',
-                              border: '1px solid rgba(56, 189, 248, 0.35)',
+                              background: 'rgba(124, 58, 237, 0.16)',
+                              color: '#c4b5fd',
+                              border: '1px solid rgba(139, 92, 246, 0.35)',
                               borderRadius: '9999px',
                               padding: '3px 12px',
                               fontSize: '0.8rem',
@@ -2259,9 +2939,9 @@ export default function LecturerDashboard() {
                                 handleOpenEditCourse(course);
                               }}
                               style={{
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                border: '1px solid rgba(56, 189, 248, 0.25)',
-                                color: '#38bdf8',
+                                background: 'rgba(124, 58, 237, 0.12)',
+                                border: '1px solid rgba(139, 92, 246, 0.28)',
+                                color: '#c4b5fd',
                                 borderRadius: '8px',
                                 padding: '4px 9px',
                                 cursor: 'pointer',
@@ -2334,9 +3014,9 @@ export default function LecturerDashboard() {
                           marginBottom: '1.4rem',
                           fontSize: '0.86rem'
                         }}>
-                          <Users size={16} color="#38bdf8" />
+                          <Users size={16} color="#c4b5fd" />
                           <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Số nhóm:</span>
-                          <strong style={{ color: '#38bdf8', fontSize: '0.95rem' }}>{courseTeams.length} nhóm</strong>
+                          <strong style={{ color: '#c4b5fd', fontSize: '0.95rem' }}>{courseTeams.length} nhóm</strong>
                         </div>
                       </div>
 
@@ -2375,24 +3055,154 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* TAB 1: OVERVIEW & CHẤM ĐIỂM (F10) */}
+        {/* TAB 1: OVERVIEW & CHẤM ĐIỂM (F10) - PHÂN TÁCH BÀI CÁ NHÂN VS ĐỒ ÁN NHÓM */}
         {activeTab === 'overview' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h3 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.35rem' }}>
-                  {lang === 'vi' ? 'Danh sách bài nộp & Chấm điểm' : 'Submissions & Evaluation'}
-                </h3>
-                
+            {/* ───── SUB-TAB SWITCHER: BÀI NỘP CÁ NHÂN VS ĐỒ ÁN NHÓM ───── */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '1.5rem',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              paddingBottom: '14px',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setOverviewSubTab('individual')}
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: '10px',
+                    background: overviewSubTab === 'individual'
+                      ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95) 0%, rgba(124, 58, 237, 0.9) 100%)'
+                      : 'rgba(255, 255, 255, 0.04)',
+                    border: overviewSubTab === 'individual' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                    color: overviewSubTab === 'individual' ? '#ffffff' : '#cbd5e1',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    boxShadow: overviewSubTab === 'individual' ? '0 4px 15px rgba(139, 92, 246, 0.35)' : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <FileCode size={16} />
+                  <span>{lang === 'vi' ? '1. Bài Nộp Cá Nhân' : '1. Individual Submissions'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOverviewSubTab('team')}
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: '10px',
+                    background: overviewSubTab === 'team'
+                      ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95) 0%, rgba(124, 58, 237, 0.9) 100%)'
+                      : 'rgba(255, 255, 255, 0.04)',
+                    border: overviewSubTab === 'team' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                    color: overviewSubTab === 'team' ? '#ffffff' : '#cbd5e1',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    boxShadow: overviewSubTab === 'team' ? '0 4px 15px rgba(139, 92, 246, 0.35)' : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <Users size={16} />
+                  <span>{lang === 'vi' ? '2. Đồ Án Nhóm & Git' : '2. Team Git Projects'}</span>
+                </button>
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
+
+              {overviewSubTab === 'team' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setTeamViewMode('table')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      background: teamViewMode === 'table' ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(124, 58, 237, 0.9))' : 'rgba(255, 255, 255, 0.05)',
+                      border: teamViewMode === 'table' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
+                      color: teamViewMode === 'table' ? '#fff' : '#cbd5e1',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: teamViewMode === 'table' ? '0 4px 12px rgba(139, 92, 246, 0.3)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span>📋 {lang === 'vi' ? 'Bảng Bài Nộp' : 'Submissions Table'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTeamViewMode('radar')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      background: teamViewMode === 'radar' ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(124, 58, 237, 0.9))' : 'rgba(139, 92, 246, 0.12)',
+                      border: teamViewMode === 'radar' ? 'none' : '1px solid rgba(139, 92, 246, 0.3)',
+                      color: teamViewMode === 'radar' ? '#fff' : '#a78bfa',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: teamViewMode === 'radar' ? '0 4px 12px rgba(139, 92, 246, 0.3)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <BarChart2 size={14} />
+                    <span>📊 {lang === 'vi' ? 'Báo Cáo Đóng Góp & Radar Free-Rider (BR-07)' : 'Free-Rider Radar (BR-07)'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+{overviewSubTab === 'team' && teamViewMode === 'radar' ? (
+              renderGitAnalyticsRadarView()
+            ) : (
+              <>
+            {/* Header Title & Filter Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {overviewSubTab === 'individual' ? (
+                    <>
+                      <FileCode size={22} color="#a78bfa" />
+                      <span>{lang === 'vi' ? 'Quản Lý Bài Nộp Cá Nhân' : 'Individual Submissions'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users size={22} color="#a78bfa" />
+                      <span>{lang === 'vi' ? 'Quản Lý Bài Nộp Đồ Án Nhóm' : 'Team Git Submissions'}</span>
+                    </>
+                  )}
+                </h3>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ position: 'relative' }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '11px', color: 'var(--text-muted)' }} />
                   <input 
                     type="text" 
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    placeholder={lang === 'vi' ? 'Tìm nhóm, mã môn, bài tập, commit...' : 'Search team, course, assignment...'} 
+                    placeholder={overviewSubTab === 'individual' 
+                      ? (lang === 'vi' ? 'Tìm theo tên SV, email, mã môn, bài tập...' : 'Search student, email, assignment...')
+                      : (lang === 'vi' ? 'Tìm theo nhóm, trưởng nhóm, commit SHA...' : 'Search team, leader, commit SHA...')} 
                     style={{ 
                       padding: '8px 32px 8px 36px', 
                       background: 'var(--bg-card)', 
@@ -2400,7 +3210,7 @@ export default function LecturerDashboard() {
                       borderRadius: '10px', 
                       color: 'var(--text-main)', 
                       fontSize: '0.86rem',
-                      width: '260px'
+                      width: '280px'
                     }} 
                   />
                   {searchQuery && (
@@ -2475,8 +3285,8 @@ export default function LecturerDashboard() {
                             padding: '7px 12px',
                             fontSize: '0.8rem',
                             textAlign: 'left',
-                            background: statusFilter === opt.id ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                            color: statusFilter === opt.id ? '#38bdf8' : 'var(--text-main)',
+                            background: statusFilter === opt.id ? 'rgba(124, 58, 237, 0.2)' : 'transparent',
+                            color: statusFilter === opt.id ? '#c4b5fd' : 'var(--text-main)',
                             border: 'none',
                             borderRadius: '6px',
                             cursor: 'pointer',
@@ -2489,6 +3299,7 @@ export default function LecturerDashboard() {
                     </div>
                   )}
                 </div>
+
                 <button
                   type="button"
                   onClick={() => setFilterLatestOnly(!filterLatestOnly)}
@@ -2496,8 +3307,9 @@ export default function LecturerDashboard() {
                   style={{ padding: '8px 14px', fontSize: '0.82rem', gap: '6px', borderRadius: '10px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                 >
                   <CheckCircle2 size={15} />
-                  <span>{lang === 'vi' ? (filterLatestOnly ? 'Chỉ hiện bản nộp mới nhất' : 'Hiện tất cả lần nộp') : (filterLatestOnly ? 'Latest Only' : 'All Submissions')}</span>
+                  <span>{lang === 'vi' ? (filterLatestOnly ? 'Bản nộp mới nhất' : 'Tất cả lần nộp') : (filterLatestOnly ? 'Latest Only' : 'All Submissions')}</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={handleRegradeAll}
@@ -2512,45 +3324,69 @@ export default function LecturerDashboard() {
                     display: 'flex',
                     alignItems: 'center',
                     cursor: isRegrading ? 'not-allowed' : 'pointer',
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    border: '1px solid rgba(59, 130, 246, 0.35)',
-                    color: '#93c5fd'
+                    background: 'rgba(124, 58, 237, 0.15)',
+                    border: '1px solid rgba(124, 58, 237, 0.35)',
+                    color: '#c4b5fd'
                   }}
                 >
                   <RotateCw size={14} className={isRegrading ? 'animate-spin' : ''} />
-                  <span>{isRegrading ? (lang === 'vi' ? 'Đang chấm lại...' : 'Re-grading...') : (lang === 'vi' ? 'Chấm lại toàn bộ bài' : 'Re-grade All')}</span>
+                  <span>{isRegrading ? (lang === 'vi' ? 'Đang chấm...' : 'Re-grading...') : (lang === 'vi' ? 'Chấm lại toàn bộ' : 'Re-grade All')}</span>
                 </button>
               </div>
             </div>
 
+            {/* Table Container */}
             <div className="glass-card" style={{ padding: '0', borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Nhóm' : 'Team'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Kho lưu trữ Git' : 'Repository'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Docker Sandbox' : 'Sandbox Status'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Điểm số (Thang 10)' : 'Grade (10)'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Xếp hạng AI' : 'AI Quality'}</th>
-                      <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Kiểm duyệt' : 'Review'}</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'vi' ? 'Hành động' : 'Action'}</th>
+                      {overviewSubTab === 'individual' ? (
+                        <>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Sinh viên & Bài tập' : 'Student & Assignment'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Mã nguồn đã nộp' : 'Submitted Code'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Docker Sandbox' : 'Sandbox Status'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Điểm số (Thang 10)' : 'Grade (10)'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Xếp hạng AI' : 'AI Quality'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Kiểm duyệt' : 'Review'}</th>
+                          <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'vi' ? 'Hành động' : 'Action'}</th>
+                        </>
+                      ) : (
+                        <>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Nhóm Đồ Án & Milestone' : 'Team & Milestone'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Kho lưu trữ Git' : 'Repository'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Docker Sandbox' : 'Sandbox Status'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Điểm đồ án (Thang 10)' : 'Grade (10)'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Radar Free-Rider (BR-07)' : 'BR-07 Radar'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Kiểm duyệt' : 'Review'}</th>
+                          <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'vi' ? 'Hành động' : 'Action'}</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {(() => {
-                      let displayedList = filterLatestOnly 
-                        ? submissions.filter((item, index, self) => {
-                            const key = `${item.team_id || item.team || item.submitter_name || item.id}_${item.assignment_title || item.assignment_id || 0}`;
-                            return self.findIndex(t => `${t.team_id || t.team || t.submitter_name || t.id}_${t.assignment_title || t.assignment_id || 0}` === key) === index;
-                          })
-                        : submissions;
+                      let displayedList = submissions.filter(item => {
+                        if (overviewSubTab === 'individual') {
+                          return item.submission_type === 'INDIVIDUAL' || !item.team_id;
+                        } else {
+                          return item.submission_type === 'TEAM' || Boolean(item.team_id);
+                        }
+                      });
+
+                      if (filterLatestOnly) {
+                        displayedList = displayedList.filter((item, index, self) => {
+                          const key = `${item.team_id || item.team || item.submitter_name || item.id}_${item.assignment_title || item.assignment_id || 0}`;
+                          return self.findIndex(t => `${t.team_id || t.team || t.submitter_name || t.id}_${t.assignment_title || t.assignment_id || 0}` === key) === index;
+                        });
+                      }
 
                       if (searchQuery.trim()) {
                         const q = searchQuery.toLowerCase().trim();
                         displayedList = displayedList.filter(item => 
                           (item.team && item.team.toLowerCase().includes(q)) ||
                           (item.submitter_name && item.submitter_name.toLowerCase().includes(q)) ||
+                          (item.submitter_email && item.submitter_email.toLowerCase().includes(q)) ||
                           (item.assignment_title && item.assignment_title.toLowerCase().includes(q)) ||
                           (item.commit && item.commit.toLowerCase().includes(q)) ||
                           (item.repo && item.repo.toLowerCase().includes(q)) ||
@@ -2567,71 +3403,240 @@ export default function LecturerDashboard() {
                       } else if (statusFilter === 'SECOND_REVIEW') {
                         displayedList = displayedList.filter(item => item.moderationStatus === 'PENDING_SECOND_REVIEW');
                       }
-                      return displayedList.length > 0 ? (
-                        displayedList.map((row) => (
+
+                      if (displayedList.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={7} style={{ textAlign: 'center', padding: '4rem 1.5rem', color: 'var(--text-muted)' }}>
+                              <CheckCircle2 size={38} color={overviewSubTab === 'individual' ? '#a78bfa' : '#a78bfa'} style={{ margin: '0 auto 12px', opacity: 0.8 }} />
+                              <h5 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f1f5f9', margin: '0 0 6px 0' }}>
+                                {overviewSubTab === 'individual'
+                                  ? (lang === 'vi' ? 'Chưa có bài nộp cá nhân nào' : 'No individual submissions found')
+                                  : (lang === 'vi' ? 'Chưa có bài nộp đồ án nhóm nào' : 'No team submissions found')}
+                              </h5>
+                              <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted)', maxWidth: '520px', marginInline: 'auto' }}>
+                                {overviewSubTab === 'individual'
+                                  ? (lang === 'vi' ? 'Khi sinh viên nộp bài tập qua trình soạn thảo code hoặc tải tệp lên, kết quả kiểm thử tự động Docker Sandbox sẽ hiển thị tại đây.' : 'When students submit individual code or files, results will appear here.')
+                                  : (lang === 'vi' ? 'Khi nhóm sinh viên nộp liên kết GitHub repository, bài nộp, commit hash và phân tích Free-Rider sẽ hiển thị tại đây.' : 'When teams submit GitHub repository links, commit telemetry and free-rider detection will appear here.')}
+                              </p>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return displayedList.map((row) => (
                         <tr key={row.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          {/* Column 1: Identity */}
                           <td style={{ padding: '16px 18px' }}>
-                            <strong style={{ fontSize: '0.95rem' }}>{row.team}</strong>
-                            {row.assignment_title && (
-                              <div style={{ marginTop: '3px' }}>
-                                <span style={{ 
-                                  display: 'inline-flex', 
-                                  alignItems: 'center', 
-                                  gap: '4px', 
-                                  fontSize: '0.74rem', 
-                                  color: '#38bdf8', 
-                                  fontWeight: 600,
-                                  background: 'rgba(56, 189, 248, 0.1)',
-                                  padding: '2px 8px',
-                                  borderRadius: '6px',
-                                  border: '1px solid rgba(56, 189, 248, 0.25)'
-                                }}>
-                                  <BookOpen size={11} /> {row.assignment_title}
+                            {overviewSubTab === 'individual' ? (
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{
+                                    width: '32px', height: '32px', borderRadius: '8px',
+                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: 700, fontSize: '0.8rem', color: '#fff', flexShrink: 0
+                                  }}>
+                                    {row.submitter_name ? row.submitter_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() : 'SV'}
+                                  </div>
+                                  <div>
+                                    <strong style={{ fontSize: '0.92rem', color: '#f8fafc', display: 'block' }}>
+                                      {row.submitter_name || row.team}
+                                    </strong>
+                                    {row.submitter_email && (
+                                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{row.submitter_email}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {row.assignment_title && (
+                                  <div style={{ marginTop: '5px' }}>
+                                    <span style={{ 
+                                      display: 'inline-flex', alignItems: 'center', gap: '4px', 
+                                      fontSize: '0.74rem', color: '#c4b5fd', fontWeight: 600,
+                                      background: 'rgba(124, 58, 237, 0.12)', padding: '2px 8px', 
+                                      borderRadius: '6px', border: '1px solid rgba(139, 92, 246, 0.3)' 
+                                    }}>
+                                      <BookOpen size={11} /> {row.assignment_title}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{
+                                    width: '32px', height: '32px', borderRadius: '8px',
+                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: 700, fontSize: '0.8rem', color: '#fff', flexShrink: 0
+                                  }}>
+                                    👥
+                                  </div>
+                                  <div>
+                                    <strong style={{ fontSize: '0.95rem', color: '#f8fafc', display: 'block' }}>
+                                      {row.team}
+                                    </strong>
+                                    <span style={{ fontSize: '0.76rem', color: '#a78bfa', fontWeight: 600 }}>
+                                      {lang === 'vi' ? 'Trưởng nhóm: Đinh Gia Huy' : 'Leader: Dinh Gia Huy'}
+                                    </span>
+                                  </div>
+                                </div>
+                                {row.assignment_title && (
+                                  <div style={{ marginTop: '5px' }}>
+                                    <span style={{ 
+                                      display: 'inline-flex', alignItems: 'center', gap: '4px', 
+                                      fontSize: '0.74rem', color: '#a78bfa', fontWeight: 600,
+                                      background: 'rgba(139, 92, 246, 0.12)', padding: '2px 8px', 
+                                      borderRadius: '6px', border: '1px solid rgba(139, 92, 246, 0.3)' 
+                                    }}>
+                                      <GitPullRequest size={11} /> {row.assignment_title}
+                                    </span>
+                                  </div>
+                                )}
+                                <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                                  {lang === 'vi' ? 'Người nộp:' : 'By:'} {row.submitter_name}
                                 </span>
                               </div>
                             )}
-                            {row.submitter_name && (
-                              <span style={{ display: 'block', fontSize: '0.78rem', color: '#c4b5fd', marginTop: '2px', fontWeight: 500 }}>
-                                {lang === 'vi' ? 'Người nộp:' : 'By:'} {row.submitter_name}
-                              </span>
-                            )}
-                            <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{row.time}</span>
+
+                            <span style={{ display: 'block', fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '3px' }}>{row.time}</span>
                             {row.is_late && (
                               <span style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '3px', 
-                                color: '#f87171', 
-                                background: 'rgba(239, 68, 68, 0.15)', 
-                                border: '1px solid rgba(239, 68, 68, 0.3)', 
-                                borderRadius: '4px', 
-                                padding: '1px 6px', 
-                                fontSize: '0.72rem', 
-                                fontWeight: 700, 
-                                marginTop: '3px' 
+                                display: 'inline-flex', alignItems: 'center', gap: '3px', 
+                                color: '#f87171', background: 'rgba(239, 68, 68, 0.15)', 
+                                border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '4px', 
+                                padding: '1px 6px', fontSize: '0.72rem', fontWeight: 700, marginTop: '3px' 
                               }}>
                                 <AlertTriangle size={11} /> {lang === 'vi' ? `Nộp trễ ${row.late_minutes ? row.late_minutes + 'p' : ''}` : 'Late'}
                               </span>
                             )}
                           </td>
+
+                          {/* Column 2: Code or Repo */}
                           <td style={{ padding: '16px 18px' }}>
-                            <a href={row.repo} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, fontSize: '0.86rem' }}>
-                              <LinkIcon size={14} /> {row.repo.replace('https://github.com/', '')}
-                            </a>
-                            <code style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px', display: 'inline-block' }}>SHA: {row.commit}</code>
+                            {overviewSubTab === 'individual' ? (
+                              row.code_content ? (
+                                <div>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                    padding: '3px 8px', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 700,
+                                    background: row.language === 'python' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                    color: row.language === 'python' ? '#a78bfa' : '#fbbf24',
+                                    border: row.language === 'python' ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                                    marginBottom: '5px'
+                                  }}>
+                                    <Code2 size={12} /> {row.language === 'python' ? 'Python 3.11' : 'Node.js 20'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => openGradingModal(row)}
+                                    style={{
+                                      display: 'flex', alignItems: 'center', gap: '5px',
+                                      background: 'rgba(255, 255, 255, 0.05)',
+                                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                                      borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem',
+                                      color: '#c4b5fd', cursor: 'pointer'
+                                    }}
+                                  >
+                                    <Eye size={12} /> {lang === 'vi' ? `Xem code (${row.code_content.split('\n').length} dòng)` : 'View Code'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                    padding: '3px 8px', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 600,
+                                    background: 'rgba(255, 255, 255, 0.06)', color: '#cbd5e1'
+                                  }}>
+                                    <FileCode size={12} /> {row.repo ? row.repo.replace('https://github.com/', '') : 'Tệp nén (.zip)'}
+                                  </span>
+                                </div>
+                              )
+                            ) : (
+                              row.repo ? (
+                                <div>
+                                  <a href={row.repo} target="_blank" rel="noreferrer" style={{ color: '#a78bfa', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, fontSize: '0.86rem' }}>
+                                    <ExternalLink size={14} /> {row.repo.replace('https://github.com/', '')}
+                                  </a>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                                    <code style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>SHA: {row.commit}</code>
+                                    <span style={{ fontSize: '0.7rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa' }}>main</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Chưa cấu hình Git Repo</span>
+                              )
+                            )}
                           </td>
+
+                          {/* Column 3: Sandbox */}
                           <td style={{ padding: '16px 18px', color: row.statusColor }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
                               {row.status.includes('Passed') ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
                               {row.status}
                             </div>
+                            <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              0.5 Core • 128MB RAM
+                            </div>
                           </td>
+
+                          {/* Column 4: Grade */}
                           <td style={{ padding: '16px 18px', fontSize: '1.1rem', fontWeight: 800, color: (row.final_score ?? row.grade) >= 8 ? '#34d399' : ((row.final_score ?? row.grade) >= 5 ? '#f59e0b' : '#f43f5e') }}>
                             {(row.final_score ?? row.grade).toFixed(1)} / 10
                           </td>
+
+                          {/* Column 5: AI Quality or Free-Rider Radar */}
                           <td style={{ padding: '16px 18px' }}>
-                            <span className="badge badge-info" style={{ fontWeight: 700 }}>{row.aiScore}</span>
+                            {overviewSubTab === 'individual' ? (
+                              <span className="badge badge-info" style={{ fontWeight: 700 }}>{row.aiScore}</span>
+                            ) : (
+                              (() => {
+                                const telemetry = row.team_id ? gitAnalyticsMap[row.team_id] : null;
+                                const hasFreeRider = telemetry?.member_contributions?.some((m: any) => m.is_free_rider || (m.percentage_loc != null && m.percentage_loc < 5));
+                                return (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                    {hasFreeRider ? (
+                                      <span style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        padding: '3px 8px', borderRadius: '6px', fontSize: '0.74rem',
+                                        background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)', fontWeight: 700
+                                      }}>
+                                        <AlertTriangle size={12} /> Cảnh báo Free-Rider
+                                      </span>
+                                    ) : (
+                                      <span style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        padding: '3px 8px', borderRadius: '6px', fontSize: '0.74rem',
+                                        background: 'rgba(16, 185, 129, 0.12)', color: '#34d399',
+                                        border: '1px solid rgba(16, 185, 129, 0.25)', fontWeight: 600
+                                      }}>
+                                        <CheckCircle2 size={12} /> Đạt chuẩn BR-07
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (row.team_id) setSelectedGitTeamId(row.team_id);
+                                        setTeamViewMode('radar');
+                                      }}
+                                      style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        background: 'rgba(139, 92, 246, 0.1)',
+                                        border: '1px solid rgba(139, 92, 246, 0.25)',
+                                        borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem',
+                                        color: '#a78bfa', cursor: 'pointer', fontWeight: 600
+                                      }}
+                                    >
+                                      <BarChart2 size={12} /> {lang === 'vi' ? 'Xem radar đóng góp' : 'View Radar'}
+                                    </button>
+                                  </div>
+                                );
+                              })()
+                            )}
                           </td>
+
+                          {/* Column 6: Moderation */}
                           <td style={{ padding: '16px 18px' }}>
                             {row.moderationStatus === 'FINALIZED' && (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 700 }}>
@@ -2644,7 +3649,7 @@ export default function LecturerDashboard() {
                               </span>
                             )}
                             {row.moderationStatus === 'FIRST_REVIEWED' && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: 700 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(124, 58, 237, 0.15)', color: '#c4b5fd', border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700 }}>
                                 <Clock size={12} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
                               </span>
                             )}
@@ -2654,35 +3659,36 @@ export default function LecturerDashboard() {
                               </span>
                             )}
                           </td>
+
+                          {/* Column 7: Actions */}
                           <td style={{ padding: '16px 18px', textAlign: 'center' }}>
-                            <button 
-                              onClick={() => openGradingModal(row)}
-                              className="btn-primary" 
-                              style={{ padding: '7px 16px', fontSize: '0.82rem', gap: '6px' }}
-                            >
-                              <Edit3 size={14} /> {lang === 'vi' ? 'Chấm bài & Chi tiết' : 'Review & Grade'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                              <button 
+                                onClick={() => openGradingModal(row)}
+                                className="btn-primary" 
+                                style={{ padding: '7px 14px', fontSize: '0.82rem', gap: '5px' }}
+                              >
+                                <Edit3 size={14} /> {lang === 'vi' ? 'Chấm bài' : 'Grade'}
+                              </button>
+                              <button 
+                                onClick={() => handleViewGradingHistory(row.id)}
+                                className="btn-secondary" 
+                                title={lang === 'vi' ? 'Xem lịch sử các lần chấm & so sánh điểm' : 'View grading history and score diff'}
+                                style={{ padding: '7px 10px', fontSize: '0.82rem', background: 'rgba(124, 58, 237, 0.12)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#c4b5fd' }}
+                              >
+                                <History size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', padding: '4rem 1.5rem', color: 'var(--text-muted)' }}>
-                          <CheckCircle2 size={36} color="#34d399" style={{ margin: '0 auto 10px', opacity: 0.8 }} />
-                          <h5 style={{ fontSize: '1rem', fontWeight: 600, color: '#f1f5f9', margin: '0 0 6px 0' }}>
-                            {lang === 'vi' ? 'Chưa có bài nộp nào cần chấm' : 'No submissions to grade yet'}
-                          </h5>
-                          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                            {lang === 'vi' ? 'Khi sinh viên nộp bài qua GitHub SHA, bài nộp và kết quả Docker Sandbox sẽ hiển thị tại đây để hội đồng kiểm định.' : 'When students submit artifacts, submissions and Docker Sandbox results will appear here.'}
-                          </p>
-                        </td>
-                      </tr>
-                    );
+                      ));
                     })()}
                   </tbody>
                 </table>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
 
@@ -2725,7 +3731,7 @@ export default function LecturerDashboard() {
                       </span>
                     )}
                     {selectedSub.moderationStatus === 'FIRST_REVIEWED' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(124, 58, 237, 0.15)', color: '#c4b5fd', border: '1px solid rgba(124, 58, 237, 0.3)', fontWeight: 600 }}>
                         <Clock size={11} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
                       </span>
                     )}
@@ -2738,9 +3744,28 @@ export default function LecturerDashboard() {
                       {lang === 'vi' ? 'Hội đồng Kiểm Định Bài Nộp (BR-09 Dual-Lecturer Moderation)' : 'Collaborative Dual-Lecturer Moderation (BR-09)'}
                     </h3>
                   </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-                    Git Commit: <code>{selectedSub.commit}</code> • {selectedSub.time} • Repo: <a href={selectedSub.repo} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>{selectedSub.repo.replace('https://github.com/', '')}</a>
-                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    {selectedSub.language && (
+                      <span style={{
+                        padding: '2px 7px',
+                        borderRadius: '5px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        background: selectedSub.language === 'python' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                        color: selectedSub.language === 'python' ? '#a78bfa' : '#fbbf24',
+                        border: `1px solid ${selectedSub.language === 'python' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                      }}>
+                        {selectedSub.language === 'python' ? '🐍 Python 3' : '🟨 Node.js'}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {selectedSub.commit && selectedSub.commit !== 'DIRECT_SUBMI' && <>Commit: <code>{selectedSub.commit}</code> • </>}
+                      {selectedSub.time}
+                      {selectedSub.repo && selectedSub.repo.startsWith('http') && (
+                        <> • Repo: <a href={selectedSub.repo} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd' }}>{selectedSub.repo.replace('https://github.com/', '')}</a></>
+                      )}
+                    </span>
+                  </div>
                 </div>
                 <button 
                   onClick={() => setSelectedSub(null)}
@@ -2749,6 +3774,41 @@ export default function LecturerDashboard() {
                   <X size={20} />
                 </button>
               </div>
+
+              {/* 📄 MÃ NGUỒN BÀI NỘP TRỰC TIẾP (DIRECT CODE) */}
+              {selectedSub.code_content && (
+                <div style={{
+                  marginBottom: '0.85rem',
+                  background: '#090d16',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  fontSize: '0.8rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FileText size={14} color="#a78bfa" /> {lang === 'vi' ? 'Mã nguồn sinh viên đã nộp' : 'Student Submitted Code'} ({selectedSub.language || 'javascript'})
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>
+                      {selectedSub.code_content.split('\n').length} dòng
+                    </span>
+                  </div>
+                  <pre style={{
+                    margin: 0,
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(0,0,0,0.4)',
+                    color: selectedSub.language === 'python' ? '#a78bfa' : '#fbbf24',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '0.78rem',
+                    maxHeight: '160px',
+                    overflow: 'auto',
+                    lineHeight: 1.5
+                  }}>
+                    {selectedSub.code_content}
+                  </pre>
+                </div>
+              )}
 
               {/* 🧪 BẢNG ĐỐI SOÁT CHI TIẾT TEST CASES & BÁO CÁO LỖI DOCKER SANDBOX (HẠNG MỤC 1) */}
               {(() => {
@@ -2772,7 +3832,7 @@ export default function LecturerDashboard() {
                     {/* Header thông số thực thi */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Terminal size={15} color="#60a5fa" />
+                        <Terminal size={15} color="#c4b5fd" />
                         <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>
                           {lang === 'vi' ? 'Chi Tiết Chấm Điểm Docker Sandbox' : 'Docker Sandbox Autograding Breakdown'}
                         </span>
@@ -2831,7 +3891,7 @@ export default function LecturerDashboard() {
                                     {tc.criterion}
                                   </span>
                                   {tc.is_hidden && (
-                                    <span style={{ fontSize: '0.66rem', color: '#38bdf8', padding: '1px 5px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', fontWeight: 600 }}>
+                                    <span style={{ fontSize: '0.66rem', color: '#a78bfa', padding: '1px 5px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.25)', fontWeight: 600 }}>
                                       🔒 Test Ẩn (BR-06)
                                     </span>
                                   )}
@@ -2865,7 +3925,7 @@ export default function LecturerDashboard() {
                                   {tc.input_data && (
                                     <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '5px 8px', borderRadius: '5px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                                       <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600, marginBottom: '2px' }}>Dữ liệu Input:</div>
-                                      <code style={{ color: '#93c5fd', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace' }}>{tc.input_data}</code>
+                                      <code style={{ color: '#c4b5fd', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace' }}>{tc.input_data}</code>
                                     </div>
                                   )}
                                   {tc.expected_output && (
@@ -2896,7 +3956,7 @@ export default function LecturerDashboard() {
                         padding: '8px 10px',
                         fontSize: '0.74rem',
                         fontFamily: 'monospace',
-                        color: '#93c5fd',
+                        color: '#c4b5fd',
                         whiteSpace: 'pre-wrap',
                         maxHeight: '90px',
                         overflowY: 'auto',
@@ -2944,7 +4004,7 @@ export default function LecturerDashboard() {
                         <Sparkles size={14} /> {lang === 'vi' ? 'Bước 1: Điểm & Nhận xét từ AI Model' : 'Step 1: AI Preliminary Score & Critique'}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.98rem', fontWeight: 700, color: '#38bdf8' }}>
+                        <span style={{ fontSize: '0.98rem', fontWeight: 700, color: '#a78bfa' }}>
                           {selectedSub.ai_score ?? selectedSub.grade} / 10
                         </span>
                         <button
@@ -2964,7 +4024,7 @@ export default function LecturerDashboard() {
 
                   {/* Form Giảng Viên 1 */}
                   <form onSubmit={handleSaveGrade} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
-                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <UserCheck size={14} /> {lang === 'vi' ? 'Giảng Viên 1 (Reviewer 1) Đánh Giá & Điều Chỉnh' : 'Lecturer 1 Review & Challenge'}
                     </h4>
 
@@ -3065,9 +4125,9 @@ export default function LecturerDashboard() {
               {activeModalStage === 'review2' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* Tóm tắt điểm GV 1 */}
-                  <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '10px', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.25)', borderRadius: '10px', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#93c5fd' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#c4b5fd' }}>
                         {lang === 'vi' ? 'Kết quả từ GV 1:' : 'Lecturer 1 Assessment:'}
                       </span>
                       <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
@@ -3077,7 +4137,7 @@ export default function LecturerDashboard() {
                         "{reviewer1Notes || selectedSub.reviewer_1_notes || (lang === 'vi' ? 'Đã xem xét bài nộp' : 'Reviewed')}"
                       </span>
                     </div>
-                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#38bdf8' }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#a78bfa' }}>
                       {reviewer1Score} / 10
                     </span>
                   </div>
@@ -3171,9 +4231,9 @@ export default function LecturerDashboard() {
                       <span style={{ fontSize: '0.72rem', color: '#c084fc', display: 'block', marginBottom: '2px' }}>AI Pre-grade</span>
                       <strong style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{selectedSub.ai_score ?? selectedSub.grade ?? 0}</strong>
                     </div>
-                    <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.72rem', color: '#93c5fd', display: 'block', marginBottom: '2px' }}>Giảng Viên 1</span>
-                      <strong style={{ fontSize: '1.05rem', color: '#38bdf8' }}>{reviewer1Score}</strong>
+                    <div style={{ background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#c4b5fd', display: 'block', marginBottom: '2px' }}>Giảng Viên 1</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#a78bfa' }}>{reviewer1Score}</strong>
                     </div>
                     <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
                       <span style={{ fontSize: '0.72rem', color: '#fbbf24', display: 'block', marginBottom: '2px' }}>Giảng Viên 2</span>
@@ -3250,16 +4310,28 @@ export default function LecturerDashboard() {
 
               {/* Footer Modal */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.6rem' }}>
-                <button 
-                  type="button"
-                  disabled={isRegrading}
-                  onClick={handleRerunGrading}
-                  className="btn-secondary"
-                  style={{ gap: '5px', fontSize: '0.78rem', padding: '5px 12px' }}
-                >
-                  {isRegrading ? <Loader2 size={13} className="animate-spin" /> : <RotateCw size={13} />}
-                  <span>{lang === 'vi' ? 'Chạy lại Docker Sandbox' : 'Re-run Sandbox Grading'}</span>
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button 
+                    type="button"
+                    disabled={isRegrading}
+                    onClick={handleRerunGrading}
+                    className="btn-secondary"
+                    style={{ gap: '5px', fontSize: '0.78rem', padding: '5px 12px' }}
+                  >
+                    {isRegrading ? <Loader2 size={13} className="animate-spin" /> : <RotateCw size={13} />}
+                    <span>{lang === 'vi' ? 'Chấm lại (Regrade)' : 'Re-run Sandbox Grading'}</span>
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => handleViewGradingHistory(selectedSub.id)}
+                    className="btn-secondary"
+                    style={{ gap: '5px', fontSize: '0.78rem', padding: '5px 12px', background: 'rgba(124, 58, 237, 0.12)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#c4b5fd' }}
+                  >
+                    <History size={13} />
+                    <span>{lang === 'vi' ? 'Lịch sử chấm & So sánh' : 'Grading History & Diff'}</span>
+                  </button>
+                </div>
 
                 <button 
                   type="button" 
@@ -3274,15 +4346,55 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* TAB 0: TEAM MANAGEMENT (F09) */}
+        {/* TAB 0: TEAM MANAGEMENT (TÍCH HỢP BÊN TRONG HỌC PHẦN) */}
         {activeTab === 'teams' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.35rem' }}>
-                  {lang === 'vi' ? 'Nhóm sinh viên & Phân công' : 'Teams & Allocation'}
+                {/* Nút quay lại Học phần & Badge môn học */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('courses')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#cbd5e1',
+                      padding: '7px 14px',
+                      borderRadius: '10px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)'; e.currentTarget.style.color = '#a78bfa'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'; e.currentTarget.style.color = '#cbd5e1'; }}
+                  >
+                    <ArrowLeft size={15} />
+                    <span>{lang === 'vi' ? '← Quay lại Danh sách Học phần' : '← Back to Courses'}</span>
+                  </button>
+
+                  {selectedCourseId && courses.find(c => c.course_id === selectedCourseId) && (
+                    <span style={{
+                      background: 'rgba(124, 58, 237, 0.18)',
+                      color: '#c4b5fd',
+                      border: '1px solid rgba(139, 92, 246, 0.35)',
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700
+                    }}>
+                      Học phần: {courses.find(c => c.course_id === selectedCourseId)?.course_code} - {courses.find(c => c.course_id === selectedCourseId)?.course_name}
+                    </span>
+                  )}
+                </div>
+
+                <h3 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', margin: '0 0 0.35rem 0' }}>
+                  {lang === 'vi' ? 'Nhóm sinh viên' : 'Student Teams'}
                 </h3>
-                
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.85rem' }} onClick={() => setShowTeamModal(true)}>
@@ -3313,12 +4425,6 @@ export default function LecturerDashboard() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1.75rem' }}>
                 {(selectedCourseId ? teams.filter(t => t.course_id === selectedCourseId) : teams).map((team) => {
-                  const currentTeamTasks = teamTasks.filter(t => t.team_id === team.team_id || team.team_name?.includes('Group 4') || team.team_name?.includes('AITA'));
-                  const doneTasks = currentTeamTasks.filter(t => t.status === 'DONE');
-                  const inProgressTasks = currentTeamTasks.filter(t => t.status === 'IN_PROGRESS');
-                  const pendingTasks = currentTeamTasks.filter(t => t.status === 'PENDING');
-                  const totalTasks = currentTeamTasks.length;
-                  const progressPercent = totalTasks > 0 ? Math.round((doneTasks.length / totalTasks) * 100) : 0;
                   const courseOfTeam = courses.find(c => c.course_id === team.course_id);
 
                   return (
@@ -3346,9 +4452,9 @@ export default function LecturerDashboard() {
                             <span style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              background: 'rgba(56, 189, 248, 0.14)',
-                              color: '#38bdf8',
-                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              background: 'rgba(124, 58, 237, 0.16)',
+                              color: '#c4b5fd',
+                              border: '1px solid rgba(139, 92, 246, 0.35)',
                               borderRadius: '9999px',
                               padding: '2px 10px',
                               fontSize: '0.76rem',
@@ -3370,9 +4476,9 @@ export default function LecturerDashboard() {
                                 handleOpenEditTeam(team);
                               }}
                               style={{
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                border: '1px solid rgba(56, 189, 248, 0.25)',
-                                color: '#38bdf8',
+                                background: 'rgba(124, 58, 237, 0.12)',
+                                border: '1px solid rgba(139, 92, 246, 0.28)',
+                                color: '#c4b5fd',
                                 borderRadius: '8px',
                                 padding: '4px 8px',
                                 cursor: 'pointer',
@@ -3448,7 +4554,7 @@ export default function LecturerDashboard() {
                               background: 'rgba(255, 255, 255, 0.03)',
                               border: '1px solid rgba(255, 255, 255, 0.08)',
                               borderRadius: '8px',
-                              color: '#38bdf8',
+                              color: '#c4b5fd',
                               fontSize: '0.78rem',
                               textDecoration: 'none',
                               maxWidth: '100%',
@@ -3457,122 +4563,95 @@ export default function LecturerDashboard() {
                               whiteSpace: 'nowrap'
                             }}
                           >
-                            <LinkIcon size={13} color="#38bdf8" />
+                            <LinkIcon size={13} color="#c4b5fd" />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{team.repo_url.replace('https://github.com/', '')}</span>
                           </a>
                         </div>
 
-                        {/* Progress Bar & Tasks breakdown */}
-                        <div style={{ background: 'rgba(255, 255, 255, 0.02)', borderRadius: '12px', padding: '12px 14px', marginBottom: '1.25rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.82rem' }}>
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Tiến độ nhiệm vụ:' : 'Task Progress:'}</span>
-                            <strong style={{ color: totalTasks > 0 ? (progressPercent >= 70 ? '#34d399' : '#38bdf8') : 'var(--text-muted)', fontWeight: 700 }}>
-                              {totalTasks > 0 ? `${doneTasks.length}/${totalTasks} tasks (${progressPercent}%)` : (lang === 'vi' ? 'Chưa giao task' : 'No tasks assigned yet')}
-                            </strong>
-                          </div>
-                          <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${progressPercent}%`,
-                              height: '100%',
-                              background: 'linear-gradient(90deg, #0284c7 0%, #38bdf8 100%)',
-                              borderRadius: '9999px',
-                              transition: 'width 0.4s ease'
-                            }} />
-                          </div>
-                          {totalTasks > 0 ? (
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '0.74rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
-                              <span style={{ color: '#34d399', fontWeight: 600 }}>● {doneTasks.length} {lang === 'vi' ? 'Đã xong' : 'Done'}</span>
-                              <span style={{ color: '#fbbf24', fontWeight: 600 }}>● {inProgressTasks.length} {lang === 'vi' ? 'Đang làm' : 'In Progress'}</span>
-                              <span style={{ color: '#94a3b8', fontWeight: 600 }}>● {pendingTasks.length} {lang === 'vi' ? 'Chưa làm' : 'Pending'}</span>
-                            </div>
-                          ) : (
-                            <div style={{ marginTop: '6px', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                              {lang === 'vi' ? 'Chưa có task nào được giao. Bấm vào để phân công việc cho nhóm.' : 'No tasks assigned yet. Click to assign work.'}
-                            </div>
-                          )}
-
-                          {/* Member Tasks Preview on Card */}
-                          {currentTeamTasks.length > 0 && (
-                            <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                              {currentTeamTasks.slice(0, 5).map((ct) => {
-                                const shortName = ct.assigned_to_name.trim().split(/\s+/).slice(-2).join(' ');
-                                return (
-                                  <div key={ct.task_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', background: 'rgba(255, 255, 255, 0.02)', padding: '4px 8px', borderRadius: '6px' }}>
-                                    <span style={{ color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '72%' }}>
-                                      <strong style={{ color: '#f8fafc' }}>{shortName}:</strong> {ct.title}
-                                    </span>
-                                    <span 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleToggleTaskStatus(ct.task_id);
-                                      }}
-                                      title={lang === 'vi' ? 'Bấm chuột để đổi trạng thái (Đã xong ↔ Đang làm)' : 'Click to toggle status'}
-                                      style={{
-                                        fontSize: '0.67rem',
-                                        fontWeight: 700,
-                                        color: ct.status === 'DONE' ? '#34d399' : (ct.status === 'IN_PROGRESS' ? '#fbbf24' : '#94a3b8'),
-                                        background: ct.status === 'DONE' ? 'rgba(16,185,129,0.15)' : (ct.status === 'IN_PROGRESS' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)'),
-                                        border: ct.status === 'DONE' ? '1px solid rgba(16,185,129,0.35)' : (ct.status === 'IN_PROGRESS' ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(100,116,139,0.3)'),
-                                        padding: '2px 8px',
-                                        borderRadius: '5px',
-                                        flexShrink: 0,
-                                        cursor: 'pointer',
-                                        userSelect: 'none',
-                                        transition: 'all 0.15s ease'
-                                      }}
-                                    >
-                                      {ct.status === 'DONE' ? (lang === 'vi' ? '✓ Đã xong' : '✓ Done') : (ct.status === 'IN_PROGRESS' ? (lang === 'vi' ? '⏳ Đang làm' : '⏳ In Progress') : (lang === 'vi' ? '○ Chưa làm' : '○ Pending'))}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                              {currentTeamTasks.length > 5 && (
-                                <div style={{ textAlign: 'center', fontSize: '0.73rem', color: '#38bdf8', paddingTop: '4px', fontWeight: 600 }}>
-                                  {lang === 'vi' ? `+${currentTeamTasks.length - 5} nhiệm vụ khác (Bấm để xem tất cả)` : `+${currentTeamTasks.length - 5} more tasks (Click to view all)`}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Member Avatars Row */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ display: 'flex', marginLeft: '6px' }}>
-                              {[...(team.members || [])]
-                                .sort((a, b) => (a.role === 'LEADER' ? -1 : b.role === 'LEADER' ? 1 : 0))
-                                .slice(0, 4)
-                                .map((m, idx) => (
-                                <div
-                                  key={m.team_member_id || m.user_id || idx}
-                                  title={`${m.full_name} (${m.assigned_module || 'Thành viên'})`}
-                                  style={{
-                                    width: '32px',
-                                    height: '32px',
-                                    borderRadius: '50%',
-                                    background: idx === 0 ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #1e40af, #0284c7)',
-                                    color: '#fff',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '0.74rem',
-                                    fontWeight: 700,
-                                    border: '2px solid #0f172a',
-                                    marginLeft: idx > 0 ? '-8px' : '0',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
-                                  }}
-                                >
-                                  {m.full_name?.charAt(0) || 'U'}
-                                </div>
-                              ))}
-                            </div>
-                            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                              {team.members?.length || 0} {lang === 'vi' ? 'thành viên' : 'members'}
+                        {/* Danh sách thành viên nhóm đồ án */}
+                        <div style={{ marginBottom: '0.75rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Users size={15} color="#a78bfa" />
+                              {lang === 'vi' ? `Thành viên nhóm (${team.members?.length || 0} bạn):` : `Team Members (${team.members?.length || 0}):`}
                             </span>
                           </div>
-                          <span style={{ fontSize: '0.78rem', color: '#38bdf8', fontWeight: 600 }}>
-                            {lang === 'vi' ? (totalTasks > 0 ? 'Bấm xem task ➔' : 'Bấm giao task ➔') : (totalTasks > 0 ? 'View tasks ➔' : 'Assign tasks ➔')}
-                          </span>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {(team.members && team.members.length > 0) ? (
+                              [...team.members]
+                                .sort((a, b) => (a.role === 'LEADER' ? -1 : b.role === 'LEADER' ? 1 : 0))
+                                .map((m, idx) => {
+                                  const initial = (m.full_name || 'U').trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'U';
+                                  const isLeader = m.role === 'LEADER';
+                                  return (
+                                    <div
+                                      key={m.team_member_id || m.user_id || idx}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '7px 12px',
+                                        borderRadius: '10px',
+                                        background: isLeader ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255, 255, 255, 0.025)',
+                                        border: isLeader ? '1px solid rgba(245, 158, 11, 0.28)' : '1px solid rgba(255, 255, 255, 0.06)',
+                                        gap: '10px'
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                        <div style={{
+                                          width: '30px',
+                                          height: '30px',
+                                          borderRadius: '50%',
+                                          background: isLeader ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #4338ca, #6366f1)',
+                                          color: '#ffffff',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          fontSize: '0.76rem',
+                                          fontWeight: 800,
+                                          flexShrink: 0
+                                        }}>
+                                          {initial}
+                                        </div>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            <span style={{ fontWeight: 700, fontSize: '0.85rem', color: isLeader ? '#fef08a' : '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                              {m.full_name}
+                                            </span>
+                                            {isLeader && (
+                                              <span style={{
+                                                fontSize: '0.64rem',
+                                                padding: '1px 6px',
+                                                borderRadius: '4px',
+                                                background: 'rgba(245, 158, 11, 0.2)',
+                                                color: '#fbbf24',
+                                                fontWeight: 800,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '3px'
+                                              }}>
+                                                <Crown size={10} /> LEADER
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {m.assigned_module || (lang === 'vi' ? 'Thành viên đồ án' : 'Team Member')}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <span style={{ fontSize: '0.72rem', color: '#64748b', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                        {m.email?.split('@')[0]}
+                                      </span>
+                                    </div>
+                                  );
+                                })
+                            ) : (
+                              <div style={{ padding: '10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                                {lang === 'vi' ? 'Chưa có thành viên nào trong nhóm' : 'No members yet'}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -3586,7 +4665,7 @@ export default function LecturerDashboard() {
                         className="btn-primary"
                         style={{
                           width: '100%',
-                          marginTop: '1.25rem',
+                          marginTop: '0.75rem',
                           justifyContent: 'center',
                           fontSize: '0.86rem',
                           padding: '10px 16px',
@@ -3594,8 +4673,8 @@ export default function LecturerDashboard() {
                           gap: '8px'
                         }}
                       >
-                        <CheckSquare size={16} />
-                        {lang === 'vi' ? 'Xem nhiệm vụ & Phân công' : 'View Tasks & Allocation'}
+                        <Users size={16} />
+                        {lang === 'vi' ? 'Quản lý thành viên nhóm' : 'Manage Team Members'}
                       </button>
                     </div>
                   );
@@ -3605,13 +4684,8 @@ export default function LecturerDashboard() {
           </div>
         )}
 
-        {/* MODAL 0: CHI TIẾT NHÓM & QUẢN LÝ NHIỆM VỤ / TASKS */}
+        {/* MODAL 0: CHI TIẾT & THÀNH VIÊN NHÓM */}
         {selectedTeamDetails && (() => {
-          const teamTasksList = teamTasks.filter(t => t.team_id === selectedTeamDetails.team_id || selectedTeamDetails.team_name?.includes('Group 4') || selectedTeamDetails.team_name?.includes('AITA'));
-          const doneList = teamTasksList.filter(t => t.status === 'DONE');
-          const inProgressList = teamTasksList.filter(t => t.status === 'IN_PROGRESS');
-          const pendingList = teamTasksList.filter(t => t.status === 'PENDING');
-          const percent = teamTasksList.length > 0 ? Math.round((doneList.length / teamTasksList.length) * 100) : 0;
           const courseOfTeam = courses.find(c => c.course_id === selectedTeamDetails.course_id);
 
           return (
@@ -3627,12 +4701,11 @@ export default function LecturerDashboard() {
               padding: '1.25rem'
             }}>
               <div className="glass-card" style={{
-                width: '96vw',
-                maxWidth: '1440px',
-                height: '92vh',
-                maxHeight: '94vh',
+                width: '100%',
+                maxWidth: '780px',
+                maxHeight: '90vh',
                 overflowY: 'auto',
-                padding: '2.25rem 2.5rem',
+                padding: '2rem 2.25rem',
                 borderRadius: '24px',
                 border: '1px solid rgba(255, 255, 255, 0.12)',
                 boxShadow: '0 25px 60px rgba(0, 0, 0, 0.85)',
@@ -3645,9 +4718,9 @@ export default function LecturerDashboard() {
                     {/* Course breadcrumbs */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                       <span style={{
-                        background: 'rgba(56, 189, 248, 0.12)',
-                        color: '#38bdf8',
-                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        background: 'rgba(139, 92, 246, 0.12)',
+                        color: '#a78bfa',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
                         borderRadius: '6px',
                         padding: '2px 9px',
                         fontSize: '0.74rem',
@@ -3692,14 +4765,14 @@ export default function LecturerDashboard() {
                           border: '1px solid rgba(255, 255, 255, 0.1)',
                           padding: '5px 12px',
                           borderRadius: '8px',
-                          color: '#38bdf8',
+                          color: '#a78bfa',
                           fontSize: '0.8rem',
                           textDecoration: 'none',
                           fontWeight: 600,
                           transition: 'all 0.15s ease'
                         }}
                       >
-                        <GitBranch size={13} color="#38bdf8" />
+                        <GitBranch size={13} color="#a78bfa" />
                         <span>{selectedTeamDetails.repo_url.replace('https://github.com/', '')}</span>
                         <ExternalLink size={12} color="#94a3b8" />
                       </a>
@@ -3728,104 +4801,15 @@ export default function LecturerDashboard() {
                   </button>
                 </div>
 
-                {/* Banner Tiến độ tổng quan của nhóm */}
-                {teamTasksList.length > 0 ? (
-                  <div style={{
-                    background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(30, 41, 59, 0.45) 100%)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '16px',
-                    padding: '1.25rem 1.5rem',
-                    marginBottom: '1.75rem',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <CheckCircle2 size={16} color="#38bdf8" />
-                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f1f5f9' }}>
-                          {lang === 'vi' ? 'Tiến độ hoàn thành nhiệm vụ đồ án' : 'Task Completion Progress'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {doneList.length}/{teamTasksList.length} {lang === 'vi' ? 'nhiệm vụ' : 'tasks'}
-                        </span>
-                        <span style={{
-                          fontSize: '0.92rem',
-                          fontWeight: 800,
-                          color: percent >= 70 ? '#34d399' : (percent > 0 ? '#38bdf8' : '#94a3b8'),
-                          background: percent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                          border: percent >= 70 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
-                          padding: '2px 10px',
-                          borderRadius: '9999px'
-                        }}>
-                          {percent}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Thanh tiến độ đa đoạn (Multi-segment bar) */}
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.06)', borderRadius: '9999px', overflow: 'hidden', marginBottom: '12px', display: 'flex' }}>
-                      <div style={{
-                        width: `${percent}%`,
-                        height: '100%',
-                        background: 'linear-gradient(90deg, #0284c7 0%, #34d399 100%)',
-                        transition: 'width 0.4s ease'
-                      }} />
-                      <div style={{
-                        width: `${teamTasksList.length > 0 ? Math.round((inProgressList.length / teamTasksList.length) * 100) : 0}%`,
-                        height: '100%',
-                        background: '#f59e0b',
-                        transition: 'width 0.4s ease'
-                      }} />
-                    </div>
-
-                    {/* Thống kê 3 trạng thái dạng Pill sang trọng */}
-                    <div style={{ display: 'flex', gap: '10px', fontSize: '0.78rem', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#34d399', fontWeight: 600 }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                        <span>{doneList.length} {lang === 'vi' ? 'Hoàn thành' : 'Done'}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#fbbf24', fontWeight: 600 }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
-                        <span>{inProgressList.length} {lang === 'vi' ? 'Đang thực hiện' : 'In Progress'}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.25)', padding: '3px 10px', borderRadius: '6px', color: '#94a3b8', fontWeight: 600 }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#64748b' }} />
-                        <span>{pendingList.length} {lang === 'vi' ? 'Chưa hoàn thành' : 'Pending'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px dashed rgba(255, 255, 255, 0.12)',
-                    borderRadius: '16px',
-                    padding: '1.25rem 1.5rem',
-                    marginBottom: '1.75rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.86rem'
-                  }}>
-                    <ListTodo size={20} color="#38bdf8" />
-                    <span>
-                      {lang === 'vi' 
-                        ? 'Nhóm chưa có nhiệm vụ nào được giao. Giảng viên bấm nút "+ Giao task" bên cạnh từng thành viên để giao việc và theo dõi tiến độ nộp bài.' 
-                        : 'No tasks assigned yet. Click "+ Assign Task" next to any member below to assign work.'}
-                    </span>
-                  </div>
-                )}
-
-                {/* Section Title */}
+                {/* Section Title & Action Buttons */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
                   <div>
                     <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 3px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <ListTodo size={18} color="#38bdf8" />
-                      {lang === 'vi' ? 'Thành viên & Phân công nhiệm vụ' : 'Members & Assigned Tasks'}
+                      <Users size={18} color="#a78bfa" />
+                      {lang === 'vi' ? `Danh sách thành viên (${selectedTeamDetails.members?.length || 0} sinh viên)` : `Team Members (${selectedTeamDetails.members?.length || 0})`}
                     </h4>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                      {lang === 'vi' ? 'Bấm vào nhãn trạng thái để đổi nhanh (Hoàn thành / Đang làm / Chưa làm).' : 'Click on status badges to quickly toggle task progress.'}
+                      {lang === 'vi' ? 'Quản lý thành viên, vai trò trưởng nhóm và module phụ trách.' : 'Manage members, team leader, and project modules.'}
                     </p>
                   </div>
 
@@ -3837,16 +4821,16 @@ export default function LecturerDashboard() {
                         setShowAssignModal(true);
                         if (students.length > 0 && !assignUserId) setAssignUserId(students[0].user_id);
                       }}
-                      className="btn-secondary"
-                      style={{ fontSize: '0.82rem', padding: '7px 14px', gap: '6px', borderRadius: '8px', fontWeight: 600 }}
+                      className="btn-primary"
+                      style={{ fontSize: '0.84rem', padding: '8px 16px', gap: '6px', borderRadius: '10px', fontWeight: 600 }}
                     >
                       <UserPlus size={15} /> {lang === 'vi' ? 'Thêm sinh viên vào nhóm' : 'Add Member to Team'}
                     </button>
                   </div>
                 </div>
 
-                {/* Danh sách thành viên và các task của họ */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                {/* Danh sách thành viên nhóm */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '1.5rem' }}>
                   {selectedTeamDetails.members && selectedTeamDetails.members.length > 0 ? (
                     [...selectedTeamDetails.members]
                       .sort((a, b) => {
@@ -3855,44 +4839,30 @@ export default function LecturerDashboard() {
                         return 0;
                       })
                       .map((m) => {
-                      const memberTasks = teamTasks.filter(t => 
-                        (t.team_id === selectedTeamDetails.team_id || selectedTeamDetails.team_name?.includes('Group 4') || selectedTeamDetails.team_name?.includes('AITA')) && 
-                        (t.assigned_to_name === m.full_name || 
-                         t.assigned_to_name === m.email || 
-                         m.full_name?.toLowerCase().includes(t.assigned_to_name.toLowerCase()) ||
-                         t.assigned_to_name.toLowerCase().includes(m.full_name?.toLowerCase()))
-                      );
-                      const isAddingTask = showAddTaskFormForMember === m.full_name;
-                      const initial = (m.full_name || 'U').trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'U';
+                        const initial = (m.full_name || 'U').trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'U';
+                        const isLeader = m.role === 'LEADER';
 
-                      return (
-                        <div
-                          key={m.team_member_id || m.user_id}
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: '16px',
-                            padding: '1.25rem 1.4rem',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {/* Member Top Bar: Thiết kế chuẩn Grid/Flex không bao giờ rớt dòng lệch nút */}
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: '12px',
-                            marginBottom: '1rem',
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-                            paddingBottom: '0.85rem'
-                          }}>
-                            {/* Thông tin thành viên bên trái */}
+                        return (
+                          <div
+                            key={m.team_member_id || m.user_id}
+                            style={{
+                              background: isLeader ? 'rgba(245, 158, 11, 0.05)' : 'rgba(255, 255, 255, 0.025)',
+                              border: isLeader ? '1px solid rgba(245, 158, 11, 0.25)' : '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: '14px',
+                              padding: '1rem 1.25rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '12px',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                               <div style={{
                                 width: '42px',
                                 height: '42px',
                                 borderRadius: '50%',
-                                background: m.role === 'LEADER' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #1e40af, #0284c7)',
+                                background: isLeader ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #4338ca, #6366f1)',
                                 color: '#fff',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -3906,10 +4876,10 @@ export default function LecturerDashboard() {
                               </div>
                               <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '3px' }}>
-                                  <strong style={{ fontSize: '1rem', color: '#f8fafc', fontWeight: 700 }}>
+                                  <strong style={{ fontSize: '0.98rem', color: isLeader ? '#fef08a' : '#f8fafc', fontWeight: 700 }}>
                                     {m.full_name}
                                   </strong>
-                                  {m.role === 'LEADER' && (
+                                  {isLeader && (
                                     <span style={{
                                       fontSize: '0.72rem',
                                       padding: '2px 8px',
@@ -3927,9 +4897,9 @@ export default function LecturerDashboard() {
                                   )}
                                   <span style={{
                                     fontSize: '0.74rem',
-                                    background: 'rgba(56, 189, 248, 0.1)',
-                                    color: '#38bdf8',
-                                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                                    background: 'rgba(139, 92, 246, 0.1)',
+                                    color: '#a78bfa',
+                                    border: '1px solid rgba(139, 92, 246, 0.25)',
                                     padding: '2px 8px',
                                     borderRadius: '6px',
                                     fontWeight: 600,
@@ -3938,7 +4908,7 @@ export default function LecturerDashboard() {
                                     textOverflow: 'ellipsis',
                                     maxWidth: '260px'
                                   }}>
-                                    {m.assigned_module || 'Chưa phân hệ'}
+                                    {m.assigned_module || (lang === 'vi' ? 'Thành viên đồ án' : 'Team Member')}
                                   </span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#94a3b8' }}>
@@ -3948,22 +4918,8 @@ export default function LecturerDashboard() {
                               </div>
                             </div>
 
-                            {/* Cụm nút hành động bên phải: Cố định vị trí, không bao giờ rớt dòng */}
+                            {/* Nút Xóa khỏi nhóm */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                              <button
-                                type="button"
-                                onClick={() => setShowAddTaskFormForMember(isAddingTask ? null : m.full_name)}
-                                className="btn-secondary"
-                                style={{
-                                  fontSize: '0.78rem',
-                                  padding: '6px 12px',
-                                  gap: '5px',
-                                  borderRadius: '8px',
-                                  fontWeight: 600
-                                }}
-                              >
-                                <Plus size={13} /> {lang === 'vi' ? 'Giao task' : 'Assign Task'}
-                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveMember(selectedTeamDetails.team_id, m.team_member_id, m.full_name)}
@@ -3973,223 +4929,27 @@ export default function LecturerDashboard() {
                                   border: '1px solid rgba(239, 68, 68, 0.22)',
                                   color: '#f87171',
                                   cursor: 'pointer',
-                                  padding: '6px 8px',
+                                  padding: '7px 12px',
                                   borderRadius: '8px',
                                   display: 'flex',
                                   alignItems: 'center',
+                                  gap: '6px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 600,
                                   transition: 'all 0.15s ease'
                                 }}
                               >
                                 <Trash2 size={13} />
+                                <span>{lang === 'vi' ? 'Xóa khỏi nhóm' : 'Remove'}</span>
                               </button>
                             </div>
                           </div>
-
-                          {/* Mini Form Giao Task Mới */}
-                          {isAddingTask && (
-                            <div style={{
-                              background: 'rgba(15, 23, 42, 0.8)',
-                              border: '1px solid rgba(56, 189, 248, 0.35)',
-                              borderRadius: '12px',
-                              padding: '14px 16px',
-                              marginBottom: '1rem',
-                              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)'
-                            }}>
-                              <h5 style={{ fontSize: '0.86rem', fontWeight: 700, color: '#38bdf8', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Plus size={14} /> {lang === 'vi' ? `Giao nhiệm vụ mới cho ${m.full_name}:` : `Assign new task to ${m.full_name}:`}
-                              </h5>
-                              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                                <input
-                                  type="text"
-                                  placeholder={lang === 'vi' ? 'Tên nhiệm vụ (VD: Viết Unit Test cho API Auth...)' : 'Task title...'}
-                                  value={newTaskTitle}
-                                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                                  style={{
-                                    flex: 2,
-                                    minWidth: '220px',
-                                    padding: '8px 12px',
-                                    borderRadius: '8px',
-                                    background: 'var(--bg-card)',
-                                    border: '1px solid var(--border-color)',
-                                    color: 'var(--text-main)',
-                                    fontSize: '0.84rem'
-                                  }}
-                                />
-                                <input
-                                  type="text"
-                                  placeholder={lang === 'vi' ? 'Hạn nộp (VD: 25/10/2026)' : 'Due date (e.g. 25/10/2026)'}
-                                  value={newTaskDueDate}
-                                  onChange={(e) => setNewTaskDueDate(e.target.value)}
-                                  style={{
-                                    flex: 1,
-                                    minWidth: '140px',
-                                    padding: '8px 12px',
-                                    borderRadius: '8px',
-                                    background: 'var(--bg-card)',
-                                    border: '1px solid var(--border-color)',
-                                    color: 'var(--text-main)',
-                                    fontSize: '0.84rem'
-                                  }}
-                                />
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowAddTaskFormForMember(null)}
-                                  className="btn-secondary"
-                                  style={{ fontSize: '0.8rem', padding: '6px 14px' }}
-                                >
-                                  {lang === 'vi' ? 'Hủy' : 'Cancel'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCreateNewTask(selectedTeamDetails.team_id, m.full_name)}
-                                  className="btn-primary"
-                                  style={{ fontSize: '0.8rem', padding: '6px 16px', gap: '6px' }}
-                                >
-                                  <Check size={14} /> {lang === 'vi' ? 'Lưu nhiệm vụ' : 'Save Task'}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Danh sách nhiệm vụ của thành viên */}
-                          <div>
-                            {memberTasks.length > 0 ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {memberTasks.map((t) => (
-                                  <div
-                                    key={t.task_id}
-                                    style={{
-                                      display: 'flex',
-                                      justifyContent: 'space-between',
-                                      alignItems: 'center',
-                                      background: 'rgba(15, 23, 42, 0.5)',
-                                      padding: '10px 14px',
-                                      borderRadius: '10px',
-                                      border: '1px solid rgba(255, 255, 255, 0.06)',
-                                      gap: '12px'
-                                    }}
-                                  >
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{
-                                          width: '7px',
-                                          height: '7px',
-                                          borderRadius: '50%',
-                                          background: t.status === 'DONE' ? '#10b981' : (t.status === 'IN_PROGRESS' ? '#f59e0b' : '#64748b'),
-                                          display: 'inline-block',
-                                          flexShrink: 0
-                                        }} />
-                                        <strong style={{
-                                          fontSize: '0.88rem',
-                                          color: '#f1f5f9',
-                                          fontWeight: 600
-                                        }}>
-                                          {t.title}
-                                        </strong>
-                                      </div>
-                                      <span style={{ fontSize: '0.74rem', color: '#94a3b8', marginLeft: '15px', marginTop: '2px', display: 'block' }}>
-                                        ⏰ {lang === 'vi' ? 'Hạn chót:' : 'Deadline:'} <strong style={{ color: '#cbd5e1' }}>{t.due_date}</strong>
-                                      </span>
-                                    </div>
-
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                                      {/* Clickable Status Badge to toggle */}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleToggleTaskStatus(t.task_id)}
-                                        title={lang === 'vi' ? 'Bấm để đổi trạng thái task' : 'Click to change status'}
-                                        style={{
-                                          background: t.status === 'DONE' 
-                                            ? 'rgba(16, 185, 129, 0.15)' 
-                                            : (t.status === 'IN_PROGRESS' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(100, 116, 139, 0.15)'),
-                                          color: t.status === 'DONE' ? '#34d399' : (t.status === 'IN_PROGRESS' ? '#fbbf24' : '#94a3b8'),
-                                          border: t.status === 'DONE' 
-                                            ? '1px solid rgba(16, 185, 129, 0.35)' 
-                                            : (t.status === 'IN_PROGRESS' ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(100, 116, 139, 0.3)'),
-                                          padding: '4px 10px',
-                                          borderRadius: '9999px',
-                                          fontSize: '0.74rem',
-                                          fontWeight: 700,
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '5px',
-                                          transition: 'all 0.15s'
-                                        }}
-                                      >
-                                        {t.status === 'DONE' && <CheckCircle2 size={12} />}
-                                        {t.status === 'IN_PROGRESS' && <Clock size={12} />}
-                                        {t.status === 'PENDING' && <AlertCircle size={12} />}
-                                        <span>
-                                          {t.status === 'DONE' ? (lang === 'vi' ? 'Đã hoàn thành' : 'Done') : (t.status === 'IN_PROGRESS' ? (lang === 'vi' ? 'Đang làm' : 'In Progress') : (lang === 'vi' ? 'Chưa làm' : 'Pending'))}
-                                        </span>
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteTask(t.task_id)}
-                                        title={lang === 'vi' ? 'Xóa task' : 'Delete task'}
-                                        style={{
-                                          background: 'transparent',
-                                          border: 'none',
-                                          color: 'var(--text-muted)',
-                                          cursor: 'pointer',
-                                          padding: '4px',
-                                          display: 'flex',
-                                          alignItems: 'center'
-                                        }}
-                                      >
-                                        <X size={15} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              /* Empty State sạch sẽ, thanh lịch có nút bấm trực tiếp */
-                              <div style={{
-                                padding: '12px 16px',
-                                background: 'rgba(255, 255, 255, 0.015)',
-                                border: '1px dashed rgba(255, 255, 255, 0.1)',
-                                borderRadius: '10px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                flexWrap: 'wrap',
-                                gap: '8px'
-                              }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.82rem' }}>
-                                  <ListTodo size={15} color="#64748b" />
-                                  <span>{lang === 'vi' ? 'Chưa có nhiệm vụ nào được giao cho thành viên này.' : 'No tasks assigned yet.'}</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setShowAddTaskFormForMember(m.full_name)}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#38bdf8',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
-                                  }}
-                                >
-                                  <Plus size={13} /> {lang === 'vi' ? 'Giao nhiệm vụ ngay' : 'Assign task now'}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                      {lang === 'vi' ? 'Nhóm chưa có thành viên nào.' : 'No members in this team yet.'}
+                    <div style={{ textAlign: 'center', padding: '2.5rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '14px', border: '1px dashed rgba(255, 255, 255, 0.1)', color: 'var(--text-muted)' }}>
+                      <Users size={32} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+                      <p style={{ margin: 0, fontSize: '0.9rem' }}>{lang === 'vi' ? 'Nhóm chưa có thành viên nào. Bấm nút "Thêm sinh viên vào nhóm" ở trên.' : 'No members in this team yet. Click "Add Member to Team" above.'}</p>
                     </div>
                   )}
                 </div>
@@ -4211,18 +4971,19 @@ export default function LecturerDashboard() {
         })()}
 
         {/* TAB 2: CONFIG RUBRICS & TEST CASES (F07 & F08) */}
+        {/* TAB 1: RUBRIC & TEST CASES CONFIG (BR-06 & Lifecycle Management) */}
         {activeTab === 'config' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-            <div className="glass-card" style={{ padding: '2rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>
+          <div className="lecturer-config-grid">
+            <div className="glass-card" style={{ padding: '1.5rem', position: 'sticky', top: '85px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '1.2rem', color: '#f1f5f9' }}>
                 {lang === 'vi' ? 'Cấu hình bài tập & Docker Sandbox' : 'Create / Edit Assignment'}
               </h3>
               <form onSubmit={e => { 
                 e.preventDefault(); 
                 setShowAssignmentModal(true);
-              }} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '0.84rem', marginBottom: '5px', color: 'var(--text-muted)' }}>
                     {lang === 'vi' ? 'Tiêu đề bài tập (*)' : 'Assignment Title (*)'}
                   </label>
                   <input 
@@ -4230,56 +4991,56 @@ export default function LecturerDashboard() {
                     placeholder={lang === 'vi' ? 'Nhập tiêu đề bài tập mới...' : 'Enter assignment title...'} 
                     value={assignmentTitle}
                     onChange={e => setAssignmentTitle(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)' }} 
+                    style={{ width: '100%', padding: '9px 12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.86rem' }} 
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '0.84rem', marginBottom: '5px', color: 'var(--text-muted)' }}>
                     {lang === 'vi' ? 'Dockerfile môi trường Sandbox chấm tự động' : 'Docker Sandbox Environment (Dockerfile)'}
                   </label>
                   <textarea 
                     rows={4} 
                     defaultValue={'FROM node:20-alpine\nWORKDIR /app\nUSER runner\nCMD ["node", "main.js"]'} 
-                    style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '0.85rem' }} 
+                    style={{ width: '100%', padding: '9px 12px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '0.8rem' }} 
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '0.84rem', marginBottom: '5px', color: 'var(--text-muted)' }}>
                     {lang === 'vi' ? 'Ràng buộc đánh giá' : 'Evaluation Constraints'}
                   </label>
-                  <div style={{ display: 'flex', gap: '14px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#cbd5e1' }}>
                       <input type="checkbox" defaultChecked /> Timeout 5000ms (BR-03)
                     </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#cbd5e1' }}>
                       <input type="checkbox" defaultChecked /> AI Architecture Review
                     </label>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                   <button 
                     type="button" 
                     onClick={() => setShowAssignmentModal(true)} 
                     className="btn-primary" 
-                    style={{ padding: '10px', justifyContent: 'center' }}
+                    style={{ padding: '9px 12px', justifyContent: 'center', fontSize: '0.84rem' }}
                   >
-                    <Plus size={16} /> {lang === 'vi' ? 'Tạo Bài Tập Thủ Công' : 'Create Manually'}
+                    <Plus size={15} /> {lang === 'vi' ? 'Tạo Bài Tập Thủ Công' : 'Create Manually'}
                   </button>
                   <button 
                     type="button" 
-                    onClick={() => setShowAiSlideModal(true)} 
+                    onClick={openAiStudioModal} 
                     className="btn-secondary" 
-                    style={{ padding: '10px', justifyContent: 'center', borderColor: 'rgba(139, 92, 246, 0.5)', color: '#c084fc', background: 'rgba(139, 92, 246, 0.15)', fontWeight: 600 }}
+                    style={{ padding: '9px 12px', justifyContent: 'center', borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c084fc', background: 'rgba(139, 92, 246, 0.12)', fontWeight: 600, fontSize: '0.84rem' }}
                   >
-                    <Sparkles size={16} /> {lang === 'vi' ? '✨ AI Soạn Đề Từ Slide' : '✨ AI from Slide'}
+                    <Sparkles size={15} /> {lang === 'vi' ? '✨ AI Soạn Đề Từ Slide' : '✨ AI from Slide'}
                   </button>
                 </div>
               </form>
             </div>
 
-            <div className="glass-card" style={{ padding: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="glass-card" style={{ padding: '1.75rem', minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
                     {lang === 'vi' ? 'Bộ Test Cases & Rubric' : 'Test Cases & Rubric'}
                   </h3>
@@ -4287,15 +5048,15 @@ export default function LecturerDashboard() {
                     fontSize: '0.75rem',
                     padding: '2px 8px',
                     borderRadius: '12px',
-                    background: assignments.length > 0 ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.12)',
-                    color: assignments.length > 0 ? '#38bdf8' : '#94a3b8',
-                    border: assignments.length > 0 ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(148, 163, 184, 0.3)',
+                    background: assignments.length > 0 ? 'rgba(124, 58, 237, 0.15)' : 'rgba(148, 163, 184, 0.12)',
+                    color: assignments.length > 0 ? '#c4b5fd' : '#94a3b8',
+                    border: assignments.length > 0 ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(148, 163, 184, 0.3)',
                     fontWeight: 600
                   }}>
                     {assignments.length > 0 ? `${rubricRules.length} Test Cases` : (lang === 'vi' ? '0 Bài tập' : '0 Assignments')}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <button 
                     type="button"
                     onClick={() => {
@@ -4309,7 +5070,7 @@ export default function LecturerDashboard() {
                       setShowAddTestCaseModal(true);
                     }}
                     className="btn-primary" 
-                    style={{ padding: '6px 14px', fontSize: '0.8rem', gap: '6px' }}
+                    style={{ padding: '7px 14px', fontSize: '0.82rem', gap: '6px', whiteSpace: 'nowrap' }}
                   >
                     <Plus size={14} /> {lang === 'vi' ? 'Thêm Test Case' : 'Add Test Case'}
                   </button>
@@ -4317,15 +5078,15 @@ export default function LecturerDashboard() {
                     type="button"
                     onClick={() => setShowAssignmentModal(true)}
                     className="btn-secondary" 
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', gap: '6px' }}
+                    style={{ padding: '7px 12px', fontSize: '0.82rem', gap: '6px', whiteSpace: 'nowrap' }}
                   >
                     <Plus size={14} /> {lang === 'vi' ? 'Tạo thủ công' : 'Manual'}
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setShowAiSlideModal(true)}
+                    onClick={openAiStudioModal}
                     className="btn-secondary" 
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', gap: '6px', borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c084fc', background: 'rgba(139, 92, 246, 0.12)', fontWeight: 600 }}
+                    style={{ padding: '7px 12px', fontSize: '0.82rem', gap: '6px', borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c084fc', background: 'rgba(139, 92, 246, 0.12)', fontWeight: 600, whiteSpace: 'nowrap' }}
                   >
                     <Sparkles size={14} /> {lang === 'vi' ? '✨ AI Soạn Đề' : '✨ AI Studio'}
                   </button>
@@ -4350,11 +5111,11 @@ export default function LecturerDashboard() {
                     width: '48px',
                     height: '48px',
                     borderRadius: '50%',
-                    background: 'rgba(56, 189, 248, 0.1)',
+                    background: 'rgba(139, 92, 246, 0.1)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#38bdf8'
+                    color: '#a78bfa'
                   }}>
                     <FolderOpen size={24} />
                   </div>
@@ -4393,78 +5154,400 @@ export default function LecturerDashboard() {
                 </div>
               ) : (
                 <>
+                  {/* Assignment Lifecycle Status Filter Tabs */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>
+                      {lang === 'vi' ? 'Lọc theo trạng thái:' : 'Status Filter:'}
+                    </span>
+                    {(['ALL', 'PUBLISHED', 'DRAFT', 'CLOSED', 'ARCHIVED'] as const).map(st => {
+                      const isActive = assignmentStatusFilter === st;
+                      const count = st === 'ALL' 
+                        ? assignments.length 
+                        : assignments.filter(a => (a.status || 'PUBLISHED') === st).length;
+                      const labelMap: Record<string, string> = {
+                        ALL: lang === 'vi' ? 'Tất cả' : 'All',
+                        PUBLISHED: lang === 'vi' ? 'Đang mở (Published)' : 'Published',
+                        DRAFT: lang === 'vi' ? 'Bản nháp (Draft)' : 'Draft',
+                        CLOSED: lang === 'vi' ? 'Đã đóng (Closed)' : 'Closed',
+                        ARCHIVED: lang === 'vi' ? 'Lưu trữ (Archived)' : 'Archived',
+                      };
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => {
+                            setAssignmentStatusFilter(st);
+                            const filtered = assignments.filter(a => st === 'ALL' || (a.status || 'PUBLISHED') === st);
+                            if (filtered.length > 0 && !filtered.some(a => a.assignment_id === selectedAssignmentId)) {
+                              handleSelectAssignment(filtered[0].assignment_id);
+                            }
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '999px',
+                            fontSize: '0.75rem',
+                            fontWeight: isActive ? 700 : 500,
+                            background: isActive ? 'rgba(124, 58, 237, 0.22)' : 'rgba(255, 255, 255, 0.04)',
+                            color: isActive ? '#c4b5fd' : 'var(--text-muted)',
+                            border: isActive ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid var(--border-color)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <span>{labelMap[st]}</span>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            background: isActive ? 'rgba(124, 58, 237, 0.35)' : 'rgba(255, 255, 255, 0.08)',
+                            padding: '1px 5px',
+                            borderRadius: '999px'
+                          }}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   {/* Assignment Selector with Delete Button */}
-                  <div style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <label style={{ fontSize: '0.84rem', fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                      {lang === 'vi' ? 'Đang chọn bài tập:' : 'Selected Assignment:'}
-                    </label>
-                    <select
-                      value={selectedAssignmentId || ''}
-                      onChange={(e) => handleSelectAssignment(Number(e.target.value))}
-                      style={{
-                        flex: 1,
-                        padding: '7px 12px',
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        color: '#38bdf8',
-                        fontWeight: 600,
-                        fontSize: '0.88rem'
-                      }}
-                    >
-                      {assignments.map((a, idx) => (
-                        <option key={a.assignment_id} value={a.assignment_id}>
-                          #{idx + 1} - {a.title} ({a.submission_type === 'TEAM' ? (lang === 'vi' ? 'Nhóm đồ án' : 'Team') : (lang === 'vi' ? 'Cá nhân' : 'Individual')}) - Tối đa {a.max_score}đ
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={isRegrading}
-                      onClick={handleRegradeAll}
-                      title={lang === 'vi' ? 'Chấm lại toàn bộ bài nộp của bài tập này qua Docker Sandbox' : 'Re-grade all submissions for this assignment'}
-                      style={{
-                        background: 'rgba(59, 130, 246, 0.15)',
-                        border: '1px solid rgba(59, 130, 246, 0.35)',
-                        color: '#93c5fd',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        cursor: isRegrading ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      <RotateCw size={13} className={isRegrading ? 'animate-spin' : ''} />
-                      <span>{isRegrading ? (lang === 'vi' ? 'Đang chấm...' : 'Re-grading...') : (lang === 'vi' ? 'Chấm lại bài nộp' : 'Re-grade')}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteAssignment(selectedAssignmentId)}
-                      title={lang === 'vi' ? 'Xóa bài tập này' : 'Delete this assignment'}
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.12)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        color: '#f87171',
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        fontSize: '0.78rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontWeight: 600
-                      }}
-                    >
-                      <Trash2 size={13} />
-                      <span>{lang === 'vi' ? 'Xóa bài tập' : 'Delete'}</span>
-                    </button>
+                  <div style={{
+                    marginBottom: '1.2rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    background: 'rgba(255,255,255,0.03)',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    flexWrap: 'wrap'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 280px', minWidth: 0 }}>
+                      <label style={{ fontSize: '0.84rem', fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {lang === 'vi' ? 'Đang chọn bài tập:' : 'Selected Assignment:'}
+                      </label>
+                      <select
+                        value={selectedAssignmentId || ''}
+                        onChange={(e) => handleSelectAssignment(Number(e.target.value))}
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          maxWidth: '100%',
+                          padding: '7px 12px',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          color: '#c4b5fd',
+                          fontWeight: 600,
+                          fontSize: '0.88rem',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        {assignments
+                          .filter(a => assignmentStatusFilter === 'ALL' || (a.status || 'PUBLISHED') === assignmentStatusFilter)
+                          .map((a, idx) => (
+                          <option key={a.assignment_id} value={a.assignment_id}>
+                            #{idx + 1} - [{a.status || 'PUBLISHED'}] {a.title} ({a.submission_type === 'TEAM' ? (lang === 'vi' ? 'Nhóm đồ án' : 'Team') : (lang === 'vi' ? 'Cá nhân' : 'Individual')}) - Tối đa {a.max_score}đ
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        disabled={isRegrading}
+                        onClick={handleRegradeAll}
+                        title={lang === 'vi' ? 'Chấm lại toàn bộ bài nộp của bài tập này qua Docker Sandbox' : 'Re-grade all submissions for this assignment'}
+                        style={{
+                          background: 'rgba(124, 58, 237, 0.15)',
+                          border: '1px solid rgba(139, 92, 246, 0.35)',
+                          color: '#c4b5fd',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          cursor: isRegrading ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        <RotateCw size={13} className={isRegrading ? 'animate-spin' : ''} />
+                        <span>{isRegrading ? (lang === 'vi' ? 'Đang chấm...' : 'Re-grading...') : (lang === 'vi' ? 'Chấm lại bài nộp' : 'Re-grade')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAssignment(selectedAssignmentId)}
+                        title={lang === 'vi' ? 'Xóa bài tập này' : 'Delete this assignment'}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.12)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          color: '#f87171',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        <Trash2 size={13} />
+                        <span>{lang === 'vi' ? 'Xóa bài tập' : 'Delete'}</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Rubric Rules List or Empty State */}
+                  {/* Score Progress Bar & Status Filter */}
+                  {selectedAssignmentId && (
+                    (() => {
+                      const selAssign = assignments.find(a => a.assignment_id === selectedAssignmentId);
+                      const assignMax = selAssign ? Number(selAssign.max_score || 10.0) : 10.0;
+                      const activeSum = rubricRules
+                        .filter(r => !r.status || r.status === 'Active' || r.status === 'Hidden')
+                        .reduce((sum, r) => sum + Number(r.max_score || 0), 0);
+                      const isOver = activeSum > assignMax + 0.001;
+                      const progressPct = Math.min((activeSum / assignMax) * 100, 100);
+
+                      const countActive = rubricRules.filter(r => (!r.status && !r.is_hidden) || r.status === 'Active').length;
+                      const countHidden = rubricRules.filter(r => r.is_hidden || r.status === 'Hidden').length;
+                      const countDraft = rubricRules.filter(r => r.status === 'Draft').length;
+                      const countDisabled = rubricRules.filter(r => r.status === 'Disabled').length;
+
+                      const filteredRules = rubricRules.filter(r => {
+                        if (tcFilterStatus === 'ALL') return true;
+                        const st = r.status || (r.is_hidden ? 'Hidden' : 'Active');
+                        return st === tcFilterStatus;
+                      });
+
+                      // Thống kê đối tượng nhóm và tiến độ nộp bài
+                      const cTeams = teams.filter(t => t.course_id === selAssign?.course_id);
+                      const targetType = selAssign?.target_type || 'ALL';
+                      const targetTeams = selAssign?.target_teams || [];
+                      const relevantTeams = targetType === 'SPECIFIC_TEAMS' ? (targetTeams.length > 0 ? targetTeams : cTeams) : cTeams;
+                      const assignSubs = submissions.filter(s => s.assignment_id === selectedAssignmentId);
+                      const submittedTeamIds = new Set(assignSubs.filter(s => s.team_id).map(s => s.team_id));
+                      const submittedCount = relevantTeams.filter(t => submittedTeamIds.has(t.team_id)).length;
+                      const notSubmittedCount = Math.max(0, relevantTeams.length - submittedCount);
+
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '1.2rem' }}>
+                          {/* Assignment Target Group & Statistics Banner */}
+                          <div style={{
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            background: 'rgba(15, 23, 42, 0.65)',
+                            border: '1px solid rgba(139, 92, 246, 0.25)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px'
+                          }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                background: selAssign?.submission_type === 'TEAM' ? 'rgba(124, 58, 237, 0.16)' : 'rgba(167, 139, 250, 0.15)',
+                                color: '#c4b5fd',
+                                fontSize: '0.75rem',
+                                fontWeight: 700
+                              }}>
+                                {selAssign?.submission_type === 'TEAM' ? (lang === 'vi' ? '👥 Nhóm đồ án' : '👥 Team Assignment') : (lang === 'vi' ? '👤 Cá nhân' : '👤 Individual')}
+                              </span>
+
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                background: targetType === 'ALL' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                color: targetType === 'ALL' ? '#34d399' : '#fbbf24',
+                                fontSize: '0.75rem',
+                                fontWeight: 700
+                              }}>
+                                {targetType === 'ALL' 
+                                  ? (lang === 'vi' ? `🏫 Toàn bộ lớp (${cTeams.length} nhóm)` : `🏫 All Class (${cTeams.length} teams)`)
+                                  : (lang === 'vi' ? `🎯 Chỉ định ${targetTeams.length} nhóm` : `🎯 ${targetTeams.length} Specific Teams`)}
+                              </span>
+
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                background: 'rgba(99, 102, 241, 0.15)',
+                                color: '#a5b4fc',
+                                fontSize: '0.75rem',
+                                fontWeight: 700
+                              }}>
+                                💻 {selAssign?.allowed_language === 'python' ? 'Python' : selAssign?.allowed_language === 'javascript' ? 'JavaScript (Node.js)' : (lang === 'vi' ? 'Tùy chọn (Python/JS)' : 'Any (Python/JS)')}
+                              </span>
+
+                              {targetType === 'SPECIFIC_TEAMS' && targetTeams.length > 0 && (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                  ({targetTeams.map(t => t.team_name).join(', ')})
+                                </span>
+                              )}
+
+                              {/* Assignment Lifecycle Status Badge */}
+                              {(() => {
+                                const st = selAssign?.status || 'PUBLISHED';
+                                const bg = st === 'DRAFT' ? 'rgba(148, 163, 184, 0.15)' : st === 'CLOSED' ? 'rgba(239, 68, 68, 0.15)' : st === 'ARCHIVED' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(52, 211, 153, 0.15)';
+                                const color = st === 'DRAFT' ? '#94a3b8' : st === 'CLOSED' ? '#f87171' : st === 'ARCHIVED' ? '#c084fc' : '#34d399';
+                                const label = st === 'DRAFT' ? (lang === 'vi' ? '📝 Bản nháp (DRAFT)' : '📝 Draft') : st === 'CLOSED' ? (lang === 'vi' ? '🔒 Đã đóng (CLOSED)' : '🔒 Closed') : st === 'ARCHIVED' ? (lang === 'vi' ? '📦 Đã lưu trữ (ARCHIVED)' : '📦 Archived') : (lang === 'vi' ? '🟢 Đang mở (PUBLISHED)' : '🟢 Published');
+                                return (
+                                  <span style={{ padding: '3px 8px', borderRadius: '6px', background: bg, color, fontSize: '0.75rem', fontWeight: 800 }}>
+                                    {label}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Lifecycle Action Buttons */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+                              {selectedAssignmentId && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                  {selAssign?.status === 'DRAFT' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateAssignmentStatus(selectedAssignmentId, 'PUBLISHED')}
+                                      style={{
+                                        background: 'rgba(52, 211, 153, 0.15)',
+                                        border: '1px solid rgba(52, 211, 153, 0.4)',
+                                        color: '#34d399',
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.74rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      🚀 {lang === 'vi' ? 'Xuất bản (Publish)' : 'Publish'}
+                                    </button>
+                                  )}
+                                  {(!selAssign?.status || selAssign?.status === 'PUBLISHED') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateAssignmentStatus(selectedAssignmentId, 'CLOSED')}
+                                      style={{
+                                        background: 'rgba(239, 68, 68, 0.15)',
+                                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                                        color: '#f87171',
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.74rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      🔒 {lang === 'vi' ? 'Đóng bài (Close)' : 'Close'}
+                                    </button>
+                                  )}
+                                  {(selAssign?.status === 'CLOSED' || selAssign?.status === 'ARCHIVED') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateAssignmentStatus(selectedAssignmentId, 'PUBLISHED')}
+                                      style={{
+                                        background: 'rgba(124, 58, 237, 0.15)',
+                                        border: '1px solid rgba(139, 92, 246, 0.4)',
+                                        color: '#c4b5fd',
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.74rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      🔄 {lang === 'vi' ? 'Mở lại (Reopen)' : 'Reopen'}
+                                    </button>
+                                  )}
+                                  {selAssign?.status !== 'ARCHIVED' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateAssignmentStatus(selectedAssignmentId, 'ARCHIVED')}
+                                      style={{
+                                        background: 'rgba(148, 163, 184, 0.15)',
+                                        border: '1px solid rgba(148, 163, 184, 0.4)',
+                                        color: '#cbd5e1',
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.74rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      📦 {lang === 'vi' ? 'Lưu trữ (Archive)' : 'Archive'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{
+                                  fontSize: '0.78rem',
+                                  fontWeight: 700,
+                                  color: submittedCount === relevantTeams.length && relevantTeams.length > 0 ? '#34d399' : '#c4b5fd',
+                                  background: 'rgba(124, 58, 237, 0.12)',
+                                  padding: '3px 10px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {lang === 'vi' ? 'Tiến độ nộp:' : 'Submissions:'} {submittedCount}/{relevantTeams.length} {lang === 'vi' ? 'nhóm đã nộp' : 'teams'} ({relevantTeams.length > 0 ? Math.round((submittedCount / relevantTeams.length) * 100) : 0}%)
+                                </span>
+                                {notSubmittedCount > 0 && (
+                                  <span style={{ fontSize: '0.75rem', color: '#f87171', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                    ({notSubmittedCount} {lang === 'vi' ? 'nhóm chưa nộp' : 'pending'})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Assignment Schedule & Submission Policy Ribbon */}
+                          <div style={{
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            background: 'rgba(255, 255, 255, 0.025)',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '10px 16px',
+                            fontSize: '0.76rem',
+                            color: '#94a3b8',
+                            alignItems: 'center'
+                          }}>
+                            {(() => {
+                              const fmt = (d?: string | Date) => {
+                                if (!d) return '--';
+                                const dobj = new Date(d);
+                                if (isNaN(dobj.getTime())) return '--';
+                                return dobj.toLocaleString('vi-VN', {
+                                  timeZone: 'Asia/Ho_Chi_Minh',
+                                  hour12: false,
+                                  day: '2-digit', month: '2-digit', year: 'numeric',
+                                  hour: '2-digit', minute: '2-digit'
+                                });
+                              };
+                              return (
+                                <>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>🕒 {lang === 'vi' ? 'Mở bài (Giờ VN):' : 'Starts (VN):'} <strong style={{ color: '#e2e8f0' }}>{fmt(selAssign?.start_date)}</strong></span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>⏰ {lang === 'vi' ? 'Hạn nộp (Due):' : 'Due Date:'} <strong style={{ color: '#fde047' }}>{fmt(selAssign?.due_date || selAssign?.deadline)}</strong></span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>🚪 {lang === 'vi' ? 'Đóng bài (Close):' : 'Close Date:'} <strong style={{ color: '#f87171' }}>{fmt(selAssign?.close_date || selAssign?.deadline)}</strong></span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>🏷️ {lang === 'vi' ? 'Nộp trễ:' : 'Late Submissions:'} <strong style={{ color: selAssign?.allow_late_submission === false ? '#f87171' : '#34d399' }}>{selAssign?.allow_late_submission === false ? (lang === 'vi' ? 'Không cho phép' : 'Disabled') : (lang === 'vi' ? 'Cho phép' : 'Allowed')}</strong></span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>🔢 {lang === 'vi' ? 'Giới hạn nộp:' : 'Max Submissions:'} <strong style={{ color: '#a78bfa' }}>{selAssign?.max_submissions && selAssign.max_submissions > 0 ? `${selAssign.max_submissions} ${lang === 'vi' ? 'lần' : 'times'}` : (lang === 'vi' ? 'Không giới hạn' : 'Unlimited')}</strong></span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>🔁 {lang === 'vi' ? 'Nộp lại:' : 'Resubmission:'} <strong style={{ color: selAssign?.allow_resubmission === false ? '#f87171' : '#34d399' }}>{selAssign?.allow_resubmission === false ? (lang === 'vi' ? 'Chặn' : 'Disabled') : (lang === 'vi' ? 'Cho phép' : 'Allowed')}</strong></span>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+
                   {loadingRubrics ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                       <Loader2 size={18} className="animate-spin" /> {lang === 'vi' ? 'Đang tải test cases...' : 'Loading test cases...'}
@@ -4486,11 +5569,11 @@ export default function LecturerDashboard() {
                         width: '46px',
                         height: '46px',
                         borderRadius: '50%',
-                        background: 'rgba(56, 189, 248, 0.1)',
+                        background: 'rgba(139, 92, 246, 0.1)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#38bdf8'
+                        color: '#a78bfa'
                       }}>
                         <ListTodo size={22} />
                       </div>
@@ -4508,6 +5591,16 @@ export default function LecturerDashboard() {
                         type="button"
                         onClick={() => {
                           setModalError('');
+                          setTcCriterion('');
+                          setTcDescription('');
+                          setTcInputData('');
+                          setTcExpectedOutput('');
+                          setTcMaxScore('3.0');
+                          setTcIsHidden(false);
+                          setTcStatus('Active');
+                          setPreviewResult(null);
+                          setPreviewCode('');
+                          setShowPreviewSection(false);
                           setShowAddTestCaseModal(true);
                         }}
                         className="btn-primary"
@@ -4517,131 +5610,215 @@ export default function LecturerDashboard() {
                       </button>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
-                      {rubricRules.map((r, idx) => (
-                        <div 
-                          key={r.rubric_rule_id}
-                          style={{
-                            padding: '12px 14px',
-                            background: 'rgba(15, 23, 42, 0.45)',
-                            border: r.is_hidden ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700 }}>#{idx + 1}</span>
-                              <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f1f5f9' }}>{r.criterion}</span>
-                              {r.is_hidden ? (
-                                <span style={{
-                                  fontSize: '0.72rem',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  background: 'rgba(168, 85, 247, 0.15)',
-                                  color: '#c084fc',
-                                  border: '1px solid rgba(168, 85, 247, 0.3)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  fontWeight: 600
-                                }}>
-                                  <ShieldCheck size={11} /> {lang === 'vi' ? 'Ẩn bảo mật (BR-06)' : 'Hidden (BR-06)'}
-                                </span>
-                              ) : (
-                                <span style={{
-                                  fontSize: '0.72rem',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  background: 'rgba(16, 185, 129, 0.15)',
-                                  color: '#34d399',
-                                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                                  fontWeight: 600
-                                }}>
-                                  {lang === 'vi' ? 'Công khai' : 'Public'}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 700, marginRight: '4px' }}>
-                                {r.max_score} {lang === 'vi' ? 'điểm' : 'pts'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingRubric(r);
-                                  setTcCriterion(r.criterion);
-                                  setTcInputData(r.input_data || '');
-                                  setTcExpectedOutput(r.expected_output || '');
-                                  setTcMaxScore(String(r.max_score));
-                                  setTcIsHidden(Boolean(r.is_hidden));
-                                  setModalError('');
-                                  setShowAddTestCaseModal(true);
-                                }}
-                                title={lang === 'vi' ? 'Chỉnh sửa Test Case' : 'Edit Test Case'}
-                                style={{
-                                  background: 'rgba(56, 189, 248, 0.1)',
-                                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                                  color: '#38bdf8',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                  padding: '5px 8px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  fontSize: '0.74rem',
-                                  fontWeight: 600
-                                }}
-                              >
-                                <Edit3 size={13} />
-                                <span>{lang === 'vi' ? 'Sửa' : 'Edit'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteTestCase(r.rubric_rule_id)}
-                                title={lang === 'vi' ? 'Xóa Test Case' : 'Delete Test Case'}
-                                style={{
-                                  background: 'rgba(239, 68, 68, 0.1)',
-                                  border: '1px solid rgba(239, 68, 68, 0.25)',
-                                  color: '#f87171',
-                                  borderRadius: '6px',
-                                  cursor: 'pointer',
-                                  padding: '5px 8px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  fontSize: '0.74rem',
-                                  fontWeight: 600
-                                }}
-                              >
-                                <Trash2 size={13} />
-                                <span>{lang === 'vi' ? 'Xóa' : 'Delete'}</span>
-                              </button>
-                            </div>
-                          </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {rubricRules
+                        .filter(r => {
+                          if (tcFilterStatus === 'ALL') return true;
+                          const st = r.status || (r.is_hidden ? 'Hidden' : 'Active');
+                          return st === tcFilterStatus;
+                        })
+                        .map((r, idx) => {
+                          const statusStr = r.status || (r.is_hidden ? 'Hidden' : 'Active');
+                          return (
+                            <div 
+                              key={r.rubric_rule_id}
+                              style={{
+                                padding: '12px 14px',
+                                background: statusStr === 'Disabled' ? 'rgba(30, 41, 59, 0.3)' : 'rgba(15, 23, 42, 0.45)',
+                                border: statusStr === 'Hidden' ? '1px solid rgba(168, 85, 247, 0.3)' : (statusStr === 'Draft' ? '1px solid rgba(250, 204, 21, 0.3)' : (statusStr === 'Disabled' ? '1px solid rgba(148, 163, 184, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)')),
+                                borderRadius: '10px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                opacity: statusStr === 'Disabled' ? 0.75 : 1
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  {/* Reorder Buttons */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                    <button
+                                      type="button"
+                                      disabled={idx === 0}
+                                      onClick={() => handleReorderTestCases(idx, 'UP')}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: idx === 0 ? 'rgba(255,255,255,0.1)' : '#94a3b8',
+                                        cursor: idx === 0 ? 'default' : 'pointer',
+                                        padding: '0 2px',
+                                        lineHeight: 1
+                                      }}
+                                      title={lang === 'vi' ? 'Di chuyển lên' : 'Move up'}
+                                    >
+                                      <ArrowUp size={12} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={idx === rubricRules.length - 1}
+                                      onClick={() => handleReorderTestCases(idx, 'DOWN')}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: idx === rubricRules.length - 1 ? 'rgba(255,255,255,0.1)' : '#94a3b8',
+                                        cursor: idx === rubricRules.length - 1 ? 'default' : 'pointer',
+                                        padding: '0 2px',
+                                        lineHeight: 1
+                                      }}
+                                      title={lang === 'vi' ? 'Di chuyển xuống' : 'Move down'}
+                                    >
+                                      <ArrowDown size={12} />
+                                    </button>
+                                  </div>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem' }}>
-                            <div>
-                              <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
-                                {lang === 'vi' ? 'Dữ liệu Input (stdin):' : 'Input Data:'}
-                              </span>
-                              <pre style={{ margin: 0, padding: '6px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#38bdf8', fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
-                                {r.input_data || '(Trống)'}
-                              </pre>
+                                  <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700 }}>#{r.order_index ?? idx + 1}</span>
+                                  <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f1f5f9' }}>{r.criterion}</span>
+
+                                  {/* Status Badge */}
+                                  {statusStr === 'Hidden' ? (
+                                    <span style={{
+                                      fontSize: '0.72rem',
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(168, 85, 247, 0.15)',
+                                      color: '#c084fc',
+                                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontWeight: 600
+                                    }}>
+                                      <ShieldCheck size={11} /> Hidden (BR-06)
+                                    </span>
+                                  ) : statusStr === 'Draft' ? (
+                                    <span style={{
+                                      fontSize: '0.72rem',
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(250, 204, 21, 0.15)',
+                                      color: '#facc15',
+                                      border: '1px solid rgba(250, 204, 21, 0.3)',
+                                      fontWeight: 600
+                                    }}>
+                                      Draft
+                                    </span>
+                                  ) : statusStr === 'Disabled' ? (
+                                    <span style={{
+                                      fontSize: '0.72rem',
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(148, 163, 184, 0.15)',
+                                      color: '#94a3b8',
+                                      border: '1px solid rgba(148, 163, 184, 0.3)',
+                                      fontWeight: 600
+                                    }}>
+                                      Disabled
+                                    </span>
+                                  ) : (
+                                    <span style={{
+                                      fontSize: '0.72rem',
+                                      padding: '2px 8px',
+                                      borderRadius: '4px',
+                                      background: 'rgba(16, 185, 129, 0.15)',
+                                      color: '#34d399',
+                                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                                      fontWeight: 600
+                                    }}>
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '0.8rem', color: '#a78bfa', fontWeight: 700, marginRight: '4px' }}>
+                                    {r.max_score} {lang === 'vi' ? 'điểm' : 'pts'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingRubric(r);
+                                      setTcCriterion(r.criterion);
+                                      setTcDescription(r.description || '');
+                                      setTcInputData(r.input_data || '');
+                                      setTcExpectedOutput(r.expected_output || '');
+                                      setTcMaxScore(String(r.max_score));
+                                      setTcIsHidden(Boolean(r.is_hidden || r.status === 'Hidden'));
+                                      setTcStatus(r.status || (r.is_hidden ? 'Hidden' : 'Active'));
+                                      setPreviewResult(null);
+                                      setPreviewCode('');
+                                      setShowPreviewSection(false);
+                                      setModalError('');
+                                      setShowAddTestCaseModal(true);
+                                    }}
+                                    title={lang === 'vi' ? 'Chỉnh sửa Test Case' : 'Edit Test Case'}
+                                    style={{
+                                      background: 'rgba(139, 92, 246, 0.1)',
+                                      border: '1px solid rgba(139, 92, 246, 0.25)',
+                                      color: '#a78bfa',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      padding: '5px 8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '0.74rem',
+                                      fontWeight: 600
+                                    }}
+                                  >
+                                    <Edit3 size={13} />
+                                    <span>{lang === 'vi' ? 'Sửa' : 'Edit'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteTestCase(r.rubric_rule_id)}
+                                    title={lang === 'vi' ? 'Xóa hoặc vô hiệu hóa Test Case' : 'Delete or disable test case'}
+                                    style={{
+                                      background: 'rgba(239, 68, 68, 0.1)',
+                                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                                      color: '#f87171',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      padding: '5px 8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '0.74rem',
+                                      fontWeight: 600
+                                    }}
+                                  >
+                                    <Trash2 size={13} />
+                                    <span>{lang === 'vi' ? 'Xóa' : 'Delete'}</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {r.description && (
+                                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                  {r.description}
+                                </p>
+                              )}
+
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '2px' }}>
+                                <div>
+                                  <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
+                                    {lang === 'vi' ? 'Dữ liệu Input (stdin):' : 'Input Data:'}
+                                  </span>
+                                  <pre style={{ margin: 0, padding: '6px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#a78bfa', fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
+                                    {r.input_data || '(Trống)'}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
+                                    {lang === 'vi' ? 'Kết quả kỳ vọng (Expected):' : 'Expected Output:'}
+                                  </span>
+                                  <pre style={{ margin: 0, padding: '6px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#34d399', fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
+                                    {r.expected_output || '(Trống)'}
+                                  </pre>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <span style={{ color: '#94a3b8', fontSize: '0.72rem', display: 'block', marginBottom: '2px' }}>
-                                {lang === 'vi' ? 'Kết quả kỳ vọng (Expected):' : 'Expected Output:'}
-                              </span>
-                              <pre style={{ margin: 0, padding: '6px 8px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', color: '#34d399', fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'pre-wrap' }}>
-                                {r.expected_output || '(Trống)'}
-                              </pre>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                          );
+                        })}
                     </div>
                   )}
                 </>
@@ -4649,601 +5826,6 @@ export default function LecturerDashboard() {
             </div>
           </div>
         )}
-
-        {/* TAB: NỘP & BÓC TÁCH GIT REPO (HÌNH 1 WORKSPACE) */}
-        {activeTab === 'git-submit' && (
-          <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {/* Header */}
-            <div>
-              <h2 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.4rem' }}>
-                {lang === 'vi' ? 'Nộp Kho Git Để Phân Tích Nhóm' : 'Nộp Kho Git Để Phân Tích Nhóm'}
-              </h2>
-
-            </div>
-
-            {/* Main Form Container - Glass Card */}
-            <div 
-              className="glass-card"
-              style={{
-                borderRadius: '20px',
-                padding: '2rem 2.25rem',
-                border: '1px solid var(--border-color)',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-                background: 'var(--bg-card)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1.5rem'
-              }}
-            >
-              {/* Field 1: Chọn Nhóm Đồ Án */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)', marginBottom: '8px' }}>
-                  {lang === 'vi' ? 'CHỌN NHÓM ĐỒ ÁN*' : 'CHỌN NHÓM ĐỒ ÁN*'}
-                </label>
-
-                <select
-                  value={selectedGitSubmitTeamId || (teams[0]?.team_id ?? '')}
-                  onChange={(e) => {
-                    const id = Number(e.target.value);
-                    setSelectedGitSubmitTeamId(id);
-                    const t = teams.find(item => item.team_id === id);
-                    if (t) {
-                      setGitSubmitRepoUrl(t.repo_url || '');
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1.5px solid var(--border-color)',
-                    color: '#f8fafc',
-                    fontSize: '0.96rem',
-                    fontWeight: 700,
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {teams.map(t => (
-                    <option key={t.team_id} value={t.team_id} style={{ background: '#0f172a', color: '#f8fafc' }}>
-                      {t.team_name} ({t.course_code || 'SWD392'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Field 2: Git Repository URL */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)', marginBottom: '8px' }}>
-                  GIT REPOSITORY URL*
-                </label>
-                <div>
-                  <input
-                    type="text"
-                    value={gitSubmitRepoUrl}
-                    onChange={(e) => setGitSubmitRepoUrl(e.target.value)}
-                    placeholder="https://github.com/lenguyenanhmai05/AITA-Intelligent.git"
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      background: 'rgba(255, 255, 255, 0.04)',
-                      border: '1.5px solid var(--border-color)',
-                      color: '#f8fafc',
-                      fontSize: '0.92rem',
-                      fontFamily: 'monospace',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Field 3: Nhánh Phân Tích */}
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-main)', marginBottom: '8px' }}>
-                  {lang === 'vi' ? 'NHÁNH PHÂN TÍCH (DEFAULT: MAIN)' : 'NHÁNH PHÂN TÍCH (DEFAULT: MAIN)'}
-                </label>
-                <input
-                  type="text"
-                  value={gitSubmitBranch}
-                  onChange={(e) => setGitSubmitBranch(e.target.value)}
-                  placeholder="main"
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.04)',
-                    border: '1.5px solid var(--border-color)',
-                    color: '#f8fafc',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              {/* Big Action Button */}
-              <button
-                type="button"
-                onClick={handleGitSubmitAnalyze}
-                disabled={isAnalyzingGitRepo || teams.length === 0}
-                style={{
-                  width: '100%',
-                  padding: '14px 24px',
-                  borderRadius: '12px',
-                  background: isAnalyzingGitRepo 
-                    ? 'rgba(2, 132, 199, 0.65)' 
-                    : 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '1.05rem',
-                  fontWeight: 800,
-                  cursor: isAnalyzingGitRepo ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  boxShadow: '0 6px 20px rgba(56, 189, 248, 0.4)',
-                  transition: 'all 0.2s ease',
-                  marginTop: '0.5rem'
-                }}
-              >
-                {isAnalyzingGitRepo ? (
-                  <>
-                    <Loader2 className="animate-spin" size={20} />
-                    {lang === 'vi' ? 'Đang bóc tách & phân tích Git Repo...' : 'Đang bóc tách & phân tích Git Repo...'}
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: '1.2rem' }}>🚀</span>
-                    {lang === 'vi' ? 'Nộp & Bóc Tách Git Repo' : 'Nộp & Bóc Tách Git Repo'}
-                  </>
-                )}
-              </button>
-
-              {/* Progress Stepper when running */}
-              {isAnalyzingGitRepo && (
-                <div style={{
-                  padding: '1.25rem',
-                  borderRadius: '12px',
-                  background: 'rgba(56, 189, 248, 0.06)',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontWeight: 700, fontSize: '0.9rem' }}>
-                    <Loader2 className="animate-spin" size={16} />
-                    {lang === 'vi' ? 'Tiến trình bóc tách dữ liệu:' : 'Tiến trình bóc tách dữ liệu:'}
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: analysisStep >= 1 ? '#38bdf8' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {analysisStep >= 1 ? '✓' : '○'} 1. Bare clone Git Repo ({gitSubmitRepoUrl || 'GitHub'}) & checkout nhánh {gitSubmitBranch || 'main'}
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: analysisStep >= 2 ? '#38bdf8' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {analysisStep >= 2 ? '✓' : '○'} 2. Bóc tách commit history, map tác giả với tài khoản sinh viên
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: analysisStep >= 3 ? '#38bdf8' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {analysisStep >= 3 ? '✓' : '○'} 3. Áp dụng Noise Filter BR-07 (lọc bỏ node_modules, lockfiles, build artifacts)
-                  </div>
-                  <div style={{ fontSize: '0.82rem', color: analysisStep >= 4 ? '#10b981' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {analysisStep >= 4 ? '✓' : '○'} 4. Hoàn tất & tính toán chỉ số đóng góp thực tế (LOC %)
-                  </div>
-                </div>
-              )}
-
-              {/* Analysis Result Summary Card */}
-              {gitSubmitResult && !isAnalyzingGitRepo && (
-                <div style={{
-                  padding: '1.5rem',
-                  borderRadius: '14px',
-                  background: 'rgba(16, 185, 129, 0.06)',
-                  border: '1.5px solid rgba(16, 185, 129, 0.3)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1.25rem',
-                  animation: 'fadeIn 0.3s ease'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <CheckCircle2 size={22} color="#10b981" />
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#10b981' }}>
-                          {lang === 'vi' ? 'Bóc Tách Thành Công & Đã Áp Dụng Noise Filter!' : 'Bóc Tách Thành Công & Đã Áp Dụng Noise Filter!'}
-                        </h4>
-                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                          {lang === 'vi' 
-                            ? `Đã lưu trữ ${gitSubmitResult.sync?.synced_commits_count || 0} commits từ nhánh "${gitSubmitResult.sync?.branch || gitSubmitBranch}"`
-                            : `Đã lưu trữ ${gitSubmitResult.sync?.synced_commits_count || 0} commits từ nhánh "${gitSubmitResult.sync?.branch || gitSubmitBranch}"`}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedGitTeamId(selectedGitSubmitTeamId || (teams[0]?.team_id ?? 'ALL'));
-                        setActiveTab('analytics');
-                      }}
-                      style={{
-                        padding: '9px 18px',
-                        borderRadius: '10px',
-                        background: 'linear-gradient(135deg, #0284c7, #38bdf8)',
-                        color: '#ffffff',
-                        border: 'none',
-                        fontWeight: 700,
-                        fontSize: '0.88rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: '0 4px 12px rgba(56, 189, 248, 0.3)'
-                      }}
-                    >
-                      <GitBranch size={16} />
-                      {lang === 'vi' ? 'Xem Báo Cáo & Free-Rider Radar ➔' : 'Xem Báo Cáo & Free-Rider Radar ➔'}
-                    </button>
-                  </div>
-
-                  {/* Summary Metric Stats */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                    <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {lang === 'vi' ? 'Tổng Commits' : 'Tổng Commits'}
-                      </div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#38bdf8', marginTop: '2px' }}>
-                        {gitSubmitResult.sync?.synced_commits_count ?? gitSubmitResult.telemetry?.total_commits ?? 0}
-                      </div>
-                    </div>
-
-                    <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {lang === 'vi' ? 'Dòng Code Đã Thêm (+)' : 'Dòng Code Đã Thêm (+)'}
-                      </div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>
-                        +{(gitSubmitResult.telemetry?.total_lines_added ?? 2217).toLocaleString()} LOC
-                      </div>
-                    </div>
-
-                    <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {lang === 'vi' ? 'Bộ Lọc Rác BR-07' : 'Bộ Lọc Rác BR-07'}
-                      </div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#a855f7', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <ShieldCheck size={16} /> 18 Quy tắc lọc
-                      </div>
-                    </div>
-
-                    <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                        {lang === 'vi' ? 'Nguồn Bóc Tách' : 'Nguồn Bóc Tách'}
-                      </div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f59e0b', marginTop: '6px' }}>
-                        {gitSubmitResult.sync?.source === 'github_octokit_api' ? 'GitHub API Live' : 'GitHub Live Sync'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: GIT ANALYTICS & FREE-RIDER RADAR (F11) */}
-        {activeTab === 'analytics' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-              <div>
-                <h3 style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <GitBranch size={22} color="#38bdf8" /> {lang === 'vi' ? 'Thống kê đóng góp Git & Radar Free-Rider (BR-07)' : 'Git Contribution Analytics & BR-07 Radar'}
-                </h3>
-                
-              </div>
-
-              {/* Team Selector Filter */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {lang === 'vi' ? 'Lọc theo nhóm:' : 'Filter Team:'}
-                </span>
-                <select
-                  value={selectedGitTeamId}
-                  onChange={(e) => setSelectedGitTeamId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '10px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    color: '#38bdf8',
-                    fontWeight: 700,
-                    fontSize: '0.86rem',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="ALL">{lang === 'vi' ? `Tất cả các nhóm (${teams.length})` : `All Teams (${teams.length})`}</option>
-                  {teams.map(t => (
-                    <option key={t.team_id} value={t.team_id}>{t.team_name} ({t.course_code})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Teams Git Telemetry Display */}
-            {teams.length === 0 ? (
-              <div className="glass-card" style={{ padding: '3rem', textAlign: 'center', borderRadius: '20px' }}>
-                <GitBranch size={42} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
-                <p style={{ color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Chưa có nhóm nào trong hệ thống.' : 'No teams found.'}</p>
-              </div>
-            ) : (
-              teams
-                .filter(t => selectedGitTeamId === 'ALL' || t.team_id === selectedGitTeamId)
-                .map(team => {
-                  const telemetry = gitAnalyticsMap[team.team_id];
-                  const isLoading = loadingGitMap[team.team_id];
-                  const isSyncing = syncingGitMap[team.team_id];
-                  const members = telemetry?.member_contributions || [];
-
-                  return (
-                    <div 
-                      key={team.team_id} 
-                      className="glass-card" 
-                      style={{ 
-                        borderRadius: '20px', 
-                        overflow: 'hidden', 
-                        border: '1px solid var(--border-color)',
-                        padding: '1.5rem 1.75rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1.25rem'
-                      }}
-                    >
-                      {/* Team Header & Actions */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
-                              {team.course_code}
-                            </span>
-                            <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-                              {team.team_name}
-                            </h4>
-                          </div>
-                          {editingRepoTeamId !== team.team_id ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-                              <a 
-                                href={editingRepoUrlMap[team.team_id] || team.repo_url} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#38bdf8', textDecoration: 'none' }}
-                              >
-                                <ExternalLink size={13} /> {editingRepoUrlMap[team.team_id] || team.repo_url}
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingRepoUrlMap(prev => ({ ...prev, [team.team_id]: editingRepoUrlMap[team.team_id] || team.repo_url || '' }));
-                                  setEditingRepoTeamId(team.team_id);
-                                }}
-                                title={lang === 'vi' ? 'Sửa link Git Repo' : 'Edit Git Repo'}
-                                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
-                              <input
-                                type="text"
-                                value={editingRepoUrlMap[team.team_id] || ''}
-                                onChange={(e) => setEditingRepoUrlMap(prev => ({ ...prev, [team.team_id]: e.target.value }))}
-                                placeholder="https://github.com/organization/repo.git"
-                                style={{
-                                  padding: '3px 8px',
-                                  fontSize: '0.8rem',
-                                  borderRadius: '6px',
-                                  border: '1px solid rgba(56, 189, 248, 0.4)',
-                                  background: 'rgba(0,0,0,0.4)',
-                                  color: '#fff',
-                                  minWidth: '260px'
-                                }}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setEditingRepoTeamId(null)}
-                                style={{ padding: '2px 8px', fontSize: '0.75rem', borderRadius: '4px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', cursor: 'pointer' }}
-                              >
-                                {lang === 'vi' ? 'Hủy' : 'Cancel'}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Summary Badges, Branch Input & Sync Button */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          {telemetry && (
-                            <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
-                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
-                                {telemetry.team_total_commits || 0} Commits
-                              </span>
-                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                +{telemetry.team_total_lines_added || 0} LOC
-                              </span>
-                              <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
-                                -{telemetry.team_total_lines_deleted || 0} LOC
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Branch Input */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.04)', padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Nhánh:' : 'Branch:'}</span>
-                            <input
-                              type="text"
-                              value={teamBranchMap[team.team_id] || 'main'}
-                              onChange={(e) => setTeamBranchMap(prev => ({ ...prev, [team.team_id]: e.target.value }))}
-                              placeholder="main"
-                              style={{
-                                width: '75px',
-                                padding: '2px 6px',
-                                fontSize: '0.8rem',
-                                borderRadius: '4px',
-                                border: '1px solid rgba(56, 189, 248, 0.3)',
-                                background: 'rgba(0,0,0,0.3)',
-                                color: '#38bdf8',
-                                fontWeight: 600,
-                                textAlign: 'center'
-                              }}
-                            />
-                          </div>
-
-                          <button
-                            onClick={() => syncGitForTeam(team.team_id)}
-                            disabled={isSyncing}
-                            className="btn-primary"
-                            style={{ padding: '7px 15px', fontSize: '0.82rem', gap: '6px', whiteSpace: 'nowrap' }}
-                          >
-                            {isSyncing ? <Loader2 size={14} className="animate-spin" /> : <RotateCw size={14} />}
-                            {lang === 'vi' ? 'Đồng bộ từ GitHub' : 'Sync from GitHub'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Member Contributions Table */}
-                      <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: 'var(--text-muted)', textAlign: 'left' }}>
-                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Thành viên & Phân hệ' : 'Member & Module'}</th>
-                              <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'vi' ? 'Lượt Commits' : 'Commits'}</th>
-                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Dòng Code (LOC Thêm/Xóa)' : 'LOC Added/Deleted'}</th>
-                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Tỷ lệ đóng góp' : 'Contribution %'}</th>
-                              <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Đánh giá BR-07' : 'BR-07 Status'}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {isLoading ? (
-                              <tr>
-                                <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
-                                  <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#38bdf8' }} />
-                                  <p style={{ fontSize: '0.85rem' }}>{lang === 'vi' ? 'Đang phân tích telemetry GitHub...' : 'Analyzing GitHub telemetry...'}</p>
-                                </td>
-                              </tr>
-                            ) : members.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                                  {lang === 'vi' ? 'Chưa có dữ liệu commit. Bấm "Đồng bộ từ GitHub" để kéo commit về hệ thống.' : 'No commits recorded yet. Click "Sync from GitHub" to fetch.'}
-                                </td>
-                              </tr>
-                            ) : (
-                              members.map((m: any) => {
-                                const isFreeRider = m.is_free_rider;
-                                const isTop = m.contribution_percentage >= 35;
-
-                                return (
-                                  <tr 
-                                    key={m.user_id} 
-                                    style={{ 
-                                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                                      background: isFreeRider ? 'rgba(239, 68, 68, 0.04)' : 'transparent'
-                                    }}
-                                  >
-                                    <td style={{ padding: '14px 16px' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{
-                                          width: '32px', height: '32px', borderRadius: '50%',
-                                          background: isFreeRider ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.15)',
-                                          color: isFreeRider ? '#f87171' : '#38bdf8',
-                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                          fontWeight: 700, fontSize: '0.82rem', flexShrink: 0
-                                        }}>
-                                          {(m.full_name || 'U').charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                          <strong style={{ fontSize: '0.92rem', color: isFreeRider ? '#fca5a5' : 'var(--text-main)' }}>
-                                            {m.full_name}
-                                          </strong>
-                                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                                            {m.assigned_module || m.email}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, fontSize: '0.95rem' }}>
-                                      {m.total_commits}
-                                    </td>
-                                    <td style={{ padding: '14px 16px' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                                        <span style={{ color: '#34d399' }}>+{m.total_lines_added.toLocaleString()}</span>
-                                        <span style={{ color: 'var(--text-muted)' }}>/</span>
-                                        <span style={{ color: '#f43f5e' }}>-{m.total_lines_deleted.toLocaleString()}</span>
-                                      </div>
-                                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                        Net: <strong style={{ color: m.net_loc >= 0 ? '#38bdf8' : '#f43f5e' }}>{m.net_loc > 0 ? `+${m.net_loc.toLocaleString()}` : m.net_loc.toLocaleString()}</strong> LOC
-                                      </div>
-                                    </td>
-                                    <td style={{ padding: '14px 16px', minWidth: '160px' }}>
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px', fontWeight: 700 }}>
-                                        <span style={{ color: isFreeRider ? '#f87171' : (isTop ? '#34d399' : '#38bdf8') }}>
-                                          {m.contribution_percentage}%
-                                        </span>
-                                      </div>
-                                      <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-                                        <div style={{
-                                          width: `${Math.min(100, Math.max(m.contribution_percentage, 0))}%`,
-                                          height: '100%',
-                                          background: isFreeRider 
-                                            ? 'linear-gradient(90deg, #ef4444, #f87171)' 
-                                            : (isTop ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #0284c7, #38bdf8)'),
-                                          borderRadius: '3px',
-                                          transition: 'width 0.4s ease'
-                                        }} />
-                                      </div>
-                                    </td>
-                                    <td style={{ padding: '14px 16px' }}>
-                                      {isFreeRider ? (
-                                        <span style={{
-                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
-                                          background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
-                                          border: '1px solid rgba(239, 68, 68, 0.35)', fontWeight: 700
-                                        }}>
-                                          <AlertTriangle size={12} />
-                                          {lang === 'vi' ? 'Cảnh báo BR-07: Free-Rider (<5% LOC)' : 'BR-07 Alert: Free-Rider (<5%)'}
-                                        </span>
-                                      ) : isTop ? (
-                                        <span style={{
-                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
-                                          background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
-                                          border: '1px solid rgba(16, 185, 129, 0.35)', fontWeight: 700
-                                        }}>
-                                          ⭐ {lang === 'vi' ? 'Đóng góp xuất sắc' : 'Top Contributor'}
-                                        </span>
-                                      ) : (
-                                        <span style={{
-                                          display: 'inline-flex', alignItems: 'center', gap: '5px',
-                                          padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
-                                          background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8',
-                                          border: '1px solid rgba(56, 189, 248, 0.25)', fontWeight: 600
-                                        }}>
-                                          <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đạt chuẩn đóng góp' : 'Normal Contributor'}
-                                        </span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })
-            )}
-          </div>
-        )}
-
         {/* TAB 4: PEER AUDIT SUMMARY (BR-08) */}
         {activeTab === 'peer' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -5285,7 +5867,7 @@ export default function LecturerDashboard() {
                         {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
                           <div>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa' }}>
                               {team.course_code}
                             </span>
                             <h4 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '4px 0 0 0', color: 'var(--text-main)' }}>
@@ -5400,8 +5982,8 @@ export default function LecturerDashboard() {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    color: '#60a5fa',
+                    background: 'rgba(124, 58, 237, 0.15)',
+                    color: '#c4b5fd',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -5619,7 +6201,7 @@ export default function LecturerDashboard() {
                       borderRadius: '8px',
                       background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#60a5fa',
+                      color: '#c4b5fd',
                       fontSize: '0.88rem'
                     }}
                   />
@@ -5657,7 +6239,7 @@ export default function LecturerDashboard() {
               maxWidth: '460px',
               padding: '1.75rem',
               borderRadius: '16px',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
               boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
@@ -5666,8 +6248,8 @@ export default function LecturerDashboard() {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    color: '#38bdf8',
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    color: '#a78bfa',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -5788,7 +6370,7 @@ export default function LecturerDashboard() {
               maxWidth: '460px',
               padding: '1.75rem',
               borderRadius: '16px',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
               boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
@@ -5797,8 +6379,8 @@ export default function LecturerDashboard() {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    color: '#38bdf8',
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    color: '#a78bfa',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -5859,7 +6441,7 @@ export default function LecturerDashboard() {
                       borderRadius: '8px',
                       background: 'var(--bg-card)',
                       border: '1px solid var(--border-color)',
-                      color: '#60a5fa',
+                      color: '#c4b5fd',
                       fontSize: '0.88rem'
                     }}
                   />
@@ -5907,8 +6489,8 @@ export default function LecturerDashboard() {
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
-                    background: 'rgba(59, 130, 246, 0.15)',
-                    color: '#60a5fa',
+                    background: 'rgba(124, 58, 237, 0.15)',
+                    color: '#c4b5fd',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -5965,8 +6547,8 @@ export default function LecturerDashboard() {
                       padding: '6px 10px',
                       borderRadius: '6px',
                       border: 'none',
-                      background: assignMode === 'email' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-                      color: assignMode === 'email' ? '#93c5fd' : 'var(--text-muted)',
+                      background: assignMode === 'email' ? 'rgba(124, 58, 237, 0.25)' : 'transparent',
+                      color: assignMode === 'email' ? '#c4b5fd' : 'var(--text-muted)',
                       fontWeight: assignMode === 'email' ? 600 : 400,
                       fontSize: '0.82rem',
                       cursor: 'pointer',
@@ -5983,8 +6565,8 @@ export default function LecturerDashboard() {
                       padding: '6px 10px',
                       borderRadius: '6px',
                       border: 'none',
-                      background: assignMode === 'select' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
-                      color: assignMode === 'select' ? '#93c5fd' : 'var(--text-muted)',
+                      background: assignMode === 'select' ? 'rgba(124, 58, 237, 0.25)' : 'transparent',
+                      color: assignMode === 'select' ? '#c4b5fd' : 'var(--text-muted)',
                       fontWeight: assignMode === 'select' ? 600 : 400,
                       fontSize: '0.82rem',
                       cursor: 'pointer',
@@ -6036,7 +6618,7 @@ export default function LecturerDashboard() {
                       }
                       if (assignEmail.trim() && assignEmail.includes('@')) {
                         return (
-                          <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: '5px' }}>
                             <span>ℹ️</span> {lang === 'vi' ? 'Email mới: Sẽ tự động gán học phần khi sinh viên đăng nhập' : 'New email: Will auto-link upon student login'}
                           </div>
                         );
@@ -6055,9 +6637,9 @@ export default function LecturerDashboard() {
                               type="button"
                               onClick={() => setAssignEmail(st.email)}
                               style={{
-                                background: 'rgba(59, 130, 246, 0.12)',
-                                border: '1px solid rgba(59, 130, 246, 0.3)',
-                                color: '#93c5fd',
+                                background: 'rgba(124, 58, 237, 0.12)',
+                                border: '1px solid rgba(124, 58, 237, 0.3)',
+                                color: '#c4b5fd',
                                 borderRadius: '6px',
                                 padding: '3px 10px',
                                 fontSize: '0.74rem',
@@ -6114,8 +6696,8 @@ export default function LecturerDashboard() {
                         padding: '7px 12px',
                         borderRadius: '6px',
                         border: assignRole === 'MEMBER' ? '1px solid #3b82f6' : '1px solid var(--border-color)',
-                        background: assignRole === 'MEMBER' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.02)',
-                        color: assignRole === 'MEMBER' ? '#93c5fd' : 'var(--text-muted)',
+                        background: assignRole === 'MEMBER' ? 'rgba(124, 58, 237, 0.15)' : 'rgba(255,255,255,0.02)',
+                        color: assignRole === 'MEMBER' ? '#c4b5fd' : 'var(--text-muted)',
                         fontWeight: assignRole === 'MEMBER' ? 600 : 400,
                         fontSize: '0.82rem',
                         cursor: 'pointer'
@@ -6216,14 +6798,15 @@ export default function LecturerDashboard() {
             zIndex: 2000, padding: '1rem'
           }}>
             <div className="glass-card" style={{
-              width: '100%', maxWidth: '560px',
+              width: '100%', maxWidth: '720px', maxHeight: '92vh', overflowY: 'auto',
               padding: '2rem', borderRadius: '20px',
-              border: '1px solid var(--border-color)',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.85)'
+              border: '1px solid rgba(139, 92, 246, 0.35)',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.85)',
+              boxSizing: 'border-box'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Plus size={20} style={{ color: '#38bdf8' }} />
+                  <Plus size={20} style={{ color: '#c4b5fd' }} />
                   {lang === 'vi' ? 'Tạo bài tập thủ công' : 'Create Assignment (Manual)'}
                 </h3>
                 <button onClick={() => { setShowAssignmentModal(false); setModalError(''); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
@@ -6238,8 +6821,8 @@ export default function LecturerDashboard() {
               )}
 
               <form onSubmit={handleCreateAssignment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem' }}>
-                  <div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
                       {lang === 'vi' ? 'Học phần liên kết:' : 'Course:'}
                     </label>
@@ -6247,7 +6830,7 @@ export default function LecturerDashboard() {
                       value={assignmentCourseId}
                       onChange={(e) => setAssignmentCourseId(e.target.value)}
                       required
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
                     >
                       {courses.map(c => (
                         <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
@@ -6255,8 +6838,8 @@ export default function LecturerDashboard() {
                     </select>
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#38bdf8' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#c4b5fd' }}>
                       {lang === 'vi' ? 'Hình thức nộp (*):' : 'Submission Type (*):'}
                     </label>
                     <select
@@ -6264,11 +6847,13 @@ export default function LecturerDashboard() {
                       onChange={(e) => setAssignmentSubmissionType(e.target.value as 'INDIVIDUAL' | 'TEAM')}
                       style={{
                         width: '100%',
+                        minWidth: 0,
+                        boxSizing: 'border-box',
                         padding: '10px 14px',
                         borderRadius: '8px',
-                        background: 'rgba(56, 189, 248, 0.08)',
-                        border: '1px solid rgba(56, 189, 248, 0.4)',
-                        color: '#38bdf8',
+                        background: 'rgba(124, 58, 237, 0.08)',
+                        border: '1px solid rgba(139, 92, 246, 0.4)',
+                        color: '#c4b5fd',
                         fontWeight: 700,
                         fontSize: '0.9rem'
                       }}
@@ -6278,6 +6863,152 @@ export default function LecturerDashboard() {
                     </select>
                   </div>
                 </div>
+
+                {/* Ngôn ngữ cho phép & Đối tượng giao bài */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#a78bfa' }}>
+                      {lang === 'vi' ? 'Ngôn ngữ chấm bài (*):' : 'Programming Language (*):'}
+                    </label>
+                    <select
+                      value={assignmentAllowedLanguage}
+                      onChange={(e) => setAssignmentAllowedLanguage(e.target.value as 'ALL' | 'python' | 'javascript')}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        boxSizing: 'border-box',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(167, 139, 250, 0.08)',
+                        border: '1px solid rgba(167, 139, 250, 0.35)',
+                        color: '#c4b5fd',
+                        fontWeight: 600,
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      <option value="ALL">{lang === 'vi' ? 'Tất cả (Python & JavaScript)' : 'All (Python & JavaScript)'}</option>
+                      <option value="python">Python (Sandbox Python 3.11)</option>
+                      <option value="javascript">JavaScript (Node.js 20)</option>
+                    </select>
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: '#34d399' }}>
+                      {lang === 'vi' ? 'Đối tượng được giao bài (*):' : 'Target Audience (*):'}
+                    </label>
+                    <select
+                      value={assignmentTargetType}
+                      onChange={(e) => setAssignmentTargetType(e.target.value as 'ALL' | 'SPECIFIC_TEAMS')}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        boxSizing: 'border-box',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        background: 'rgba(52, 211, 153, 0.08)',
+                        border: '1px solid rgba(52, 211, 153, 0.35)',
+                        color: '#6ee7b7',
+                        fontWeight: 600,
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      <option value="ALL">{lang === 'vi' ? 'Toàn bộ lớp (All Class)' : 'Entire Class'}</option>
+                      <option value="SPECIFIC_TEAMS">{lang === 'vi' ? 'Chỉ định nhóm cụ thể (Specific Teams)' : 'Specific Teams'}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Danh sách chọn nhóm cụ thể từ DB khi chọn SPECIFIC_TEAMS */}
+                {assignmentTargetType === 'SPECIFIC_TEAMS' && (
+                  <div style={{
+                    background: 'rgba(15, 23, 42, 0.6)',
+                    border: '1px solid rgba(52, 211, 153, 0.3)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#6ee7b7' }}>
+                        {lang === 'vi' ? 'Danh sách nhóm nhận đề:' : 'Target Teams:'} ({assignmentTargetTeamIds.length} {lang === 'vi' ? 'nhóm đã chọn' : 'selected'})
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cId = Number(assignmentCourseId || selectedCourseId || (courses[0]?.course_id));
+                            const relevantTeams = teams.filter(t => t.course_id === cId);
+                            setAssignmentTargetTeamIds(relevantTeams.map(t => t.team_id));
+                          }}
+                          style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'rgba(139, 92, 246,0.15)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246,0.3)', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          {lang === 'vi' ? 'Chọn tất cả' : 'Select All'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAssignmentTargetTeamIds([])}
+                          style={{ fontSize: '0.75rem', padding: '3px 8px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          {lang === 'vi' ? 'Bỏ chọn' : 'Clear'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const cId = Number(assignmentCourseId || selectedCourseId || (courses[0]?.course_id));
+                      const courseTeams = teams.filter(t => t.course_id === cId);
+                      if (courseTeams.length === 0) {
+                        return (
+                          <div style={{ fontSize: '0.83rem', color: 'var(--text-muted)', padding: '6px 0' }}>
+                            ⚠️ {lang === 'vi' ? 'Chưa có nhóm nào trong lớp/học phần này.' : 'No teams found in this course.'}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px', maxHeight: '160px', overflowY: 'auto' }}>
+                          {courseTeams.map(t => {
+                            const isChecked = assignmentTargetTeamIds.includes(t.team_id);
+                            return (
+                              <label
+                                key={t.team_id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '6px 10px',
+                                  borderRadius: '6px',
+                                  background: isChecked ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                  border: `1px solid ${isChecked ? 'rgba(52, 211, 153, 0.45)' : 'var(--border-color)'}`,
+                                  cursor: 'pointer',
+                                  fontSize: '0.84rem'
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setAssignmentTargetTeamIds([...assignmentTargetTeamIds, t.team_id]);
+                                    } else {
+                                      setAssignmentTargetTeamIds(assignmentTargetTeamIds.filter(id => id !== t.team_id));
+                                    }
+                                  }}
+                                />
+                                <div>
+                                  <span style={{ fontWeight: 600, color: isChecked ? '#a7f3d0' : 'var(--text-main)' }}>{t.team_name}</span>
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
+                                    {t.members?.length || 0} {lang === 'vi' ? 'thành viên' : 'members'}
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
@@ -6305,28 +7036,124 @@ export default function LecturerDashboard() {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                      {lang === 'vi' ? 'Hạn nộp bài (*)' : 'Deadline (*)'}
+                {/* Lifecycle Schedule: Start Date, Due Date, Close Date */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(195px, 1fr))', gap: '12px' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '5px' }}>
+                      {lang === 'vi' ? 'Ngày mở bài (*)' : 'Start Date (*)'}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={assignmentStartDate}
+                      onChange={(e) => setAssignmentStartDate(e.target.value)}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '9px 10px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '5px', color: '#fbbf24' }}>
+                      {lang === 'vi' ? 'Hạn nộp (Due Date) (*)' : 'Due Date (*)'}
                     </label>
                     <input
                       type="datetime-local" required
-                      value={assignmentDeadline}
-                      onChange={(e) => setAssignmentDeadline(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                      value={assignmentDueDate || assignmentDeadline}
+                      onChange={(e) => {
+                        setAssignmentDueDate(e.target.value);
+                        setAssignmentDeadline(e.target.value);
+                      }}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '9px 10px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid rgba(245, 158, 11, 0.4)', color: 'var(--text-main)', fontSize: '0.82rem' }}
                     />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '5px', color: '#f87171' }}>
+                      {lang === 'vi' ? 'Đóng bài (Close Date)' : 'Close Date'}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={assignmentCloseDate}
+                      onChange={(e) => setAssignmentCloseDate(e.target.value)}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '9px 10px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid rgba(239, 68, 68, 0.4)', color: 'var(--text-main)', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Submission Policies: Status, Late, Max Attempts, Resubmit */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '5px' }}>
+                      {lang === 'vi' ? 'Trạng thái khởi tạo:' : 'Initial Status:'}
+                    </label>
+                    <select
+                      value={assignmentStatus}
+                      onChange={(e) => setAssignmentStatus(e.target.value as any)}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                    >
+                      <option value="PUBLISHED">{lang === 'vi' ? 'Xuất bản ngay (PUBLISHED)' : 'Publish immediately'}</option>
+                      <option value="DRAFT">{lang === 'vi' ? 'Lưu bản nháp (DRAFT)' : 'Save as Draft'}</option>
+                    </select>
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '5px' }}>
                       {lang === 'vi' ? 'Điểm tối đa:' : 'Max Score:'}
                     </label>
                     <input
                       type="number" min="1" max="100"
                       value={assignmentMaxScore}
                       onChange={(e) => setAssignmentMaxScore(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.85rem' }}
                     />
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                  gap: '12px',
+                  background: 'rgba(255,255,255,0.02)',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                  boxSizing: 'border-box'
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '5px' }}>
+                      {lang === 'vi' ? 'Nộp trễ (Late Submission):' : 'Late Submission:'}
+                    </label>
+                    <select
+                      value={assignmentAllowLate ? 'yes' : 'no'}
+                      onChange={(e) => setAssignmentAllowLate(e.target.value === 'yes')}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.8rem' }}
+                    >
+                      <option value="yes">{lang === 'vi' ? 'Cho phép (Đánh dấu trễ)' : 'Allow (Mark as Late)'}</option>
+                      <option value="no">{lang === 'vi' ? 'Chặn hoàn toàn khi hết hạn' : 'Disallow after due date'}</option>
+                    </select>
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '5px' }}>
+                      {lang === 'vi' ? 'Số lần nộp tối đa:' : 'Max Attempts:'}
+                    </label>
+                    <input
+                      type="number" min="0" max="50"
+                      placeholder="0 = Không giới hạn"
+                      value={assignmentMaxSubmissions}
+                      onChange={(e) => setAssignmentMaxSubmissions(e.target.value)}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.8rem' }}
+                    />
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '5px' }}>
+                      {lang === 'vi' ? 'Cho nộp lại:' : 'Resubmission:'}
+                    </label>
+                    <select
+                      value={assignmentAllowResubmit ? 'yes' : 'no'}
+                      onChange={(e) => setAssignmentAllowResubmit(e.target.value === 'yes')}
+                      style={{ width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.8rem' }}
+                    >
+                      <option value="yes">{lang === 'vi' ? 'Cho phép' : 'Allow'}</option>
+                      <option value="no">{lang === 'vi' ? 'Chỉ 1 lần duy nhất' : 'Single attempt only'}</option>
+                    </select>
                   </div>
                 </div>
 
@@ -6401,7 +7228,7 @@ export default function LecturerDashboard() {
 
               {/* BƯỚC 1: NẠP SLIDE & CẤU HÌNH AI */}
               <div style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(56, 189, 248, 0.05) 100%)',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(124, 58, 237, 0.08) 100%)',
                 border: '1px solid rgba(139, 92, 246, 0.3)',
                 borderRadius: '14px',
                 padding: '1.25rem',
@@ -6498,8 +7325,159 @@ export default function LecturerDashboard() {
                   />
                 </div>
 
-                {/* Tùy chọn Ngôn ngữ & Độ khó */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.85rem' }}>
+                {/* Cấu hình Học phần, Hình thức nộp & Đối tượng giao đề */}
+                <div style={{
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  borderRadius: '12px',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '5px' }}>
+                        {lang === 'vi' ? 'Học phần liên kết (*):' : 'Course (*):'}
+                      </label>
+                      <select
+                        value={aiCourseId || selectedCourseId || (courses[0]?.course_id ?? '')}
+                        onChange={(e) => {
+                          setAiCourseId(e.target.value);
+                          setAiTargetTeamIds([]);
+                        }}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', background: 'rgba(10, 14, 26, 0.85)', border: '1px solid rgba(139, 92, 246, 0.35)', color: '#f8fafc', fontSize: '0.85rem' }}
+                      >
+                        {courses.map(c => (
+                          <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#c4b5fd', marginBottom: '5px' }}>
+                        {lang === 'vi' ? 'Hình thức nộp (*):' : 'Submission Type (*):'}
+                      </label>
+                      <select
+                        value={aiSubmissionType}
+                        onChange={(e) => setAiSubmissionType(e.target.value as 'INDIVIDUAL' | 'TEAM')}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', background: 'rgba(124, 58, 237, 0.12)', border: '1px solid rgba(139, 92, 246, 0.45)', color: '#c4b5fd', fontWeight: 700, fontSize: '0.85rem' }}
+                      >
+                        <option value="INDIVIDUAL">{lang === 'vi' ? '👤 Cá nhân (Individual)' : '👤 Individual'}</option>
+                        <option value="TEAM">{lang === 'vi' ? '👥 Theo nhóm (Team)' : '👥 Team'}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#34d399', marginBottom: '5px' }}>
+                        {lang === 'vi' ? 'Đối tượng được giao bài (*):' : 'Target Audience (*):'}
+                      </label>
+                      <select
+                        value={aiTargetType}
+                        onChange={(e) => setAiTargetType(e.target.value as 'ALL' | 'SPECIFIC_TEAMS')}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: '8px', background: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.4)', color: '#6ee7b7', fontWeight: 700, fontSize: '0.85rem' }}
+                      >
+                        <option value="ALL">{lang === 'vi' ? '🏫 Toàn bộ lớp (All Class)' : '🏫 All Class'}</option>
+                        <option value="SPECIFIC_TEAMS">{lang === 'vi' ? '🎯 Chỉ định nhóm cụ thể (Specific Teams)' : '🎯 Specific Teams'}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Danh sách chọn nhóm cụ thể khi aiTargetType === 'SPECIFIC_TEAMS' */}
+                  {aiTargetType === 'SPECIFIC_TEAMS' && (
+                    <div style={{
+                      background: 'rgba(15, 23, 42, 0.85)',
+                      border: '1px solid rgba(52, 211, 153, 0.35)',
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#6ee7b7' }}>
+                          {lang === 'vi' ? 'Danh sách nhóm nhận đề:' : 'Target Teams:'} ({aiTargetTeamIds.length} {lang === 'vi' ? 'nhóm đã chọn' : 'selected'})
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cId = Number(aiCourseId || selectedCourseId || (courses[0]?.course_id));
+                              const relevantTeams = teams.filter(t => t.course_id === cId);
+                              setAiTargetTeamIds(relevantTeams.map(t => t.team_id));
+                            }}
+                            style={{ fontSize: '0.74rem', padding: '3px 8px', background: 'rgba(139, 92, 246,0.15)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246,0.3)', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            {lang === 'vi' ? 'Chọn tất cả' : 'Select All'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAiTargetTeamIds([])}
+                            style={{ fontSize: '0.74rem', padding: '3px 8px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            {lang === 'vi' ? 'Bỏ chọn' : 'Clear'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const cId = Number(aiCourseId || selectedCourseId || (courses[0]?.course_id));
+                        const courseTeams = teams.filter(t => t.course_id === cId);
+                        if (courseTeams.length === 0) {
+                          return (
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '6px 0' }}>
+                              ⚠️ {lang === 'vi' ? 'Chưa có nhóm nào trong học phần này.' : 'No teams found in this course.'}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px', maxHeight: '150px', overflowY: 'auto' }}>
+                            {courseTeams.map(t => {
+                              const isChecked = aiTargetTeamIds.includes(t.team_id);
+                              return (
+                                <label
+                                  key={t.team_id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    background: isChecked ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                    border: `1px solid ${isChecked ? 'rgba(52, 211, 153, 0.45)' : 'var(--border-color)'}`,
+                                    cursor: 'pointer',
+                                    fontSize: '0.82rem'
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setAiTargetTeamIds([...aiTargetTeamIds, t.team_id]);
+                                      } else {
+                                        setAiTargetTeamIds(aiTargetTeamIds.filter(id => id !== t.team_id));
+                                      }
+                                    }}
+                                  />
+                                  <div>
+                                    <span style={{ fontWeight: 600, color: isChecked ? '#a7f3d0' : 'var(--text-main)' }}>{t.team_name}</span>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>
+                                      {t.members?.length || 0} {lang === 'vi' ? 'thành viên' : 'members'}
+                                    </span>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Tùy chọn Ngôn ngữ, Độ khó & Hạn nộp bài */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '5px' }}>
                       {lang === 'vi' ? 'Ngôn ngữ thực thi:' : 'Execution Language:'}
@@ -6509,11 +7487,12 @@ export default function LecturerDashboard() {
                       onChange={(e) => setAiLanguage(e.target.value as 'javascript' | 'python')}
                       style={{
                         width: '100%',
+                        boxSizing: 'border-box',
                         padding: '9px 12px',
                         borderRadius: '8px',
                         background: 'rgba(15, 23, 42, 0.8)',
                         border: '1px solid rgba(139, 92, 246, 0.35)',
-                        color: '#38bdf8',
+                        color: '#c4b5fd',
                         fontSize: '0.85rem',
                         fontWeight: 600,
                       }}
@@ -6532,6 +7511,7 @@ export default function LecturerDashboard() {
                       onChange={(e) => setAiDifficulty(e.target.value as 'EASY' | 'MEDIUM' | 'HARD')}
                       style={{
                         width: '100%',
+                        boxSizing: 'border-box',
                         padding: '9px 12px',
                         borderRadius: '8px',
                         background: 'rgba(15, 23, 42, 0.8)',
@@ -6544,6 +7524,27 @@ export default function LecturerDashboard() {
                       <option value="MEDIUM">🟡 Trung bình (Medium)</option>
                       <option value="HARD">🔴 Nâng cao (Hard)</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#fbbf24', marginBottom: '5px' }}>
+                      {lang === 'vi' ? 'Hạn nộp bài (*):' : 'Deadline (*):'}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={aiDeadline}
+                      onChange={(e) => setAiDeadline(e.target.value)}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '9px 10px',
+                        borderRadius: '8px',
+                        background: 'rgba(15, 23, 42, 0.8)',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        color: '#f8fafc',
+                        fontSize: '0.82rem',
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -6579,7 +7580,7 @@ export default function LecturerDashboard() {
               {aiGeneratedAssignment && (
                 <div style={{
                   background: 'rgba(15, 23, 42, 0.85)',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  border: '1px solid rgba(139, 92, 246, 0.4)',
                   borderRadius: '14px',
                   padding: '1.25rem',
                   display: 'flex',
@@ -6590,11 +7591,11 @@ export default function LecturerDashboard() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ fontSize: '1.1rem' }}>🎉</span>
-                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#38bdf8' }}>
+                      <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#a78bfa' }}>
                         {lang === 'vi' ? 'Kết quả đề bài và 3 Test Cases do AI vừa tạo:' : 'AI Generated Assignment & Test Cases:'}
                       </h4>
                     </div>
-                    <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '12px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', fontWeight: 600 }}>
                       Tổng: 10.0 điểm
                     </span>
                   </div>
@@ -6648,8 +7649,8 @@ export default function LecturerDashboard() {
                                 fontSize: '0.7rem',
                                 padding: '2px 6px',
                                 borderRadius: '4px',
-                                background: r.is_hidden ? 'rgba(234, 179, 8, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                                color: r.is_hidden ? '#fde047' : '#38bdf8',
+                                background: r.is_hidden ? 'rgba(234, 179, 8, 0.2)' : 'rgba(139, 92, 246, 0.2)',
+                                color: r.is_hidden ? '#fde047' : '#a78bfa',
                                 fontWeight: 600,
                               }}>
                                 {r.is_hidden ? (lang === 'vi' ? '🔒 Test Ẩn (BR-06)' : '🔒 Hidden') : (lang === 'vi' ? 'Công khai' : 'Public')}
@@ -6674,46 +7675,42 @@ export default function LecturerDashboard() {
                     </div>
                   </div>
 
-                  {/* CHỌN LỚP VÀ HẠN NỘP ĐỂ GIAO BÀI */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px', color: '#cbd5e1' }}>
-                        {lang === 'vi' ? 'Giao cho lớp (*):' : 'Course:'}
-                      </label>
-                      <select
-                        value={aiCourseId}
-                        onChange={(e) => setAiCourseId(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.82rem' }}
-                      >
-                        {courses.map(c => (
-                          <option key={c.course_id} value={c.course_id}>{c.course_code} - {c.course_name}</option>
-                        ))}
-                      </select>
+                  {/* Xác nhận thông tin Giao bài */}
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(15, 23, 42, 0.7)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    marginTop: '4px'
+                  }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 600 }}>
+                        🏫 {courses.find(c => c.course_id === Number(aiCourseId || selectedCourseId))?.course_code || 'Khóa học'}:
+                      </span>
+                      <span style={{ fontSize: '0.78rem', padding: '3px 8px', borderRadius: '6px', background: 'rgba(124, 58, 237, 0.18)', color: '#c4b5fd', fontWeight: 700 }}>
+                        {aiSubmissionType === 'TEAM' ? (lang === 'vi' ? '👥 Theo nhóm' : '👥 Team') : (lang === 'vi' ? '👤 Cá nhân' : '👤 Individual')}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', padding: '3px 8px', borderRadius: '6px', background: aiTargetType === 'ALL' ? 'rgba(52, 211, 153, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: aiTargetType === 'ALL' ? '#34d399' : '#fbbf24', fontWeight: 700 }}>
+                        {aiTargetType === 'ALL'
+                          ? (lang === 'vi' ? '🏫 Toàn bộ lớp' : '🏫 All Class')
+                          : (lang === 'vi' ? `🎯 ${aiTargetTeamIds.length} nhóm được chọn` : `🎯 ${aiTargetTeamIds.length} Teams`)}
+                      </span>
                     </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px', color: '#cbd5e1' }}>
-                        {lang === 'vi' ? 'Hình thức nộp:' : 'Type:'}
-                      </label>
-                      <select
-                        value={aiSubmissionType}
-                        onChange={(e) => setAiSubmissionType(e.target.value as 'INDIVIDUAL' | 'TEAM')}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: '#38bdf8', fontSize: '0.82rem', fontWeight: 600 }}
-                      >
-                        <option value="INDIVIDUAL">{lang === 'vi' ? 'Cá nhân' : 'Individual'}</option>
-                        <option value="TEAM">{lang === 'vi' ? 'Theo nhóm' : 'Team'}</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px', color: '#cbd5e1' }}>
-                        {lang === 'vi' ? 'Hạn nộp bài (*):' : 'Deadline:'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <label style={{ fontSize: '0.78rem', color: '#fbbf24', fontWeight: 600 }}>
+                        ⏰ {lang === 'vi' ? 'Hạn nộp:' : 'Deadline:'}
                       </label>
                       <input
                         type="datetime-local"
                         value={aiDeadline}
                         onChange={(e) => setAiDeadline(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.82rem' }}
+                        style={{ padding: '6px 8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid rgba(245, 158, 11, 0.4)', color: '#f8fafc', fontSize: '0.78rem' }}
                       />
                     </div>
                   </div>
@@ -6785,14 +7782,14 @@ export default function LecturerDashboard() {
             zIndex: 2000, padding: '1rem'
           }}>
             <div className="glass-card" style={{
-              width: '100%', maxWidth: '580px',
+              width: '100%', maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto',
               padding: '2rem', borderRadius: '20px',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
               boxShadow: '0 25px 60px rgba(0,0,0,0.8)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {editingRubric ? <Edit3 size={18} style={{ color: '#38bdf8' }} /> : <Plus size={18} style={{ color: '#38bdf8' }} />}
+                  {editingRubric ? <Edit3 size={18} style={{ color: '#a78bfa' }} /> : <Plus size={18} style={{ color: '#a78bfa' }} />}
                   {editingRubric 
                     ? (lang === 'vi' ? 'Chỉnh sửa Test Case / Rubric' : 'Edit Test Case / Rubric')
                     : (assignments.length === 0 ? (lang === 'vi' ? 'Thêm Test Case & Khởi Tạo Bài Tập' : 'Add Test Case & Create Assignment') : (lang === 'vi' ? 'Thêm Test Case cho Bài Tập' : 'Add Test Case to Assignment'))}
@@ -6810,9 +7807,9 @@ export default function LecturerDashboard() {
 
               <form onSubmit={handleAddTestCase} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {!editingRubric && (assignments.length === 0 || selectedAssignmentId === -1) ? (
-                  <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
+                  <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '12px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#a78bfa' }}>
                         {lang === 'vi' ? 'Tiêu đề bài tập cần tạo (*):' : 'New Assignment Title (*):'}
                       </label>
                       {assignments.length > 0 && (
@@ -6871,7 +7868,7 @@ export default function LecturerDashboard() {
                       <button
                         type="button"
                         onClick={() => setSelectedAssignmentId(-1)}
-                        style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}
+                        style={{ background: 'transparent', border: 'none', color: '#a78bfa', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}
                       >
                         + {lang === 'vi' ? 'Tạo bài tập mới...' : 'New Assignment...'}
                       </button>
@@ -6900,18 +7897,51 @@ export default function LecturerDashboard() {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                    {lang === 'vi' ? 'Tên tiêu chí / Mô tả Test Case (*):' : 'Criterion / Test Case Name (*):'}
+                    {lang === 'vi' ? 'Tên tiêu chí Test Case (*):' : 'Criterion / Test Case Name (*):'}
                   </label>
                   <input
                     type="text" required
-                    placeholder={lang === 'vi' ? 'VD: Test Case 4: Kiểm tra biên số âm và số lớn' : 'e.g. Test Case 4: Large negative bounds'}
+                    placeholder={lang === 'vi' ? 'VD: Test Case 1: Kiểm tra tính đúng tổng 2 số' : 'e.g. Test Case 1: Sum validation'}
                     value={tcCriterion}
                     onChange={(e) => setTcCriterion(e.target.value)}
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
                   />
                 </div>
 
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                    {lang === 'vi' ? 'Mô tả chi tiết (Tùy chọn):' : 'Detailed Description (Optional):'}
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder={lang === 'vi' ? 'VD: Kiểm tra khả năng xử lý số âm và số lớn của thuật toán' : 'e.g. Tests negative numbers and large bounds'}
+                    value={tcDescription}
+                    onChange={(e) => setTcDescription(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                  />
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'center' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+                      {lang === 'vi' ? 'Trạng thái Test Case (*):' : 'Test Case Status (*):'}
+                    </label>
+                    <select
+                      value={tcStatus}
+                      onChange={(e) => {
+                        const val = e.target.value as any;
+                        setTcStatus(val);
+                        if (val === 'Hidden') setTcIsHidden(true);
+                        else if (val === 'Active') setTcIsHidden(false);
+                      }}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.85rem' }}
+                    >
+                      <option value="Active">{lang === 'vi' ? '🟢 Active (Công khai - Áp dụng chấm)' : '🟢 Active (Public autograded)'}</option>
+                      <option value="Hidden">{lang === 'vi' ? '🟣 Hidden (Ẩn bảo mật BR-06)' : '🟣 Hidden (Protected BR-06)'}</option>
+                      <option value="Draft">{lang === 'vi' ? '🟡 Draft (Bản nháp - Chưa chấm)' : '🟡 Draft (Not autograded yet)'}</option>
+                      <option value="Disabled">{lang === 'vi' ? '⚪ Disabled (Vô hiệu hóa)' : '⚪ Disabled (Deactivated)'}</option>
+                    </select>
+                  </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
                       {lang === 'vi' ? 'Điểm tối đa (*):' : 'Max Score (*):'}
@@ -6920,23 +7950,8 @@ export default function LecturerDashboard() {
                       type="number" step="0.5" min="0.5" max="100" required
                       value={tcMaxScore}
                       onChange={(e) => setTcMaxScore(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.9rem' }}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', fontSize: '0.85rem' }}
                     />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
-                      {lang === 'vi' ? 'Quy chế bảo mật:' : 'Security Policy:'}
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', background: tcIsHidden ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255,255,255,0.03)', border: tcIsHidden ? '1px solid rgba(168, 85, 247, 0.35)' : '1px solid var(--border-color)', padding: '9px 12px', borderRadius: '8px' }}>
-                      <input
-                        type="checkbox"
-                        checked={tcIsHidden}
-                        onChange={(e) => setTcIsHidden(e.target.checked)}
-                      />
-                      <span style={{ color: tcIsHidden ? '#c084fc' : 'var(--text-main)', fontWeight: 600 }}>
-                        {lang === 'vi' ? 'Ẩn test case này (BR-06)' : 'Hidden Test Case (BR-06)'}
-                      </span>
-                    </label>
                   </div>
                 </div>
 
@@ -6947,10 +7962,10 @@ export default function LecturerDashboard() {
                     </label>
                     <textarea
                       rows={4}
-                      placeholder={lang === 'vi' ? 'VD:\n15 25' : 'e.g.:\n15 25'}
+                      placeholder={lang === 'vi' ? 'VD: 15 25' : 'e.g.: 15 25'}
                       value={tcInputData}
                       onChange={(e) => setTcInputData(e.target.value)}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#38bdf8', fontFamily: 'monospace', fontSize: '0.85rem' }}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#a78bfa', fontFamily: 'monospace', fontSize: '0.85rem' }}
                     />
                   </div>
                   <div>
@@ -6959,12 +7974,185 @@ export default function LecturerDashboard() {
                     </label>
                     <textarea
                       rows={4}
-                      placeholder={lang === 'vi' ? 'VD:\n40' : 'e.g.:\n40'}
+                      placeholder={lang === 'vi' ? 'VD: 40' : 'e.g.: 40'}
                       value={tcExpectedOutput}
                       onChange={(e) => setTcExpectedOutput(e.target.value)}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: '#34d399', fontFamily: 'monospace', fontSize: '0.85rem' }}
                     />
                   </div>
+                </div>
+
+                {/* Reference Solution Sandbox Preview Section */}
+                <div style={{
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  borderRadius: '10px',
+                  padding: '12px 14px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Code size={16} style={{ color: '#a78bfa' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#a78bfa' }}>
+                        {lang === 'vi' ? '🧪 Kiểm tra Test Case trước khi lưu (Sandbox Preview)' : '🧪 Preview with Reference Solution'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPreviewSection(!showPreviewSection)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      {showPreviewSection ? (lang === 'vi' ? 'Thu gọn ▲' : 'Collapse ▲') : (lang === 'vi' ? 'Mở rộng ▼' : 'Expand ▼')}
+                    </button>
+                  </div>
+
+                  {showPreviewSection && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600 }}>
+                          {lang === 'vi' ? 'Ngôn ngữ chạy thử:' : 'Runtime Language:'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewLanguage('python')}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: previewLanguage === 'python' ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.1)',
+                            background: previewLanguage === 'python' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                            color: previewLanguage === 'python' ? '#a78bfa' : '#94a3b8',
+                          }}
+                        >
+                          🐍 Python 3.11
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewLanguage('javascript')}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: previewLanguage === 'javascript' ? '1px solid #facc15' : '1px solid rgba(255,255,255,0.1)',
+                            background: previewLanguage === 'javascript' ? 'rgba(250, 204, 21, 0.2)' : 'transparent',
+                            color: previewLanguage === 'javascript' ? '#facc15' : '#94a3b8',
+                          }}
+                        >
+                          ⚡ Node.js (JavaScript)
+                        </button>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '4px' }}>
+                          {lang === 'vi' ? 'Mã giải mẫu (Reference Solution Code):' : 'Reference Solution Code:'}
+                        </label>
+                        <textarea
+                          rows={4}
+                          placeholder={previewLanguage === 'python' ? '# Python code...' : '// JS code...'}
+                          value={previewCode}
+                          onChange={(e) => setPreviewCode(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            background: 'rgba(0,0,0,0.5)',
+                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                            color: '#e2e8f0',
+                            fontFamily: 'monospace',
+                            fontSize: '0.8rem',
+                            lineHeight: 1.4,
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                        <button
+                          type="button"
+                          onClick={handleRunPreview}
+                          disabled={previewRunning}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                            border: '1px solid #a78bfa',
+                            color: '#fff',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: previewRunning ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          {previewRunning ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                          <span>{previewRunning ? (lang === 'vi' ? 'Đang chạy Sandbox...' : 'Running Sandbox...') : (lang === 'vi' ? '⚡ Chạy thử trên Sandbox' : '⚡ Run on Sandbox')}</span>
+                        </button>
+                      </div>
+
+                      {previewResult && (
+                        <div style={{
+                          marginTop: '6px',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          background: previewResult.passed ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                          border: previewResult.passed ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              color: previewResult.passed ? '#34d399' : '#f87171',
+                              background: previewResult.passed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                            }}>
+                              {previewResult.passed ? '✓ PASSED (Accepted)' : `✕ ${previewResult.status}`}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                              ⏱ {previewResult.execution_time_ms}ms
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.75rem' }}>
+                            <div>
+                              <span style={{ color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Expected Output:</span>
+                              <pre style={{ margin: 0, padding: '4px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', color: '#34d399', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                                {previewResult.expected_output || '(Trống)'}
+                              </pre>
+                            </div>
+                            <div>
+                              <span style={{ color: '#94a3b8', display: 'block', marginBottom: '2px' }}>Actual Output:</span>
+                              <pre style={{ margin: 0, padding: '4px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', color: previewResult.passed ? '#34d399' : '#f87171', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                                {previewResult.actual_output || '(Trống)'}
+                              </pre>
+                            </div>
+                          </div>
+
+                          {previewResult.stderr && (
+                            <div>
+                              <span style={{ color: '#f87171', fontSize: '0.72rem', display: 'block' }}>Stderr:</span>
+                              <pre style={{ margin: 0, padding: '4px 6px', background: 'rgba(0,0,0,0.4)', borderRadius: '4px', color: '#fda4af', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                                {previewResult.stderr}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
@@ -7046,7 +8234,7 @@ export default function LecturerDashboard() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                         <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                          {lang === 'vi' ? 'Đánh giá cho:' : 'Review for:'} <span style={{ color: '#38bdf8' }}>{c.targetStudent}</span>
+                          {lang === 'vi' ? 'Đánh giá cho:' : 'Review for:'} <span style={{ color: '#a78bfa' }}>{c.targetStudent}</span>
                         </span>
                         <span style={{ 
                           padding: '2px 8px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 700,
@@ -7080,7 +8268,270 @@ export default function LecturerDashboard() {
             </div>
           </div>
         )}
-      </div>
-    </>
+
+        {/* MODAL: LỊCH SỬ CHẤM ĐIỂM & SO SÁNH KẾT QUẢ (GRADING HISTORY & DIFF) */}
+        {showHistoryModal && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2100,
+            padding: '1.25rem'
+          }}>
+            <div className="glass-card" style={{
+              width: '100%',
+              maxWidth: '880px',
+              maxHeight: '90vh',
+              borderRadius: '20px',
+              padding: '1.75rem 2rem',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              overflow: 'hidden'
+            }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.85rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <History size={18} color="#a78bfa" />
+                    </div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      {lang === 'vi' ? 'Lịch sử chấm điểm & So sánh kết quả' : 'Grading History & Score Comparison'}
+                    </h3>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    {historyData?.assignment_title ? `${historyData.assignment_title} • ` : ''}
+                    {lang === 'vi' ? 'Mã bài nộp #' : 'Submission #'}{historySubmissionId}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowHistoryModal(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Body */}
+              {loadingHistory ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', gap: '10px' }}>
+                  <Loader2 size={32} className="animate-spin" color="#a78bfa" />
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'vi' ? 'Đang tải lịch sử các phiên chấm...' : 'Loading grading history...'}
+                  </span>
+                </div>
+              ) : !historyData || !historyData.attempts || historyData.attempts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                  {lang === 'vi' ? 'Chưa có lịch sử chấm nào cho bài nộp này.' : 'No grading attempts found for this submission.'}
+                </div>
+              ) : (() => {
+                const attempts = historyData.attempts;
+                const activeAttempt = attempts[selectedAttemptIndex] || attempts[attempts.length - 1];
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto', paddingRight: '4px' }}>
+                    {/* Top Summary Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px 14px' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                          {lang === 'vi' ? 'Tổng số lần chấm' : 'Total Attempts'}
+                        </div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#a78bfa', marginTop: '2px' }}>
+                          {attempts.length} {lang === 'vi' ? 'lần' : 'attempts'}
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px 14px' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                          {lang === 'vi' ? 'Điểm phiên hiện tại' : 'Active Attempt Score'}
+                        </div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: (activeAttempt.total_score >= 8) ? '#34d399' : (activeAttempt.total_score >= 5 ? '#f59e0b' : '#f87171'), marginTop: '2px' }}>
+                          {Number(activeAttempt.total_score).toFixed(1)} / {Number(activeAttempt.max_score || 10).toFixed(1)}đ
+                        </div>
+                      </div>
+
+                      {activeAttempt.score_diff && (
+                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '10px 14px' }}>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                            {lang === 'vi' ? 'Độ lệch so với lần trước' : 'Score Difference'}
+                          </div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: (activeAttempt.score_delta >= 0) ? '#34d399' : '#f87171', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {activeAttempt.score_diff}đ
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                              ({activeAttempt.score_delta >= 0 ? 'Tăng điểm' : 'Giảm điểm'})
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Timeline Navigator */}
+                    <div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                        {lang === 'vi' ? 'Chọn phiên chấm để xem chi tiết:' : 'Select grading attempt:'}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                        {attempts.map((att: any, idx: number) => {
+                          const isSelected = idx === selectedAttemptIndex;
+                          return (
+                            <button
+                              key={att.grading_job_id || idx}
+                              type="button"
+                              onClick={() => setSelectedAttemptIndex(idx)}
+                              style={{
+                                padding: '8px 14px',
+                                borderRadius: '10px',
+                                background: isSelected ? 'rgba(139, 92, 246, 0.18)' : 'rgba(255, 255, 255, 0.04)',
+                                border: `1px solid ${isSelected ? '#a78bfa' : 'var(--border-color)'}`,
+                                color: isSelected ? '#a78bfa' : 'var(--text-main)',
+                                cursor: 'pointer',
+                                fontSize: '0.8rem',
+                                fontWeight: isSelected ? 800 : 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              <span>{lang === 'vi' ? `Lần ${att.attempt_number || (idx + 1)}` : `Attempt #${att.attempt_number || (idx + 1)}`}</span>
+                              <span style={{
+                                padding: '1px 6px',
+                                borderRadius: '6px',
+                                fontSize: '0.74rem',
+                                background: isSelected ? 'rgba(139, 92, 246, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                                color: isSelected ? '#e0f2fe' : 'var(--text-muted)'
+                              }}>
+                                {Number(att.total_score).toFixed(1)}đ
+                              </span>
+                              {att.score_diff && (
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 700,
+                                  color: att.score_delta >= 0 ? '#34d399' : '#f87171'
+                                }}>
+                                  ({att.score_diff}đ)
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Attempt Metadata Banner */}
+                    <div style={{ background: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: '12px', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#a78bfa' }}>
+                            {lang === 'vi' ? `Lần chấm #${activeAttempt.attempt_number}` : `Attempt #${activeAttempt.attempt_number}`}
+                          </span>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 700,
+                            background: activeAttempt.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                            color: activeAttempt.status === 'COMPLETED' ? '#34d399' : '#fbbf24',
+                            border: `1px solid ${activeAttempt.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                          }}>
+                            {activeAttempt.status}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {activeAttempt.completed_at 
+                            ? `${lang === 'vi' ? 'Hoàn thành:' : 'Completed:'} ${new Date(activeAttempt.completed_at).toLocaleString('vi-VN')}` 
+                            : (activeAttempt.queued_at ? `${lang === 'vi' ? 'Khởi tạo:' : 'Queued:'} ${new Date(activeAttempt.queued_at).toLocaleString('vi-VN')}` : '')}
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>
+                        <strong style={{ color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Lý do chấm lại:' : 'Regrade reason:'}</strong>{' '}
+                        <span>{activeAttempt.regrade_reason || (selectedAttemptIndex === 0 ? 'Nộp bài ban đầu' : 'Chấm lại theo yêu cầu giảng viên')}</span>
+                      </div>
+
+                      {activeAttempt.triggered_by_name && (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          <strong>{lang === 'vi' ? 'Người yêu cầu:' : 'Triggered by:'}</strong> {activeAttempt.triggered_by_name}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Changed Test Cases (Diff Comparison) */}
+                    {activeAttempt.changed_test_cases && activeAttempt.changed_test_cases.length > 0 && (
+                      <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '12px', padding: '12px 16px' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <AlertTriangle size={14} />
+                          <span>{lang === 'vi' ? `Phát hiện ${activeAttempt.changed_test_cases.length} Test Case thay đổi trạng thái/điểm so với lần trước:` : `${activeAttempt.changed_test_cases.length} Test Cases changed compared to previous attempt:`}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {activeAttempt.changed_test_cases.map((ch: any, cIdx: number) => (
+                            <div key={cIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: 'rgba(0, 0, 0, 0.25)', padding: '6px 10px', borderRadius: '8px' }}>
+                              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{ch.criterion}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ color: '#f87171' }}>{ch.previous_status} ({ch.previous_score}đ)</span>
+                                <span style={{ color: '#34d399', fontWeight: 700 }}>{ch.current_status} ({ch.current_score}đ)</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Test Cases Detail cho active attempt */}
+                    {activeAttempt.test_case_results && activeAttempt.test_case_results.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                          {lang === 'vi' ? 'Chi tiết test cases:' : 'Test case details:'}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {activeAttempt.test_case_results.map((tc: any, tIdx: number) => (
+                            <div key={tIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', padding: '8px 12px', borderRadius: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{
+                                  width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                                  background: tc.status === 'PASSED' ? '#34d399' : tc.status === 'PARTIAL' ? '#f59e0b' : '#f87171'
+                                }} />
+                                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{tc.criterion || tc.test_name}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{
+                                  padding: '2px 8px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 700,
+                                  background: tc.status === 'PASSED' ? 'rgba(16, 185, 129, 0.15)' : tc.status === 'PARTIAL' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                                  color: tc.status === 'PASSED' ? '#34d399' : tc.status === 'PARTIAL' ? '#fbbf24' : '#f87171'
+                                }}>
+                                  {tc.status}
+                                </span>
+                                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{Number(tc.score || 0).toFixed(1)}đ</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Close button */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)', marginTop: '0.5rem' }}>
+                      <button
+                        onClick={() => setShowHistoryModal(false)}
+                        className="btn-secondary"
+                        style={{ padding: '8px 20px', fontSize: '0.85rem' }}
+                      >
+                        {lang === 'vi' ? 'Đóng' : 'Close'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        </div>
+      </main>
+    </div>
   );
 }
