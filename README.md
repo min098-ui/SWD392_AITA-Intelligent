@@ -94,7 +94,7 @@ Hệ thống được chia thành **5 vai trò chuyên biệt** tương ứng v�
 
 - **Sandbox Runner (`server/sandbox-images/`):**
   - Viết `Dockerfile` cho từng ngôn ngữ hỗ trợ (Python, JavaScript/Node.js): Non-root user, network disabled, ulimit.
-  - Cấu hình **giới hạn tài nguyên container**: CPU 0.5 core · RAM 256MB · Timeout 10–30 giây (`BR-03`).
+  - Cấu hình **giới hạn tài nguyên container**: CPU 1.0 core · RAM 256MB · Timeout 10–30 giây (`BR-03`).
   - Dùng thư viện `dockerode` để tạo container, chạy code sinh viên, đọc stdout/stderr và xóa container sau khi chạy xong.
 
 - **Module `assignments` — Quản lý Bài Tập:**
@@ -385,7 +385,7 @@ npm run dev
 |:---|:---|
 | **BR-01** | Phân quyền RBAC 3 roles: ADMIN · LECTURER · STUDENT. Mật khẩu lưu dạng Bcrypt (salt = 10) |
 | **BR-02** | AI API Key của bên thứ ba phải mã hóa AES-256 trước khi lưu vào CSDL |
-| **BR-03** | Code sinh viên chạy trong Docker Container non-root: CPU 0.5 core · RAM 256MB · timeout 10–30s |
+| **BR-03** | Code sinh viên chạy trong Docker Container non-root: CPU 1.0 core · RAM 256MB · timeout 10–30s |
 | **BR-04** | Khi gặp HTTP 429 (Rate Limit), tự động xoay sang API Key dự phòng ACTIVE (Key Rotation) |
 | **BR-05** | Mọi Prompt Template phải có trường `version` (v1.0, v2.0...) để kiểm toán AI |
 | **BR-06** | Test case ẩn (`is_hidden = true`): sinh viên chỉ thấy Đạt/Không đạt, không xem được input/output |
