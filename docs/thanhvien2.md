@@ -53,7 +53,7 @@
 6. [Kết Quả Kiểm Thử Thực Tế (verify-member2.ts: 21/21 PASS & 6 Test Suites Toàn Diện)](#6-kết-quả-kiểm-thử-thực-tế-verify-member2ts-2121-pass--6-test-suites-toàn-diện)
 7. [Hướng Dẫn Demo Khi Bảo Vệ Đồ Án](#7-hướng-dẫn-demo-khi-bảo-vệ-đồ-án)
 8. [Video Minh Chứng Thực Nghiệm](#8-video-minh-chứng-thực-nghiệm-demo-video--proof-of-work)
-9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 22 Câu Hỏi Điển Hình)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs---22-câu-hỏi-điển-hình)
+9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 21 Câu Hỏi Điển Hình)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs---21-câu-hỏi-điển-hình)
 
 ---
 
@@ -800,9 +800,9 @@ npm run test:member2
 
 ---
 
-## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 15 Câu Hỏi Điển Hình)
+## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 21 Câu Hỏi Điển Hình)
 
-Dưới đây là tổng hợp 15 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
+Dưới đây là tổng hợp 21 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
 
 ### ❓ Câu 1: Loại Container sử dụng trong Sandbox là gì và tại sao gọi là Ephemeral Container?
 * **Trả lời phản biện:**
@@ -1021,16 +1021,7 @@ Dưới đây là tổng hợp 15 câu hỏi phản biện thực tế thường
 
 ---
 
-### ❓ Câu 21: Tại sao hệ thống loại bỏ tính năng "Phân task code" và chỉ tập trung vào "Quản lý thành viên nhóm & phân hệ đồ án"?
-* **Trả lời phản biện:**
-  > *"Dạ thưa thầy/cô, việc loại bỏ tính năng 'Phân task code' và chuyển thành 'Quản lý thành viên nhóm' là quyết định có tính toán kỹ lưỡng về phạm vi và giá trị nghiệp vụ của sản phẩm:
-  > 1. **Tập trung vào giá trị cốt lõi của AITA Platform:** Hệ thống AITA-INTELLIGENT là **Nền tảng Chấm mã nguồn tự động qua Docker Sandbox & Phân tích đóng góp Git**. Nền tảng không phải là một công cụ quản lý dự án kiểu Trello hay Jira. Việc đưa các tính năng tạo task vụn vặt (giao task, tick chọn hoàn thành thủ công) vừa mang tính giả lập (mock), vừa làm rối mắt và phân tán sự chú ý của Giảng viên.
-  > 2. **Đo lường sự đóng góp thực tế qua Git Analytics (BR-07):** Giảng viên không đánh giá sinh viên dựa trên việc tick chọn 'Đã xong task' trên web, mà đánh giá sự đóng góp thực tế thông qua **số lượng commits, số dòng code (LOC) bóc tách qua GitHub API và Biểu đồ Radar Free-Rider**.
-  > 3. **Chuẩn hóa Team Roster thực tế:** Thay vì hiển thị thanh tiến độ task rườm rà, Card nhóm và Modal chi tiết giờ đây hiển thị một danh sách thành viên (Team Roster) sang trọng, chuẩn mực: Avatar, Tên thành viên, Huy hiệu Trưởng nhóm `👑 LEADER`, Phân hệ phụ trách (Module), Email, cùng các tính năng thiết thực như Thêm sinh viên vào nhóm và Xóa thành viên."*
-
----
-
-### ❓ Câu 22: Tại sao định mức CPU của Docker Sandbox được nâng từ 0.5 CPU lên 1.0 CPU Core và việc này ảnh hưởng thế nào đến an toàn hệ thống?
+### ❓ Câu 21: Tại sao định mức CPU của Docker Sandbox được nâng từ 0.5 CPU lên 1.0 CPU Core và việc này ảnh hưởng thế nào đến an toàn hệ thống?
 * **Trả lời phản biện:**
   > *"Dạ thưa thầy/cô, việc nâng hạn mức từ 0.5 CPU lên 1.0 CPU Core (`NanoCpus: 1_000_000_000`) mang lại hiệu quả thực thi vượt bậc mà vẫn đảm bảo 100% an toàn bảo mật cho máy chủ:
   > 1. **Lý do kỹ thuật:** Khi sinh viên nộp các bài thi có cấu trúc phức tạp, việc biên dịch và khởi động runtime (ví dụ Node.js 20 hoặc Python với thư viện cấu trúc dữ liệu) ở mức 0.5 core khiến CPU throttling liên tục bị kích hoạt, làm tăng độ trễ chấm bài không đáng có. Nâng lên 1.0 CPU Core cho phép container sử dụng trọn vẹn sức mạnh của 1 luồng CPU, giúp thời gian chấm mỗi test case giảm xuống dưới 1.5 giây.
