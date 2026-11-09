@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../../context/LanguageContext';
 import LanguageSwitcher from '../../../components/LanguageSwitcher';
+import AitaLogo from '../../../components/AitaLogo';
 import { 
   ShieldCheck, Key, MessageSquareText, Activity, 
   Server, Database, Plus, RefreshCw, Edit2, Trash2,
@@ -64,6 +65,11 @@ export default function AdminDashboard() {
   const [newSemester, setNewSemester] = useState('FA26');
   const [newLecturerId, setNewLecturerId] = useState<number | string>('');
   const [submittingCourse, setSubmittingCourse] = useState(false);
+
+  // Course Lecturer Reassignment State
+  const [reassignModalCourse, setReassignModalCourse] = useState<CourseItem | null>(null);
+  const [selectedNewLecturerId, setSelectedNewLecturerId] = useState<number | string>('');
+  const [isReassigning, setIsReassigning] = useState(false);
 
   // Database Inspector State
   const [dbSummary, setDbSummary] = useState<Record<string, number>>({ users: 0, courses: 0, teams: 0, team_members: 0 });
@@ -207,7 +213,7 @@ export default function AdminDashboard() {
             code: c.course_code,
             name: c.course_name,
             semester: c.semester,
-            lecturer: c.lecturer_name || 'Yen12 Yen',
+            lecturer: c.lecturer_name || (c.course_code === 'CSD201' ? 'Nguyen Lan' : 'Yen12 Yen'),
             teamsCount: c.teamsCount || 1
           })));
         }
@@ -326,6 +332,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleReassignLecturer = async (courseId: number, targetLecturerId: number | string) => {
+    if (!targetLecturerId) return;
+    setIsReassigning(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/lecturer`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ lecturer_id: targetLecturerId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        triggerToast(data.message || (lang === 'vi' ? 'Đã đổi giảng viên phụ trách thành công!' : 'Lecturer reassigned successfully!'));
+        setReassignModalCourse(null);
+        fetchAdminData();
+      } else {
+        const data = await res.json();
+        triggerToast(data.message || 'Lỗi khi đổi giảng viên phụ trách.');
+      }
+    } catch (err) {
+      triggerToast('Không thể kết nối đến máy chủ.');
+    } finally {
+      setIsReassigning(false);
+    }
+  };
+
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError('');
@@ -384,7 +419,7 @@ export default function AdminDashboard() {
           top: '25px',
           right: '25px',
           zIndex: 1000,
-          background: 'rgba(239, 68, 68, 0.95)',
+          background: 'rgba(124, 58, 237, 0.95)',
           color: '#fff',
           padding: '12px 20px',
           borderRadius: '12px',
@@ -424,28 +459,16 @@ export default function AdminDashboard() {
           alignItems: 'center',
           gap: '12px'
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 6px 16px rgba(239, 68, 68, 0.35)',
-            flexShrink: 0
-          }}>
-            <ShieldCheck size={24} color="#fff" />
-          </div>
+          <AitaLogo size={42} />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontWeight: 800, fontSize: '1.15rem', letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-                AITA<span style={{ color: '#ef4444' }}>.ADMIN</span>
+                AITA<span style={{ color: '#a78bfa' }}>.ADMIN</span>
               </span>
               <span style={{ 
                 fontSize: '0.62rem', 
-                background: 'rgba(239, 68, 68, 0.2)', 
-                color: '#f87171', 
+                background: 'rgba(139, 92, 246, 0.2)',
+                color: '#c4b5fd', 
                 padding: '1px 5px', 
                 borderRadius: '4px',
                 fontWeight: 700 
@@ -481,8 +504,8 @@ export default function AdminDashboard() {
               justifyContent: 'space-between',
               padding: '11px 14px',
               borderRadius: '10px',
-              border: activeTab === 'keys' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
-              background: activeTab === 'keys' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+              border: activeTab === 'keys' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'keys' ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
               color: activeTab === 'keys' ? '#ffffff' : 'var(--text-dim)',
               fontSize: '0.88rem',
               fontWeight: activeTab === 'keys' ? 600 : 500,
@@ -493,10 +516,10 @@ export default function AdminDashboard() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Key size={18} color={activeTab === 'keys' ? '#f87171' : 'currentColor'} />
+              <Key size={18} color={activeTab === 'keys' ? '#c4b5fd' : 'currentColor'} />
               <span>{lang === 'vi' ? 'Kho Khóa AI (Key Pool)' : 'AI Key Pool'}</span>
             </div>
-            {activeTab === 'keys' && <ChevronRight size={15} color="#f87171" />}
+            {activeTab === 'keys' && <ChevronRight size={15} color="#c4b5fd" />}
           </button>
 
           {/* Item 2: Prompt Templates */}
@@ -509,8 +532,8 @@ export default function AdminDashboard() {
               justifyContent: 'space-between',
               padding: '11px 14px',
               borderRadius: '10px',
-              border: activeTab === 'prompts' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
-              background: activeTab === 'prompts' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+              border: activeTab === 'prompts' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'prompts' ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
               color: activeTab === 'prompts' ? '#ffffff' : 'var(--text-dim)',
               fontSize: '0.88rem',
               fontWeight: activeTab === 'prompts' ? 600 : 500,
@@ -521,10 +544,10 @@ export default function AdminDashboard() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <MessageSquareText size={18} color={activeTab === 'prompts' ? '#f87171' : 'currentColor'} />
+              <MessageSquareText size={18} color={activeTab === 'prompts' ? '#c4b5fd' : 'currentColor'} />
               <span>{lang === 'vi' ? 'Mẫu Prompt Hệ thống' : 'Prompt Templates'}</span>
             </div>
-            {activeTab === 'prompts' && <ChevronRight size={15} color="#f87171" />}
+            {activeTab === 'prompts' && <ChevronRight size={15} color="#c4b5fd" />}
           </button>
 
           {/* Item 3: Users RBAC */}
@@ -537,8 +560,8 @@ export default function AdminDashboard() {
               justifyContent: 'space-between',
               padding: '11px 14px',
               borderRadius: '10px',
-              border: activeTab === 'users' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
-              background: activeTab === 'users' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+              border: activeTab === 'users' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'users' ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
               color: activeTab === 'users' ? '#ffffff' : 'var(--text-dim)',
               fontSize: '0.88rem',
               fontWeight: activeTab === 'users' ? 600 : 500,
@@ -549,10 +572,10 @@ export default function AdminDashboard() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Users size={18} color={activeTab === 'users' ? '#f87171' : 'currentColor'} />
+              <Users size={18} color={activeTab === 'users' ? '#c4b5fd' : 'currentColor'} />
               <span>{lang === 'vi' ? 'Tài khoản & Phân quyền' : 'Users & RBAC'}</span>
             </div>
-            {activeTab === 'users' && <ChevronRight size={15} color="#f87171" />}
+            {activeTab === 'users' && <ChevronRight size={15} color="#c4b5fd" />}
           </button>
 
           {/* Item 4: Courses & Lecturers */}
@@ -565,8 +588,8 @@ export default function AdminDashboard() {
               justifyContent: 'space-between',
               padding: '11px 14px',
               borderRadius: '10px',
-              border: activeTab === 'courses' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
-              background: activeTab === 'courses' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+              border: activeTab === 'courses' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'courses' ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
               color: activeTab === 'courses' ? '#ffffff' : 'var(--text-dim)',
               fontSize: '0.88rem',
               fontWeight: activeTab === 'courses' ? 600 : 500,
@@ -577,10 +600,10 @@ export default function AdminDashboard() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <BookOpen size={18} color={activeTab === 'courses' ? '#f87171' : 'currentColor'} />
+              <BookOpen size={18} color={activeTab === 'courses' ? '#c4b5fd' : 'currentColor'} />
               <span>{lang === 'vi' ? 'Học phần & Giảng viên' : 'Courses & Lecturers'}</span>
             </div>
-            {activeTab === 'courses' && <ChevronRight size={15} color="#f87171" />}
+            {activeTab === 'courses' && <ChevronRight size={15} color="#c4b5fd" />}
           </button>
 
           {/* Item 5: System Health */}
@@ -593,8 +616,8 @@ export default function AdminDashboard() {
               justifyContent: 'space-between',
               padding: '11px 14px',
               borderRadius: '10px',
-              border: activeTab === 'health' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent',
-              background: activeTab === 'health' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+              border: activeTab === 'health' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'health' ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
               color: activeTab === 'health' ? '#ffffff' : 'var(--text-dim)',
               fontSize: '0.88rem',
               fontWeight: activeTab === 'health' ? 600 : 500,
@@ -605,10 +628,10 @@ export default function AdminDashboard() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Activity size={18} color={activeTab === 'health' ? '#f87171' : 'currentColor'} />
+              <Activity size={18} color={activeTab === 'health' ? '#c4b5fd' : 'currentColor'} />
               <span>{lang === 'vi' ? 'Giám sát Máy chủ & Docker' : 'System Health'}</span>
             </div>
-            {activeTab === 'health' && <ChevronRight size={15} color="#f87171" />}
+            {activeTab === 'health' && <ChevronRight size={15} color="#c4b5fd" />}
           </button>
 
           {/* Item 6: PostgreSQL Database Inspector */}
@@ -621,8 +644,8 @@ export default function AdminDashboard() {
               justifyContent: 'space-between',
               padding: '11px 14px',
               borderRadius: '10px',
-              border: activeTab === 'database' ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid transparent',
-              background: activeTab === 'database' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              border: activeTab === 'database' ? '1px solid rgba(139, 92, 246, 0.45)' : '1px solid transparent',
+              background: activeTab === 'database' ? 'rgba(124, 58, 237, 0.18)' : 'transparent',
               color: activeTab === 'database' ? '#ffffff' : 'var(--text-dim)',
               fontSize: '0.88rem',
               fontWeight: activeTab === 'database' ? 600 : 500,
@@ -633,10 +656,10 @@ export default function AdminDashboard() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Database size={18} color={activeTab === 'database' ? '#38bdf8' : 'currentColor'} />
+              <Database size={18} color={activeTab === 'database' ? '#c4b5fd' : 'currentColor'} />
               <span>{lang === 'vi' ? 'Cơ sở Dữ liệu (PostgreSQL)' : 'Database Inspector'}</span>
             </div>
-            {activeTab === 'database' && <ChevronRight size={15} color="#38bdf8" />}
+            {activeTab === 'database' && <ChevronRight size={15} color="#c4b5fd" />}
           </button>
         </div>
 
@@ -654,7 +677,7 @@ export default function AdminDashboard() {
               width: '38px',
               height: '38px',
               borderRadius: '10px',
-              background: 'linear-gradient(135deg, #ef4444, #991b1b)',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -773,7 +796,7 @@ export default function AdminDashboard() {
                     {keys.map((row) => (
                       <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         <td style={{ padding: '16px', fontWeight: 600 }}>{row.provider}</td>
-                        <td style={{ padding: '16px', fontFamily: 'monospace', color: '#93c5fd' }}>{row.mask}</td>
+                        <td style={{ padding: '16px', fontFamily: 'monospace', color: '#c4b5fd' }}>{row.mask}</td>
                         <td style={{ padding: '16px', color: row.statusColor, fontWeight: 600 }}>{row.status}</td>
                         <td style={{ padding: '16px' }}>{row.usage} reqs</td>
                         <td style={{ padding: '16px', color: 'var(--text-muted)' }}>{row.last}</td>
@@ -899,7 +922,7 @@ export default function AdminDashboard() {
                     {users.map((u) => (
                       <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                         <td style={{ padding: '16px', fontWeight: 600 }}>{u.name}</td>
-                        <td style={{ padding: '16px', color: '#60a5fa' }}>{u.email}</td>
+                        <td style={{ padding: '16px', color: '#c4b5fd' }}>{u.email}</td>
                         <td style={{ padding: '16px' }}>
                           <span className={`badge ${u.role === 'ADMIN' ? 'badge-error' : (u.role === 'LECTURER' ? 'badge-success' : 'badge-info')}`}>
                             {u.role}
@@ -917,7 +940,7 @@ export default function AdminDashboard() {
                             </span>
                           )}
                           {u.status === 'LOCKED' && (
-                            <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(239, 68, 68, 0.4)' }}>
+                            <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', padding: '4px 10px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(139, 92, 246, 0.45)' }}>
                               {lang === 'vi' ? 'Đã khóa' : 'Locked'}
                             </span>
                           )}
@@ -929,7 +952,7 @@ export default function AdminDashboard() {
                         </td>
                         <td style={{ padding: '16px' }}>
                           {isPermanentAdminEmail(u.email) ? (
-                            <span style={{ fontSize: '0.8rem', color: '#f87171', fontWeight: 600 }}>Admin Cố Định</span>
+                            <span style={{ fontSize: '0.8rem', color: '#c4b5fd', fontWeight: 600 }}>Admin Cố Định</span>
                           ) : u.status === 'PENDING' ? (
                             <div style={{ display: 'flex', gap: '8px' }}>
                               <button
@@ -953,7 +976,7 @@ export default function AdminDashboard() {
                               <button
                                 onClick={() => handleUpdateStatus(u.id, 'REJECTED')}
                                 style={{
-                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  background: 'rgba(124, 58, 237, 0.18)',
                                   color: '#f87171',
                                   border: '1px solid rgba(239, 68, 68, 0.3)',
                                   borderRadius: '6px',
@@ -1068,7 +1091,7 @@ export default function AdminDashboard() {
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.2rem', marginTop: 'auto' }}>
                         <p>{lang === 'vi' ? 'Học kỳ:' : 'Semester:'} <strong style={{ color: 'var(--text-main)' }}>{c.semester}</strong></p>
                         <p>{lang === 'vi' ? 'Giảng viên phụ trách:' : 'Lecturer:'} <strong style={{ color: '#34d399' }}>{c.lecturer}</strong></p>
-                        <p>{lang === 'vi' ? 'Số nhóm đồ án:' : 'Active Teams:'} <strong style={{ color: '#60a5fa' }}>{c.teamsCount} Teams</strong></p>
+                        <p>{lang === 'vi' ? 'Số nhóm đồ án:' : 'Active Teams:'} <strong style={{ color: '#c4b5fd' }}>{c.teamsCount} Teams</strong></p>
                       </div>
                     </div>
                     <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.85rem', marginTop: 'auto' }}>
@@ -1106,11 +1129,11 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(56, 189, 248, 0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
-                  <Database size={32} color="#38bdf8" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(139, 92, 246, 0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                  <Database size={32} color="#a78bfa" />
                   <div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Database (PostgreSQL)</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: liveHealth.database.includes('Connect') ? '#38bdf8' : '#f87171' }}>{liveHealth.database}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: liveHealth.database.includes('Connect') ? '#a78bfa' : '#f87171' }}>{liveHealth.database}</div>
                   </div>
                 </div>
 
@@ -1142,7 +1165,7 @@ export default function AdminDashboard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <span className="badge badge-info" style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>
+                      <span className="badge badge-info" style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa' }}>
                         PostgreSQL 16 (Docker)
                       </span>
                       <h3 style={{ fontSize: '1.3rem', fontWeight: 700 }}>
@@ -1174,7 +1197,7 @@ export default function AdminDashboard() {
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                       {lang === 'vi' ? 'Thông số kết nối (Host & Port)' : 'Connection Host & Port'}
                     </div>
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#60a5fa', fontWeight: 600 }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#c4b5fd', fontWeight: 600 }}>
                       localhost:5432 / aita_db
                     </div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -1234,8 +1257,8 @@ export default function AdminDashboard() {
                         style={{
                           padding: '8px 14px',
                           borderRadius: '8px',
-                          border: selectedTable === tbl.key ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid var(--border-color)',
-                          background: selectedTable === tbl.key ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.03)',
+                          border: selectedTable === tbl.key ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid var(--border-color)',
+                          background: selectedTable === tbl.key ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.03)',
                           color: selectedTable === tbl.key ? '#fff' : 'var(--text-muted)',
                           fontSize: '0.85rem',
                           fontWeight: 600,
@@ -1283,9 +1306,9 @@ export default function AdminDashboard() {
                                 {val === null || val === undefined ? (
                                   <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>NULL</span>
                                 ) : typeof val === 'object' ? (
-                                  <code style={{ fontSize: '0.75rem', color: '#93c5fd' }}>{JSON.stringify(val)}</code>
+                                  <code style={{ fontSize: '0.75rem', color: '#c4b5fd' }}>{JSON.stringify(val)}</code>
                                 ) : k === 'email' ? (
-                                  <span style={{ color: '#60a5fa' }}>{String(val)}</span>
+                                  <span style={{ color: '#c4b5fd' }}>{String(val)}</span>
                                 ) : k === 'role' ? (
                                   <span className={`badge ${val === 'ADMIN' ? 'badge-error' : (val === 'LECTURER' ? 'badge-success' : 'badge-info')}`} style={{ fontSize: '0.72rem' }}>
                                     {String(val)}
