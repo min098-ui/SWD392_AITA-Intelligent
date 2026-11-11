@@ -199,12 +199,12 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Mã nguồn vượt quá dung lượng cho phép (tối đa 100 KB).' });
   }
 
-  // 4. Validate language: python or javascript
+  // 4. Validate language: python, javascript, or java
   const normalizedLang = (language || '').toLowerCase().trim();
-  if (normalizedLang !== 'python' && normalizedLang !== 'javascript' && normalizedLang !== 'nodejs') {
-    return res.status(400).json({ message: 'Ngôn ngữ không hợp lệ. Hệ thống chỉ hỗ trợ "python" hoặc "javascript".' });
+  if (normalizedLang !== 'python' && normalizedLang !== 'javascript' && normalizedLang !== 'nodejs' && normalizedLang !== 'java') {
+    return res.status(400).json({ message: 'Ngôn ngữ không hợp lệ. Hệ thống chỉ hỗ trợ "python", "javascript" hoặc "java".' });
   }
-  const cleanLang = normalizedLang === 'python' ? 'python' : 'javascript';
+  const cleanLang: 'python' | 'javascript' | 'java' = normalizedLang === 'python' ? 'python' : (normalizedLang === 'java' ? 'java' : 'javascript');
 
   const client = await pool.connect();
   try {
@@ -473,7 +473,7 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
         ? 'Nộp bài thành công (Nộp muộn sau hạn chót). Hệ thống đã đưa bài vào hàng đợi Docker Sandbox.'
         : 'Nộp bài thành công. Hệ thống đã đưa bài vào hàng đợi Docker Sandbox để chấm tự động.',
     });
-  } catch (error) {
+  } catch (error: any) {
     await client.query('ROLLBACK');
     console.error('Error creating submission:', error);
     return res.status(500).json({ message: 'Internal server error' });
@@ -583,10 +583,10 @@ router.post('/:id/regrade', authenticateJWT, requireRole('LECTURER', 'ADMIN'), a
     const codeToRun = sub.code_content.trim();
 
     // 5. Strict Validation: Must have valid language (NEVER default to javascript)
-    if (!sub.language || !['python', 'javascript', 'nodejs'].includes(sub.language.toLowerCase())) {
+    if (!sub.language || !['python', 'javascript', 'nodejs', 'java'].includes(sub.language.toLowerCase())) {
       return res.status(400).json({ message: 'Ngôn ngữ của bài nộp không hợp lệ hoặc bị thiếu (Không tự ý mặc định JavaScript).' });
     }
-    const cleanLang = sub.language.toLowerCase() === 'python' ? 'python' : 'javascript';
+    const cleanLang: 'python' | 'javascript' | 'java' = sub.language.toLowerCase() === 'python' ? 'python' : (sub.language.toLowerCase() === 'java' ? 'java' : 'javascript');
 
     // 6. Compute next attempt_number
     const attemptRes = await pool.query(
@@ -622,7 +622,7 @@ router.post('/:id/regrade', authenticateJWT, requireRole('LECTURER', 'ADMIN'), a
       artifact_url: sub.artifact_url || '',
       git_commit_hash: sub.git_commit_hash || 'DIRECT_SUBMIT',
       code_content: codeToRun,
-      language: cleanLang as 'python' | 'javascript',
+      language: cleanLang as 'python' | 'javascript' | 'java',
       priority: 2
     });
 
