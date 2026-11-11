@@ -4763,30 +4763,31 @@ III. QUY CHUẨN DOCKER SANDBOX:
               <div className="glass-card" style={{
                 width: '100%', maxWidth: '980px', maxHeight: '92vh', overflowY: 'auto',
                 padding: '1.75rem', borderRadius: '22px',
-                border: '1px solid rgba(139, 92, 246, 0.45)',
-                boxShadow: '0 30px 80px rgba(0,0,0,0.95)',
+                background: '#ffffff',
+                border: '1.5px solid #e2e8f0',
+                boxShadow: '0 25px 70px rgba(0,0,0,0.3)',
                 display: 'flex', flexDirection: 'column', gap: '1.25rem'
               }}>
                 {/* Header thanh công cụ (Action Bar) */}
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '1rem',
+                  borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem',
                   flexWrap: 'wrap', gap: '10px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(37, 99, 235, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
                       <FileText size={22} />
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.22)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '2px 7px', borderRadius: '4px', fontWeight: 800 }}>
+                        <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', padding: '2px 7px', borderRadius: '4px', fontWeight: 800 }}>
                           {isJava ? 'PE EXAM' : 'ASSIGNMENT DOC'}
                         </span>
-                        <span style={{ fontSize: '0.75rem', color: '#c4b5fd', fontWeight: 700 }}>
+                        <span style={{ fontSize: '0.75rem', color: '#6d28d9', fontWeight: 700 }}>
                           Mã đề: PE_{courseCode}_0{assign.assignment_id || '1'}
                         </span>
                       </div>
-                      <h3 style={{ fontSize: '1.18rem', fontWeight: 800, margin: '2px 0 0 0', color: '#f1f5f9' }}>
+                      <h3 style={{ fontSize: '1.18rem', fontWeight: 800, margin: '2px 0 0 0', color: '#1e1b4b' }}>
                         {lang === 'vi' ? 'Văn Bản Đề Thi Chuẩn FPT' : 'Official Exam Document'}
                       </h3>
                     </div>
@@ -4803,7 +4804,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                         fontSize: '0.82rem',
                         gap: '6px',
                         background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                        boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                        boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
                       }}
                       title={lang === 'vi' ? 'Tải file Word (.DOC) đề thi về máy để làm bài' : 'Download Word Doc'}
                     >
@@ -4814,17 +4815,23 @@ III. QUY CHUẨN DOCKER SANDBOX:
                     {/* Sao chép đề bài */}
                     <button
                       type="button"
-                      className="btn-secondary"
                       onClick={() => handleCopyExamText(assign)}
                       style={{
                         padding: '7px 14px',
                         fontSize: '0.82rem',
                         gap: '6px',
-                        color: copiedExamText ? '#34d399' : '#cbd5e1'
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: '#f8fafc',
+                        border: '1.5px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        color: copiedExamText ? '#16a34a' : '#334155'
                       }}
                       title={lang === 'vi' ? 'Sao chép toàn bộ đề bài vào bộ nhớ tạm' : 'Copy exam text'}
                     >
-                      {copiedExamText ? <Check size={14} color="#34d399" /> : <Copy size={14} />}
+                      {copiedExamText ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
                       <span>{copiedExamText ? (lang === 'vi' ? 'Đã sao chép!' : 'Copied!') : (lang === 'vi' ? 'Sao chép đề' : 'Copy Text')}</span>
                     </button>
 
@@ -4843,13 +4850,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
                         fontSize: '0.82rem',
                         gap: '6px',
                         background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-                        border: '1px solid rgba(139, 92, 246, 0.6)',
+                        border: 'none',
                         color: '#ffffff',
                         fontWeight: 700,
                         borderRadius: '8px',
                         cursor: 'pointer',
                         display: 'flex',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)'
                       }}
                     >
                       <Send size={14} />
@@ -4861,127 +4869,140 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       type="button"
                       onClick={() => setViewingExamAssignment(null)}
                       style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-muted)',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        color: '#64748b',
                         cursor: 'pointer',
-                        padding: '6px',
-                        borderRadius: '6px',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}
+                      title={lang === 'vi' ? 'Đóng' : 'Close'}
                     >
-                      <X size={20} />
+                      <X size={16} />
                     </button>
                   </div>
                 </div>
 
                 {/* VĂN BẢN ĐỀ THI A4 PAPER SHEET */}
                 <div style={{
-                  background: '#090d16',
-                  borderRadius: '14px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  padding: '2rem 2.2rem',
+                  background: '#fcfcfd',
+                  borderRadius: '16px',
+                  border: '1.5px solid #e2e8f0',
+                  padding: '2.2rem 2.6rem',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '1.25rem',
-                  boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.6)',
+                  gap: '1.3rem',
+                  boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05), inset 0 0 0 1px rgba(0,0,0,0.02)',
                   fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
                 }}>
                   {/* Tiêu đề Quốc hiệu & Trường FPT */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid rgba(255, 255, 255, 0.15)', paddingBottom: '1.1rem', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px double #cbd5e1', paddingBottom: '1.1rem', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: '0.88rem', letterSpacing: '0.04em', color: '#f8fafc', textTransform: 'uppercase' }}>
+                      <div style={{ fontWeight: 900, fontSize: '0.92rem', letterSpacing: '0.04em', color: '#1e1b4b', textTransform: 'uppercase' }}>
                         TRƯỜNG ĐẠI HỌC FPT QUY NHƠN • CƠ SỞ QUY NHƠN
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '3px', fontWeight: 500 }}>
                         Khoa Công Nghệ Thông Tin — Bộ Môn Kỹ Thuật Phần Mềm
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#fca5a5', textTransform: 'uppercase' }}>
+                      <div style={{ fontWeight: 900, fontSize: '0.94rem', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
                         ĐỀ THI THỰC HÀNH (PRACTICAL EXAM)
                       </div>
-                      <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '2px' }}>
-                        Học kỳ: FA26 • Đợt thi: 1 • Mã đề: <strong>PE_{courseCode}_0{assign.assignment_id || '1'}</strong>
+                      <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '3px' }}>
+                        Học kỳ: <strong>FA26</strong> • Đợt thi: <strong>1</strong> • Mã đề: <strong style={{ color: '#1e1b4b' }}>PE_{courseCode}_0{assign.assignment_id || '1'}</strong>
                       </div>
                     </div>
                   </div>
 
                   {/* Tên đề thi & Môn học */}
-                  <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
-                    <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', margin: 0, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>
+                  <div style={{ textAlign: 'center', padding: '0.6rem 0' }}>
+                    <h2 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#1e1b4b', margin: 0, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>
                       {assign.title}
                     </h2>
-                    <div style={{ fontSize: '0.88rem', color: '#a78bfa', fontWeight: 600, marginTop: '6px' }}>
+                    <div style={{ fontSize: '0.92rem', color: '#6d28d9', fontWeight: 700, marginTop: '6px' }}>
                       Môn học: {courseCode} — {courseName}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '10px', flexWrap: 'wrap', fontSize: '0.8rem', color: '#cbd5e1' }}>
-                      <span>⏱️ Thời gian: <strong>75 phút</strong></span>
-                      <span>•</span>
-                      <span>⭐ Thang điểm: <strong>{assign.max_score || 10.0} điểm</strong></span>
-                      <span>•</span>
-                      <span>📦 Hình thức nộp: <strong style={{ color: '#38bdf8' }}>File .ZIP (Mã nguồn)</strong></span>
-                      <span>•</span>
-                      <span>☕ Docker: <strong style={{ color: '#fca5a5' }}>{isJava ? 'aita-sandbox-java:latest (Java 17)' : 'Auto Sandbox'}</strong></span>
+                    <div style={{ display: 'inline-flex', justifyContent: 'center', gap: '14px', marginTop: '12px', flexWrap: 'wrap', fontSize: '0.82rem', color: '#334155', background: '#f8fafc', padding: '8px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                      <span>⏱️ Thời gian: <strong style={{ color: '#1e1b4b' }}>75 phút</strong></span>
+                      <span style={{ color: '#cbd5e1' }}>•</span>
+                      <span>⭐ Thang điểm: <strong style={{ color: '#1e1b4b' }}>{assign.max_score || 10.0} điểm</strong></span>
+                      <span style={{ color: '#cbd5e1' }}>•</span>
+                      <span>📦 Hình thức: <strong style={{ color: '#0284c7' }}>File .ZIP (Mã nguồn)</strong></span>
+                      <span style={{ color: '#cbd5e1' }}>•</span>
+                      <span>☕ Docker: <strong style={{ color: '#b91c1c' }}>{isJava ? 'aita-sandbox-java:latest (Java 17)' : 'Auto Sandbox'}</strong></span>
                     </div>
                   </div>
 
                   {/* LƯU Ý PHÒNG THI */}
                   <div style={{
-                    background: 'rgba(239, 68, 68, 0.08)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '10px',
-                    padding: '12px 16px',
-                    fontSize: '0.8rem',
-                    color: '#fecaca',
-                    lineHeight: 1.55
+                    background: '#fff1f2',
+                    border: '1.5px solid #fecdd3',
+                    borderRadius: '14px',
+                    padding: '14px 18px',
+                    fontSize: '0.84rem',
+                    color: '#881337',
+                    lineHeight: 1.6
                   }}>
-                    <strong style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                      <AlertTriangle size={15} /> QUY ĐỊNH LÀM BÀI & CẤU TRÚC NỘP BÀI:
+                    <strong style={{ color: '#9f1239', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontWeight: 800 }}>
+                      <AlertTriangle size={16} color="#e11d48" /> QUY ĐỊNH LÀM BÀI & CẤU TRÚC NỘP BÀI:
                     </strong>
-                    <ul style={{ margin: '4px 0 0 18px', padding: 0 }}>
-                      <li>Thí sinh tạo một thư mục mã nguồn chứa đầy đủ các file theo yêu cầu của từng câu (ví dụ: <code style={{ color: '#fed7aa' }}>Main.java, Car.java, SpecCar.java, MyList.java</code>).</li>
-                      <li>Nén thư mục thành file <strong>.ZIP</strong> duy nhất và nộp lên hệ thống AITA trước hạn: <strong>{assign.due_date || assign.deadline || '23:59:00'}</strong>.</li>
-                      <li>Bài làm được chạy và chấm tự động hoàn toàn trên môi trường cô lập <strong>Docker OpenJDK 17 Sandbox</strong> với 10 Test Cases (thang điểm 10.0đ).</li>
-                      <li>Nghiêm cấm sao chép code. Hệ thống kiểm tra đối sánh bằng <strong>SHA-256 Checksum + AI Plagiarism Radar</strong>.</li>
+                    <ul style={{ margin: '4px 0 0 20px', padding: 0 }}>
+                      <li style={{ marginBottom: '3px' }}>
+                        Thí sinh tạo một thư mục mã nguồn chứa đầy đủ các file theo yêu cầu của từng câu (ví dụ:{' '}
+                        <code style={{ background: '#ffe4e6', border: '1px solid #fecdd3', color: '#9f1239', padding: '1px 5px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+                          Main.java, Car.java, SpecCar.java, MyList.java
+                        </code>).
+                      </li>
+                      <li style={{ marginBottom: '3px' }}>
+                        Nén thư mục thành file <strong>.ZIP</strong> duy nhất và nộp lên hệ thống AITA trước hạn: <strong style={{ color: '#9f1239', textDecoration: 'underline' }}>{assign.due_date || assign.deadline || '23:59:00'}</strong>.
+                      </li>
+                      <li style={{ marginBottom: '3px' }}>
+                        Bài làm được chạy và chấm tự động hoàn toàn trên môi trường cô lập <strong>Docker OpenJDK 17 Sandbox</strong> với 10 Test Cases (thang điểm 10.0đ).
+                      </li>
+                      <li>
+                        Nghiêm cấm sao chép code. Hệ thống kiểm tra đối sánh bằng <strong>SHA-256 Checksum + AI Plagiarism Radar</strong>.
+                      </li>
                     </ul>
                   </div>
 
                   {/* NỘI DUNG CHI TIẾT 4 CÂU HỎI */}
                   {isJava ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '6px' }}>
                       {getExamQuestions(assign).map((q: any, idx: number) => {
-                        const colorPalettes = [
-                          { border: 'rgba(56, 189, 248, 0.25)', bg: 'rgba(56, 189, 248, 0.05)', titleColor: '#38bdf8', badgeBg: 'rgba(56, 189, 248, 0.15)', badgeColor: '#7dd3fc', icon: '📘' },
-                          { border: 'rgba(168, 85, 247, 0.25)', bg: 'rgba(168, 85, 247, 0.05)', titleColor: '#c084fc', badgeBg: 'rgba(168, 85, 247, 0.15)', badgeColor: '#d8b4fe', icon: '📙' },
-                          { border: 'rgba(52, 211, 153, 0.25)', bg: 'rgba(52, 211, 153, 0.05)', titleColor: '#34d399', badgeBg: 'rgba(52, 211, 153, 0.15)', badgeColor: '#6ee7b7', icon: '📗' },
-                          { border: 'rgba(251, 191, 36, 0.25)', bg: 'rgba(251, 191, 36, 0.05)', titleColor: '#fbbf24', badgeBg: 'rgba(251, 191, 36, 0.15)', badgeColor: '#fde68a', icon: '📕' }
+                        const palettesPaper = [
+                          { border: '#bae6fd', bg: '#f0f9ff', titleColor: '#0369a1', badgeBg: '#e0f2fe', badgeColor: '#0284c7', icon: '📘' },
+                          { border: '#ddd6fe', bg: '#f5f3ff', titleColor: '#6d28d9', badgeBg: '#ede9fe', badgeColor: '#5b21b6', icon: '📙' },
+                          { border: '#bbf7d0', bg: '#f0fdf4', titleColor: '#15803d', badgeBg: '#dcfce7', badgeColor: '#166534', icon: '📗' },
+                          { border: '#fde68a', bg: '#fffbeb', titleColor: '#b45309', badgeBg: '#fef3c7', badgeColor: '#92400e', icon: '📕' }
                         ];
-                        const scheme = colorPalettes[idx] || colorPalettes[0];
+                        const scheme = palettesPaper[idx] || palettesPaper[0];
                         return (
-                          <div key={idx} style={{ background: scheme.bg, border: `1px solid ${scheme.border}`, borderRadius: '12px', padding: '16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                              <span style={{ fontWeight: 800, color: scheme.titleColor, fontSize: '0.95rem' }}>
+                          <div key={idx} style={{ background: scheme.bg, border: `1.5px solid ${scheme.border}`, borderRadius: '16px', padding: '1.25rem 1.4rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                              <span style={{ fontWeight: 800, color: scheme.titleColor, fontSize: '0.98rem' }}>
                                 {scheme.icon} CÂU {q.qNum} ({q.points}): {q.title}
                               </span>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: scheme.badgeBg, color: scheme.badgeColor }}>
+                              <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '3px 10px', borderRadius: '8px', background: scheme.badgeBg, color: scheme.badgeColor, border: `1px solid ${scheme.border}` }}>
                                 {q.qNum === 2 || q.qNum === 3 ? '3 Test Cases' : '2 Test Cases'} ({q.points})
                               </span>
                             </div>
-                            <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.55, margin: '0 0 10px 0', whiteSpace: 'pre-line' }}>
+                            <p style={{ fontSize: '0.88rem', color: '#334155', lineHeight: 1.6, margin: '0 0 12px 0', whiteSpace: 'pre-line' }}>
                               {q.desc}
                             </p>
                             {(q.sampleInput || q.sampleOutput) && (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-                                <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '10px 12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, marginBottom: '4px' }}>DỮ LIỆU ĐẦU VÀO (STDIN):</div>
-                                  <pre style={{ margin: 0, fontSize: '0.8rem', color: '#e2e8f0', fontFamily: 'Consolas, monospace', whiteSpace: 'pre-wrap' }}>{q.sampleInput || '(Không có STDIN)'}</pre>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                                <div style={{ background: '#ffffff', borderRadius: '10px', padding: '10px 14px', border: '1.5px solid #cbd5e1' }}>
+                                  <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 800, marginBottom: '5px', textTransform: 'uppercase' }}>DỮ LIỆU ĐẦU VÀO (STDIN):</div>
+                                  <pre style={{ margin: 0, fontSize: '0.84rem', color: '#1e1b4b', fontFamily: 'Consolas, monospace', fontWeight: 600, whiteSpace: 'pre-wrap' }}>{q.sampleInput || '(Không có STDIN)'}</pre>
                                 </div>
-                                <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '10px 12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                  <div style={{ fontSize: '0.72rem', color: '#34d399', fontWeight: 700, marginBottom: '4px' }}>KẾT QUẢ ĐẦU RA KỲ VỌNG (STDOUT):</div>
-                                  <pre style={{ margin: 0, fontSize: '0.8rem', color: '#34d399', fontFamily: 'Consolas, monospace', fontWeight: 700, whiteSpace: 'pre-wrap' }}>{q.sampleOutput || '(Không có STDOUT)'}</pre>
+                                <div style={{ background: '#ffffff', borderRadius: '10px', padding: '10px 14px', border: '1.5px solid #86efac' }}>
+                                  <div style={{ fontSize: '0.74rem', color: '#15803d', fontWeight: 800, marginBottom: '5px', textTransform: 'uppercase' }}>KẾT QUẢ ĐẦU RA KỲ VỌNG (STDOUT):</div>
+                                  <pre style={{ margin: 0, fontSize: '0.84rem', color: '#059669', fontFamily: 'Consolas, monospace', fontWeight: 700, whiteSpace: 'pre-wrap' }}>{q.sampleOutput || '(Không có STDOUT)'}</pre>
                                 </div>
                               </div>
                             )}
@@ -4990,11 +5011,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       })}
                     </div>
                   ) : (
-                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '18px' }}>
-                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#38bdf8', marginBottom: '8px' }}>
+                    <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1.5px solid #e2e8f0', padding: '20px' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0284c7', marginBottom: '8px' }}>
                         📋 YÊU CẦU ĐỀ BÀI CHI TIẾT:
                       </div>
-                      <div style={{ color: '#cbd5e1', fontSize: '0.86rem', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                      <div style={{ color: '#334155', fontSize: '0.88rem', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                         {assign.description || 'Chưa có mô tả chi tiết cho bài tập này.'}
                       </div>
                     </div>
@@ -5002,32 +5023,32 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                   {/* THÔNG SỐ CHẤM DOCKER SANDBOX */}
                   <div style={{
-                    background: 'rgba(0, 0, 0, 0.35)',
-                    borderRadius: '10px',
-                    padding: '12px 16px',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    background: '#f8fafc',
+                    borderRadius: '12px',
+                    padding: '12px 18px',
+                    border: '1.5px solid #e2e8f0',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     flexWrap: 'wrap',
                     gap: '10px',
-                    fontSize: '0.78rem'
+                    fontSize: '0.8rem'
                   }}>
-                    <span style={{ color: '#94a3b8' }}>
+                    <span style={{ color: '#475569' }}>
                       ⚙️ Chế độ chấm: <strong>Docker Sandbox Runner cô lập</strong> (Timeout 5000ms / Test, RAM 256MB)
                     </span>
-                    <span style={{ color: '#34d399', fontWeight: 700 }}>
+                    <span style={{ color: '#16a34a', fontWeight: 700 }}>
                       ✓ Hệ thống tự động xác thực SHA-256 Checksum khi nộp bài
                     </span>
                   </div>
 
-                  <div style={{ textAlign: 'right', fontStyle: 'italic', fontSize: '0.8rem', color: '#94a3b8', marginTop: '10px' }}>
+                  <div style={{ textAlign: 'right', fontStyle: 'italic', fontSize: '0.82rem', color: '#64748b', marginTop: '10px' }}>
                     --- HẾT ĐỀ THI --- (Cán bộ coi thi không giải thích gì thêm)
                   </div>
                 </div>
 
                 {/* Bottom Footer Actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '10px' }}>
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                     {lang === 'vi' ? 'Đề thi đã được đồng bộ với hệ thống tự động chấm Docker.' : 'Exam synced with Docker Autograder.'}
                   </span>
