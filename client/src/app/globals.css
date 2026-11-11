@@ -763,3 +763,84 @@ html {
   background: rgba(139, 92, 246, 0.5);
 }
 
+/* =========================================================================
+   Stat KPI Cards - High Contrast & Anti-Blur in Light/Dark Mode
+========================================================================= */
+.stat-kpi-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-kpi-card .stat-card-title {
+  color: var(--text-muted, #9ca3af);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.stat-kpi-card .stat-card-value {
+  color: var(--text-main, #f8fafc);
+  font-weight: 800;
+}
+
+/* Light Mode Card Overrides: Crisp, solid, zero wash-out */
+html[data-theme="light"] .stat-kpi-card,
+body[data-theme="light"] .stat-kpi-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-card-title,
+body[data-theme="light"] .stat-kpi-card .stat-card-title {
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-card-value,
+body[data-theme="light"] .stat-kpi-card .stat-card-value {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-val-green,
+body[data-theme="light"] .stat-kpi-card .stat-val-green {
+  color: #059669 !important;
+  font-weight: 800 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-val-amber,
+body[data-theme="light"] .stat-kpi-card .stat-val-amber {
+  color: #d97706 !important;
+  font-weight: 800 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-val-blue,
+body[data-theme="light"] .stat-kpi-card .stat-val-blue {
+  color: #2563eb !important;
+  font-weight: 800 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-sub-purple,
+body[data-theme="light"] .stat-kpi-card .stat-sub-purple {
+  color: #6d28d9 !important;
+  font-weight: 700 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-sub-green,
+body[data-theme="light"] .stat-kpi-card .stat-sub-green {
+  color: #047857 !important;
+  font-weight: 700 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-sub-amber,
+body[data-theme="light"] .stat-kpi-card .stat-sub-amber {
+  color: #b45309 !important;
+  font-weight: 700 !important;
+}
+
+html[data-theme="light"] .stat-kpi-card .stat-sub-blue,
+body[data-theme="light"] .stat-kpi-card .stat-sub-blue {
+  color: #1d4ed8 !important;
+  font-weight: 700 !important;
+}
+
+
