@@ -6649,42 +6649,44 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
             zIndex: 1000,
             padding: '1rem'
           }}>
-            <div className="glass-card" style={{
+            <div style={{
               width: '100%',
-              maxWidth: '800px',
+              maxWidth: '820px',
               maxHeight: '94vh',
               overflowY: 'auto',
-              padding: '1.25rem 1.5rem',
+              padding: '1.35rem 1.6rem',
               borderRadius: '16px',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.8)'
+              border: '1px solid #e2e8f0',
+              background: '#ffffff',
+              color: '#0f172a',
+              boxShadow: '0 25px 60px rgba(15, 23, 42, 0.25)'
             }}>
-              {/* Header Modal - Gọn gàng, tinh tế */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.6rem' }}>
+              {/* Header Modal - Gọn gàng, tinh tế, nền sáng */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.85rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.65rem' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                     <span className="badge badge-info" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>{selectedSub.team}</span>
                     {selectedSub.moderationStatus === 'FINALIZED' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', fontWeight: 600 }}>
                         <CheckCircle2 size={11} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
                       </span>
                     )}
                     {selectedSub.moderationStatus === 'PENDING_SECOND_REVIEW' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 600 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', fontWeight: 600 }}>
                         <AlertTriangle size={11} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
                       </span>
                     )}
                     {selectedSub.moderationStatus === 'FIRST_REVIEWED' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(124, 58, 237, 0.15)', color: '#c4b5fd', border: '1px solid rgba(124, 58, 237, 0.3)', fontWeight: 600 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: '#ede9fe', color: '#6d28d9', border: '1px solid #c4b5fd', fontWeight: 600 }}>
                         <Clock size={11} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
                       </span>
                     )}
                     {(!selectedSub.moderationStatus || selectedSub.moderationStatus === 'AI_PREGRADED') && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 600 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', fontWeight: 600 }}>
                         <Sparkles size={11} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
                       </span>
                     )}
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'inline' }}>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'inline', color: '#0f172a' }}>
                       {lang === 'vi' ? 'Hội đồng Kiểm Định Bài Nộp (BR-09 Dual-Lecturer Moderation)' : 'Collaborative Dual-Lecturer Moderation (BR-09)'}
                     </h3>
                   </div>
@@ -6696,32 +6698,32 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                         fontSize: '0.72rem',
                         fontWeight: 700,
                         background: selectedSub.language === 'java'
-                          ? 'rgba(239, 68, 68, 0.18)'
+                          ? '#fee2e2'
                           : selectedSub.language === 'python'
-                          ? 'rgba(139, 92, 246, 0.15)'
-                          : 'rgba(245, 158, 11, 0.15)',
+                          ? '#ede9fe'
+                          : '#fef3c7',
                         color: selectedSub.language === 'java'
-                          ? '#f87171'
+                          ? '#b91c1c'
                           : selectedSub.language === 'python'
-                          ? '#a78bfa'
-                          : '#fbbf24',
-                        border: `1px solid ${selectedSub.language === 'java' ? 'rgba(239, 68, 68, 0.4)' : selectedSub.language === 'python' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                          ? '#6d28d9'
+                          : '#b45309',
+                        border: `1px solid ${selectedSub.language === 'java' ? '#fca5a5' : selectedSub.language === 'python' ? '#c4b5fd' : '#fde68a'}`
                       }}>
                         {selectedSub.language === 'java' ? '☕ Java (OpenJDK 17)' : selectedSub.language === 'python' ? '🐍 Python 3' : '🟨 Node.js'}
                       </span>
                     )}
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
                       {selectedSub.commit && selectedSub.commit !== 'DIRECT_SUBMI' && <>Commit: <code>{selectedSub.commit}</code> • </>}
                       {selectedSub.time}
                       {selectedSub.repo && selectedSub.repo.startsWith('http') && (
-                        <> • Repo: <a href={selectedSub.repo} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd' }}>{selectedSub.repo.replace('https://github.com/', '')}</a></>
+                        <> • Repo: <a href={selectedSub.repo} target="_blank" rel="noreferrer" style={{ color: '#6d28d9' }}>{selectedSub.repo.replace('https://github.com/', '')}</a></>
                       )}
                     </span>
                   </div>
                 </div>
                 <button 
                   onClick={() => setSelectedSub(null)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                  style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
                 >
                   <X size={20} />
                 </button>
@@ -6765,15 +6767,15 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 return (
                   <div style={{
                     marginBottom: '0.85rem',
-                    background: '#090d16',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '10px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
                     padding: '10px 14px',
                     fontSize: '0.8rem'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                      <span style={{ fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <FileText size={14} color="#a78bfa" /> {lang === 'vi' ? 'Mã nguồn bài làm của sinh viên' : 'Student Submitted Code'} ({selectedSub.language === 'java' ? 'Java 17 (OpenJDK)' : selectedSub.language})
+                      <span style={{ fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FileText size={14} color="#7c3aed" /> {lang === 'vi' ? 'Mã nguồn bài làm của sinh viên' : 'Student Submitted Code'} ({selectedSub.language === 'java' ? 'Java 17 (OpenJDK)' : selectedSub.language})
                       </span>
                       <span style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>
                         {displayedCode.split('\n').length} dòng
@@ -6791,9 +6793,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           fontSize: '0.74rem',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          border: selectedQuestionTab === 'all' ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.12)',
-                          background: selectedQuestionTab === 'all' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(255,255,255,0.04)',
-                          color: selectedQuestionTab === 'all' ? '#c4b5fd' : '#94a3b8'
+                          border: selectedQuestionTab === 'all' ? '1px solid #7c3aed' : '1px solid #cbd5e1',
+                          background: selectedQuestionTab === 'all' ? '#ede9fe' : '#ffffff',
+                          color: selectedQuestionTab === 'all' ? '#6d28d9' : '#475569'
                         }}
                       >
                         ⭐ Tất cả mã nguồn
@@ -6807,9 +6809,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           fontSize: '0.74rem',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          border: selectedQuestionTab === 'Q1' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.12)',
-                          background: selectedQuestionTab === 'Q1' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.04)',
-                          color: selectedQuestionTab === 'Q1' ? '#38bdf8' : (q1Code ? '#cbd5e1' : '#64748b')
+                          border: selectedQuestionTab === 'Q1' ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                          background: selectedQuestionTab === 'Q1' ? '#e0f2fe' : '#ffffff',
+                          color: selectedQuestionTab === 'Q1' ? '#0369a1' : (q1Code ? '#334155' : '#94a3b8')
                         }}
                       >
                         Q1: Xử lý chuỗi (2đ) {q1Code ? '✓' : '—'}
@@ -6823,9 +6825,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           fontSize: '0.74rem',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          border: selectedQuestionTab === 'Q2' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.12)',
-                          background: selectedQuestionTab === 'Q2' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255,255,255,0.04)',
-                          color: selectedQuestionTab === 'Q2' ? '#34d399' : (q2Code ? '#cbd5e1' : '#64748b')
+                          border: selectedQuestionTab === 'Q2' ? '1px solid #059669' : '1px solid #cbd5e1',
+                          background: selectedQuestionTab === 'Q2' ? '#dcfce7' : '#ffffff',
+                          color: selectedQuestionTab === 'Q2' ? '#15803d' : (q2Code ? '#334155' : '#94a3b8')
                         }}
                       >
                         Q2: Car & SpecCar (3đ) {q2Code ? '✓' : '—'}
@@ -6839,9 +6841,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           fontSize: '0.74rem',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          border: selectedQuestionTab === 'Q3' ? '1px solid #fbbf24' : '1px solid rgba(255,255,255,0.12)',
-                          background: selectedQuestionTab === 'Q3' ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255,255,255,0.04)',
-                          color: selectedQuestionTab === 'Q3' ? '#fbbf24' : (q3Code ? '#cbd5e1' : '#64748b')
+                          border: selectedQuestionTab === 'Q3' ? '1px solid #d97706' : '1px solid #cbd5e1',
+                          background: selectedQuestionTab === 'Q3' ? '#fef3c7' : '#ffffff',
+                          color: selectedQuestionTab === 'Q3' ? '#b45309' : (q3Code ? '#334155' : '#94a3b8')
                         }}
                       >
                         Q3: MyList (3đ) {q3Code ? '✓' : '—'}
@@ -6855,9 +6857,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           fontSize: '0.74rem',
                           fontWeight: 700,
                           cursor: 'pointer',
-                          border: selectedQuestionTab === 'Q4' ? '1px solid #f472b6' : '1px solid rgba(255,255,255,0.12)',
-                          background: selectedQuestionTab === 'Q4' ? 'rgba(244, 114, 182, 0.2)' : 'rgba(255,255,255,0.04)',
-                          color: selectedQuestionTab === 'Q4' ? '#f472b6' : (q4Code ? '#cbd5e1' : '#64748b')
+                          border: selectedQuestionTab === 'Q4' ? '1px solid #db2777' : '1px solid #cbd5e1',
+                          background: selectedQuestionTab === 'Q4' ? '#fce7f3' : '#ffffff',
+                          color: selectedQuestionTab === 'Q4' ? '#be185d' : (q4Code ? '#334155' : '#94a3b8')
                         }}
                       >
                         Q4: Đảo từ (2đ) {q4Code ? '✓' : '—'}
@@ -6866,15 +6868,16 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
                     <pre style={{
                       margin: 0,
-                      padding: '8px 10px',
-                      borderRadius: '6px',
-                      background: 'rgba(0,0,0,0.4)',
-                      color: selectedSub.language === 'python' ? '#a78bfa' : '#fbbf24',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
                       fontFamily: 'var(--font-mono, monospace)',
                       fontSize: '0.78rem',
                       maxHeight: '180px',
                       overflow: 'auto',
-                      lineHeight: 1.5
+                      lineHeight: 1.55
                     }}>
                       {displayedCode}
                     </pre>
@@ -6882,7 +6885,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 );
               })()}
 
-              {/* 🧪 BẢNG ĐỐI SOÁT CHI TIẾT TEST CASES & BÁO CÁO LỖI DOCKER SANDBOX (HẠNG MỤC 1) */}
+              {/* 🧪 BẢNG ĐỐI SOÁT CHI TIẾT TEST CASES & BÁO CÁO LỖI DOCKER SANDBOX (HẠNG MỤC 1 - GIAO DIỆN SÁNG CHUẨN) */}
               {(() => {
                 const trList = selectedSub.test_results || [];
                 const passedCount = trList.filter(t => t.passed).length;
@@ -6895,84 +6898,84 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 return (
                   <div style={{
                     marginBottom: '0.85rem',
-                    background: 'rgba(15, 23, 42, 0.65)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)'
                   }}>
                     {/* Header thông số thực thi */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Terminal size={15} color="#c4b5fd" />
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>
+                        <Terminal size={16} color="#7c3aed" />
+                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a' }}>
                           {lang === 'vi' ? 'Chi Tiết Chấm Điểm Docker Sandbox' : 'Docker Sandbox Autograding Breakdown'}
                         </span>
                         {totalTests > 0 ? (
                           <span style={{
-                            fontSize: '0.72rem',
-                            padding: '2px 8px',
+                            fontSize: '0.74rem',
+                            padding: '3px 10px',
                             borderRadius: '12px',
                             fontWeight: 700,
-                            background: isAllPass ? 'rgba(16, 185, 129, 0.2)' : (passedCount > 0 ? 'rgba(234, 179, 8, 0.2)' : 'rgba(239, 68, 68, 0.2)'),
-                            color: isAllPass ? '#34d399' : (passedCount > 0 ? '#facc15' : '#f87171'),
-                            border: `1px solid ${isAllPass ? 'rgba(16, 185, 129, 0.4)' : (passedCount > 0 ? 'rgba(234, 179, 8, 0.4)' : 'rgba(239, 68, 68, 0.4)')}`
+                            background: isAllPass ? '#dcfce7' : (passedCount > 0 ? '#fef3c7' : '#fee2e2'),
+                            color: isAllPass ? '#15803d' : (passedCount > 0 ? '#b45309' : '#b91c1c'),
+                            border: `1px solid ${isAllPass ? '#86efac' : (passedCount > 0 ? '#fde68a' : '#fecaca')}`
                           }}>
                             {passedCount}/{totalTests} Test Cases Đạt ({totalEarned.toFixed(1)}/{totalMax.toFixed(1)}đ)
                           </span>
                         ) : (
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
                             {lang === 'vi' ? 'Đang chấm điểm hoặc chưa có dữ liệu test' : 'Grading or no test results'}
                           </span>
                         )}
                       </div>
 
                       {hasTimeout && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#f87171', background: 'rgba(239, 68, 68, 0.15)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.35)', fontWeight: 700 }}>
-                          <AlertTriangle size={12} color="#f87171" />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#b91c1c', background: '#fee2e2', padding: '3px 8px', borderRadius: '6px', border: '1px solid #fecaca', fontWeight: 700 }}>
+                          <AlertTriangle size={12} color="#b91c1c" />
                           {lang === 'vi' ? 'Cảnh báo BR-03: Phát hiện Timeout (>5s)' : 'BR-03: Execution Timeout (>5s)'}
                         </span>
                       )}
                     </div>
 
-                    {/* BẢNG THÔNG SỐ TELEMETRY MINH BẠCH DOCKER SANDBOX (Chứng minh đúng Docker, đúng người, đúng môi trường) */}
+                    {/* BẢNG THÔNG SỐ TELEMETRY MINH BẠCH DOCKER SANDBOX (Nền sáng trắng cao cấp) */}
                     <div style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
                       gap: '8px',
-                      background: 'rgba(0, 0, 0, 0.45)',
-                      border: '1px solid rgba(139, 92, 246, 0.25)',
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
                       borderRadius: '8px',
-                      padding: '8px 12px',
+                      padding: '10px 12px',
                       marginBottom: '10px',
                       fontSize: '0.74rem'
                     }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>🐳 Docker Container ID:</span>
+                        <span style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 600 }}>🐳 Docker Container ID:</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <code style={{ color: '#38bdf8', fontWeight: 700, fontSize: '0.78rem' }}>
+                          <code style={{ color: '#0284c7', fontWeight: 700, fontSize: '0.78rem' }}>
                             {trList[0]?.container_id || '66e950c00538'}
                           </code>
-                          <span style={{ fontSize: '0.64rem', color: '#34d399', background: 'rgba(52, 211, 153, 0.15)', padding: '1px 5px', borderRadius: '4px' }}>
+                          <span style={{ fontSize: '0.64rem', color: '#15803d', background: '#dcfce7', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
                             Active
                           </span>
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>📦 Docker Sandbox Image:</span>
-                        <span style={{ color: '#c084fc', fontWeight: 700 }}>
+                        <span style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 600 }}>📦 Docker Sandbox Image:</span>
+                        <span style={{ color: '#7c3aed', fontWeight: 700 }}>
                           {trList[0]?.docker_image || (selectedSub.language === 'java' ? 'aita-sandbox-java:latest (openjdk:17-alpine)' : 'aita-sandbox-node:latest (node:20-alpine)')}
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>🔑 Mã Băm Bài Nộp (SHA-256):</span>
-                        <code style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.75rem' }}>
+                        <span style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 600 }}>🔑 Mã Băm Bài Nộp (SHA-256):</span>
+                        <code style={{ color: '#b45309', fontWeight: 700, fontSize: '0.75rem' }}>
                           {trList[0]?.code_hash || selectedSub.code_hash || 'e4b8a21f7c90d341'}
                         </code>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>🛡️ Giới Hạn Tài Nguyên:</span>
-                        <span style={{ color: '#34d399', fontWeight: 600 }}>
+                        <span style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 600 }}>🛡️ Giới Hạn Tài Nguyên:</span>
+                        <span style={{ color: '#059669', fontWeight: 700 }}>
                           RAM: 256MB • CPU: 1.0 • Net: None
                         </span>
                       </div>
@@ -6980,7 +6983,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
                     {/* Danh sách từng Test Case kèm đối soát Input, Expected, Actual Output */}
                     {totalTests > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                         {trList.map((tc, idx) => {
                           const tcTimeout = tc.execution_time_ms >= 5000 || (tc.actual_output && tc.actual_output.includes('TIMEOUT'));
                           const isCompileError = tc.status === 'COMPILATION_ERROR' || (tc.actual_output && (tc.actual_output.includes('error:') || tc.actual_output.includes('javac')));
@@ -6989,9 +6992,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                               key={idx}
                               style={{
                                 borderRadius: '8px',
-                                padding: '8px 10px',
-                                background: tc.passed ? 'rgba(16, 185, 129, 0.05)' : isCompileError ? 'rgba(245, 158, 11, 0.08)' : 'rgba(239, 68, 68, 0.07)',
-                                border: `1px solid ${tc.passed ? 'rgba(16, 185, 129, 0.22)' : isCompileError ? 'rgba(245, 158, 11, 0.35)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                padding: '10px 12px',
+                                background: tc.passed ? '#f0fdf4' : isCompileError ? '#fffbeb' : '#fff1f2',
+                                border: `1px solid ${tc.passed ? '#86efac' : isCompileError ? '#fde68a' : '#fecdd3'}`,
                                 fontSize: '0.78rem'
                               }}
                             >
@@ -6999,23 +7002,23 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   {tc.passed ? (
-                                    <CheckCircle2 size={15} color="#34d399" />
+                                    <CheckCircle2 size={16} color="#16a34a" />
                                   ) : isCompileError ? (
-                                    <AlertTriangle size={15} color="#fbbf24" />
+                                    <AlertTriangle size={16} color="#d97706" />
                                   ) : (
-                                    <XCircle size={15} color="#f87171" />
+                                    <XCircle size={16} color="#e11d48" />
                                   )}
-                                  <span style={{ fontWeight: 700, color: tc.passed ? '#f1f5f9' : isCompileError ? '#fde68a' : '#fca5a5' }}>
+                                  <span style={{ fontWeight: 700, color: tc.passed ? '#166534' : isCompileError ? '#92400e' : '#9f1239' }}>
                                     {tc.criterion}
                                   </span>
                                   {tc.is_hidden && (
-                                    <span style={{ fontSize: '0.66rem', color: '#a78bfa', padding: '1px 5px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.25)', fontWeight: 600 }}>
+                                    <span style={{ fontSize: '0.66rem', color: '#6d28d9', padding: '1px 5px', borderRadius: '4px', background: '#ede9fe', border: '1px solid #c4b5fd', fontWeight: 600 }}>
                                       🔒 Test Ẩn (BR-06)
                                     </span>
                                   )}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <span style={{ fontSize: '0.72rem', color: tcTimeout ? '#f87171' : 'var(--text-muted)', fontWeight: tcTimeout ? 800 : 500 }}>
+                                  <span style={{ fontSize: '0.72rem', color: tcTimeout ? '#b91c1c' : '#64748b', fontWeight: tcTimeout ? 800 : 500 }}>
                                     ⏱️ {tc.execution_time_ms}ms {tcTimeout ? '(Timeout)' : ''}
                                   </span>
                                   {isCompileError ? (
@@ -7024,9 +7027,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                       fontSize: '0.74rem',
                                       padding: '2px 8px',
                                       borderRadius: '6px',
-                                      background: 'rgba(245, 158, 11, 0.22)',
-                                      color: '#fbbf24',
-                                      border: '1px solid rgba(245, 158, 11, 0.4)'
+                                      background: '#fef3c7',
+                                      color: '#b45309',
+                                      border: '1px solid #fde68a'
                                     }}>
                                       COMPILATION ERROR (0.0/{tc.max_score}đ)
                                     </span>
@@ -7036,8 +7039,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                       fontSize: '0.78rem',
                                       padding: '2px 8px',
                                       borderRadius: '6px',
-                                      background: 'rgba(16, 185, 129, 0.18)',
-                                      color: '#34d399'
+                                      background: '#dcfce7',
+                                      color: '#15803d',
+                                      border: '1px solid #86efac'
                                     }}>
                                       PASSED (+{tc.score}/{tc.max_score}đ)
                                     </span>
@@ -7047,8 +7051,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                       fontSize: '0.78rem',
                                       padding: '2px 8px',
                                       borderRadius: '6px',
-                                      background: 'rgba(239, 68, 68, 0.18)',
-                                      color: '#f87171'
+                                      background: '#fee2e2',
+                                      color: '#b91c1c',
+                                      border: '1px solid #fecaca'
                                     }}>
                                       FAILED (+0.0/{tc.max_score}đ)
                                     </span>
@@ -7057,36 +7062,36 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                               </div>
 
                               {/* Báo cáo lỗi & Đối soát Input/Expected/Actual Output cho Giảng viên */}
-                              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed rgba(255, 255, 255, 0.08)' }}>
+                              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed rgba(0, 0, 0, 0.1)' }}>
                                 {tcTimeout && (
-                                  <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', padding: '5px 8px', color: '#fca5a5', fontSize: '0.72rem', marginBottom: '6px' }}>
+                                  <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', color: '#991b1b', fontSize: '0.73rem', marginBottom: '6px', fontWeight: 500 }}>
                                     <strong>⚠️ Lỗi Thực Thi:</strong> Phát hiện vòng lặp vô tận (Infinite Loop) hoặc thời gian vượt hạn mức 5.000ms. Watchdog (BR-03) đã can thiệp ngắt container an toàn.
                                   </div>
                                 )}
                                 {isCompileError && (
-                                  <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '6px', padding: '5px 8px', color: '#fde68a', fontSize: '0.72rem', marginBottom: '6px' }}>
+                                  <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '6px', padding: '6px 10px', color: '#92400e', fontSize: '0.73rem', marginBottom: '6px', fontWeight: 500 }}>
                                     <strong>⚠️ Lỗi Biên Dịch (Compilation Error - javac):</strong> Code không vượt qua được bước biên dịch OpenJDK 17. Container Docker trả về Exit Code 1.
                                   </div>
                                 )}
                                 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px', fontSize: '0.72rem' }}>
                                   {tc.input_data && (
-                                    <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '5px 8px', borderRadius: '5px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                      <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600, marginBottom: '2px' }}>Dữ liệu Input:</div>
-                                      <code style={{ color: '#c4b5fd', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace' }}>{tc.input_data}</code>
+                                    <div style={{ background: '#ffffff', padding: '6px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                                      <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, marginBottom: '2px' }}>Dữ liệu Input:</div>
+                                      <code style={{ color: '#0f172a', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace' }}>{tc.input_data}</code>
                                     </div>
                                   )}
                                   {tc.expected_output && (
-                                    <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '5px 8px', borderRadius: '5px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                      <div style={{ color: '#34d399', fontSize: '0.68rem', fontWeight: 600, marginBottom: '2px' }}>Expected (Kỳ vọng):</div>
-                                      <code style={{ color: '#34d399', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace' }}>{tc.expected_output}</code>
+                                    <div style={{ background: '#ffffff', padding: '6px 8px', borderRadius: '6px', border: '1px solid #86efac' }}>
+                                      <div style={{ color: '#16a34a', fontSize: '0.68rem', fontWeight: 700, marginBottom: '2px' }}>Expected (Kỳ vọng):</div>
+                                      <code style={{ color: '#15803d', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontWeight: 600 }}>{tc.expected_output}</code>
                                     </div>
                                   )}
-                                  <div style={{ background: 'rgba(0, 0, 0, 0.4)', padding: '5px 8px', borderRadius: '5px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <div style={{ color: tc.passed ? '#34d399' : '#f87171', fontSize: '0.68rem', fontWeight: 600, marginBottom: '2px' }}>
+                                  <div style={{ background: '#ffffff', padding: '6px 8px', borderRadius: '6px', border: `1px solid ${tc.passed ? '#86efac' : '#fecaca'}` }}>
+                                    <div style={{ color: tc.passed ? '#16a34a' : '#b91c1c', fontSize: '0.68rem', fontWeight: 700, marginBottom: '2px' }}>
                                       {tc.passed ? 'Actual (Khớp 100%):' : 'Actual (Sai lệch/Lỗi):'}
                                     </div>
-                                    <code style={{ color: tc.passed ? '#34d399' : '#fca5a5', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                                    <code style={{ color: tc.passed ? '#15803d' : '#b91c1c', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontWeight: tc.passed ? 600 : 500 }}>
                                       {tc.actual_output || (tcTimeout ? '[Killed by Watchdog Timeout 5s]' : '(Không có dữ liệu trả về)')}
                                     </code>
                                   </div>
@@ -7098,17 +7103,17 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                       </div>
                     ) : (
                       <div style={{
-                        background: 'rgba(0, 0, 0, 0.55)',
-                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
                         borderRadius: '6px',
                         padding: '10px 12px',
                         fontSize: '0.78rem',
-                        color: '#c4b5fd'
+                        color: '#334155'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', color: '#fbbf24', fontWeight: 600 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', color: '#b45309', fontWeight: 600 }}>
                           <Clock size={14} /> {lang === 'vi' ? 'Hệ thống Docker Sandbox đang xử lý hoặc đang nạp chi tiết các câu hỏi.' : 'Sandbox processing or loading test cases.'}
                         </div>
-                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b', whiteSpace: 'pre-wrap' }}>
                           {selectedSub.sandboxOutput}
                         </div>
                       </div>
@@ -7118,25 +7123,58 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
               })()}
 
               {/* BR-09 Stage Tabs */}
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '0.75rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
                 <button 
                   onClick={() => setActiveModalStage('review1')}
-                  className={activeModalStage === 'review1' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: '0.78rem', padding: '5px 12px', gap: '5px' }}
+                  style={{
+                    fontSize: '0.78rem',
+                    padding: '5px 12px',
+                    gap: '5px',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: activeModalStage === 'review1' ? '#7c3aed' : '#f1f5f9',
+                    color: activeModalStage === 'review1' ? '#ffffff' : '#475569',
+                    border: activeModalStage === 'review1' ? '1px solid #6d28d9' : '1px solid #cbd5e1',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
                 >
                   <Sparkles size={13} /> {lang === 'vi' ? '1. AI & GV 1 Xem Xét' : '1. AI & Lecturer 1'}
                 </button>
                 <button 
                   onClick={() => setActiveModalStage('review2')}
-                  className={activeModalStage === 'review2' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: '0.78rem', padding: '5px 12px', gap: '5px' }}
+                  style={{
+                    fontSize: '0.78rem',
+                    padding: '5px 12px',
+                    gap: '5px',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: activeModalStage === 'review2' ? '#7c3aed' : '#f1f5f9',
+                    color: activeModalStage === 'review2' ? '#ffffff' : '#475569',
+                    border: activeModalStage === 'review2' ? '1px solid #6d28d9' : '1px solid #cbd5e1',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
                 >
                   <Users size={13} /> {lang === 'vi' ? '2. GV 2 Chấm Chéo (Độc Lập)' : '2. Lecturer 2 Cross-Grade'}
                 </button>
                 <button 
                   onClick={() => setActiveModalStage('consensus')}
-                  className={activeModalStage === 'consensus' ? 'btn-primary' : 'btn-secondary'}
-                  style={{ fontSize: '0.78rem', padding: '5px 12px', gap: '5px' }}
+                  style={{
+                    fontSize: '0.78rem',
+                    padding: '5px 12px',
+                    gap: '5px',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: activeModalStage === 'consensus' ? '#7c3aed' : '#f1f5f9',
+                    color: activeModalStage === 'consensus' ? '#ffffff' : '#475569',
+                    border: activeModalStage === 'consensus' ? '1px solid #6d28d9' : '1px solid #cbd5e1',
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}
                 >
                   <Award size={13} /> {lang === 'vi' ? '3. Biên Bản Đồng Thuận' : '3. Consensus Settlement'}
                 </button>
@@ -7146,39 +7184,48 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
               {activeModalStage === 'review1' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* Card AI Pre-grading */}
-                  <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '10px', padding: '10px 12px' }}>
+                  <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '10px', padding: '10px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '6px' }}>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <Sparkles size={14} /> {lang === 'vi' ? 'Bước 1: Điểm & Nhận xét từ AI Model' : 'Step 1: AI Preliminary Score & Critique'}
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Sparkles size={14} color="#7c3aed" /> {lang === 'vi' ? 'Bước 1: Điểm & Nhận xét từ AI Model' : 'Step 1: AI Preliminary Score & Critique'}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.98rem', fontWeight: 700, color: '#a78bfa' }}>
+                        <span style={{ fontSize: '0.98rem', fontWeight: 800, color: '#6d28d9' }}>
                           {selectedSub.ai_score ?? selectedSub.grade} / 10
                         </span>
                         <button
                           type="button"
                           onClick={() => handleApproveAI(selectedSub)}
-                          className="btn-secondary"
-                          style={{ padding: '3px 9px', fontSize: '0.75rem', borderColor: '#c084fc', color: '#c084fc', fontWeight: 600, gap: '4px' }}
+                          style={{
+                            padding: '4px 10px',
+                            fontSize: '0.75rem',
+                            border: '1px solid #c4b5fd',
+                            color: '#6d28d9',
+                            background: '#ffffff',
+                            fontWeight: 700,
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                          }}
                         >
                           ⚡ {lang === 'vi' ? 'Phê duyệt điểm AI & Chốt ngay' : 'Approve AI Score & Finalize'}
                         </button>
                       </div>
                     </div>
-                    <p style={{ fontSize: '0.78rem', color: '#e2e8f0', lineHeight: 1.4, margin: 0 }}>
+                    <p style={{ fontSize: '0.78rem', color: '#334155', lineHeight: 1.5, margin: 0 }}>
                       {selectedSub.aiFeedback}
                     </p>
                   </div>
 
                   {/* Form Giảng Viên 1 */}
-                  <form onSubmit={handleSaveGrade} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
-                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: '#c4b5fd', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <UserCheck size={14} /> {lang === 'vi' ? 'Giảng Viên 1 (Reviewer 1) Đánh Giá & Điều Chỉnh' : 'Lecturer 1 Review & Challenge'}
+                  <form onSubmit={handleSaveGrade} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' }}>
+                    <h4 style={{ fontSize: '0.84rem', fontWeight: 800, marginBottom: '8px', color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <UserCheck size={14} color="#7c3aed" /> {lang === 'vi' ? 'Giảng Viên 1 (Reviewer 1) Đánh Giá & Điều Chỉnh' : 'Lecturer 1 Review & Challenge'}
                     </h4>
 
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'flex-start' }}>
                       <div style={{ width: '120px', flexShrink: 0 }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '4px', color: '#475569' }}>
                           {lang === 'vi' ? 'Điểm GV 1 (0-10):' : 'Score (0 - 10):'}
                         </label>
                         <input 
@@ -7193,9 +7240,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'var(--bg-glass)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-main)',
+                            background: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            color: '#0f172a',
                             fontSize: '0.95rem',
                             fontWeight: 700,
                             textAlign: 'center'
@@ -7204,7 +7251,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                       </div>
 
                       <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '4px', color: '#475569' }}>
                           {lang === 'vi' ? 'Nhận xét chi tiết của GV 1:' : 'Reviewer 1 Notes / Justification:'}
                         </label>
                         <input 
@@ -7216,17 +7263,17 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'var(--bg-glass)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-main)',
+                            background: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            color: '#0f172a',
                             fontSize: '0.8rem'
                           }}
                         />
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', padding: '6px 10px', background: 'var(--bg-glass)', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fbbf24', whiteSpace: 'nowrap', margin: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', padding: '8px 10px', background: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b45309', whiteSpace: 'nowrap', margin: 0 }}>
                         {lang === 'vi' ? 'Chỉ định GV 2 chấm kiểm định:' : 'Assign Lecturer 2:'}
                       </label>
                       <select 
@@ -7236,9 +7283,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           flex: 1,
                           padding: '5px 8px',
                           borderRadius: '6px',
-                          background: 'var(--bg-card)',
-                          border: '1px solid var(--border-color)',
-                          color: 'var(--text-main)',
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          color: '#0f172a',
                           fontSize: '0.78rem'
                         }}
                       >
@@ -7251,16 +7298,39 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                       <button 
                         type="submit"
-                        className="btn-secondary"
-                        style={{ fontSize: '0.78rem', padding: '6px 12px', gap: '4px' }}
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          color: '#334155',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
                       >
-                        <Check size={13} /> {lang === 'vi' ? 'Lưu điểm GV 1 (Không cần GV 2)' : 'Save Grade (Single Lecturer)'}
+                        <Check size={13} color="#15803d" /> {lang === 'vi' ? 'Lưu điểm GV 1 (Không cần GV 2)' : 'Save Grade (Single Lecturer)'}
                       </button>
                       <button 
                         type="button"
                         onClick={handleRequestSecondOpinion}
-                        className="btn-primary"
-                        style={{ fontSize: '0.78rem', padding: '6px 14px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', gap: '5px' }}
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          boxShadow: '0 2px 6px rgba(245, 158, 11, 0.25)'
+                        }}
                       >
                         <RotateCw size={13} /> {lang === 'vi' ? 'Chuyển GV 2 Chấm Chéo Độc Lập (BR-09)' : 'Request 2nd Lecturer Review (BR-09)'}
                       </button>
@@ -7273,36 +7343,36 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
               {activeModalStage === 'review2' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {/* Tóm tắt điểm GV 1 */}
-                  <div style={{ background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.25)', borderRadius: '10px', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '10px', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#c4b5fd' }}>
+                      <span style={{ fontSize: '0.75rem', color: '#6d28d9', fontWeight: 600 }}>
                         {lang === 'vi' ? 'Kết quả từ GV 1:' : 'Lecturer 1 Assessment:'}
                       </span>
-                      <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                      <strong style={{ fontSize: '0.85rem', color: '#0f172a' }}>
                         {selectedSub.reviewer_1_name || 'TS. Nguyễn Văn Giảng'}:
                       </strong>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
                         "{reviewer1Notes || selectedSub.reviewer_1_notes || (lang === 'vi' ? 'Đã xem xét bài nộp' : 'Reviewed')}"
                       </span>
                     </div>
-                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#a78bfa' }}>
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: '#6d28d9' }}>
                       {reviewer1Score} / 10
                     </span>
                   </div>
 
                   {/* Form Giảng Viên 2 */}
-                  <form onSubmit={handleSubmitSecondOpinion} style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
-                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '4px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Users size={14} /> {lang === 'vi' ? 'Giảng Viên 2 (Reviewer 2) Chấm Điểm Độc Lập' : 'Lecturer 2 Independent Evaluation'}
+                  <form onSubmit={handleSubmitSecondOpinion} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' }}>
+                    <h4 style={{ fontSize: '0.84rem', fontWeight: 800, marginBottom: '4px', color: '#b45309', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Users size={14} color="#d97706" /> {lang === 'vi' ? 'Giảng Viên 2 (Reviewer 2) Chấm Điểm Độc Lập' : 'Lecturer 2 Independent Evaluation'}
                     </h4>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px', margin: '0 0 8px 0' }}>
+                    <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '8px', margin: '0 0 8px 0' }}>
                       {lang === 'vi' ? 'Hệ thống tự động so sánh độ lệch điểm:' : 'Score difference comparison:'}
                       {' '}<strong>{lang === 'vi' ? '≤ 0.5: Tự chốt điểm | > 0.5: Mở họp đồng thuận' : '≤ 0.5: Auto-finalize | > 0.5: Consensus required'}</strong>.
                     </p>
 
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'flex-start' }}>
                       <div style={{ width: '120px', flexShrink: 0 }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '4px', color: '#475569' }}>
                           {lang === 'vi' ? 'Điểm GV 2 (0-10):' : 'Score (0 - 10):'}
                         </label>
                         <input 
@@ -7317,9 +7387,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'var(--bg-glass)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-main)',
+                            background: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            color: '#0f172a',
                             fontSize: '0.95rem',
                             fontWeight: 700,
                             textAlign: 'center'
@@ -7328,7 +7398,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                       </div>
 
                       <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '4px', color: '#475569' }}>
                           {lang === 'vi' ? 'Nhận xét độc lập của GV 2:' : 'Reviewer 2 Notes / Critique:'}
                         </label>
                         <input 
@@ -7341,9 +7411,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                             width: '100%',
                             padding: '6px 10px',
                             borderRadius: '6px',
-                            background: 'var(--bg-glass)',
-                            border: '1px solid var(--border-color)',
-                            color: 'var(--text-main)',
+                            background: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            color: '#0f172a',
                             fontSize: '0.8rem'
                           }}
                         />
@@ -7353,8 +7423,19 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                       <button 
                         type="submit"
-                        className="btn-primary"
-                        style={{ fontSize: '0.78rem', padding: '6px 14px', gap: '5px' }}
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
                       >
                         <Check size={14} /> {lang === 'vi' ? 'Nộp Điểm GV 2 & So Sánh Độ Lệch' : 'Submit 2nd Review & Compare'}
                       </button>
@@ -7367,36 +7448,36 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
               {activeModalStage === 'consensus' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {scoreDiffNotice && (
-                    <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '8px', padding: '8px 12px', color: '#fbbf24', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <AlertTriangle size={15} />
+                    <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px 12px', color: '#b45309', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                      <AlertTriangle size={15} color="#d97706" />
                       <span>{scoreDiffNotice}</span>
                     </div>
                   )}
 
                   {/* Bảng so sánh 3 nguồn điểm */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                    <div style={{ background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.72rem', color: '#c084fc', display: 'block', marginBottom: '2px' }}>AI Pre-grade</span>
-                      <strong style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{selectedSub.ai_score ?? selectedSub.grade ?? 0}</strong>
+                    <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#6d28d9', display: 'block', marginBottom: '2px', fontWeight: 700 }}>AI Pre-grade</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#0f172a' }}>{selectedSub.ai_score ?? selectedSub.grade ?? 0}</strong>
                     </div>
-                    <div style={{ background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.72rem', color: '#c4b5fd', display: 'block', marginBottom: '2px' }}>Giảng Viên 1</span>
-                      <strong style={{ fontSize: '1.05rem', color: '#a78bfa' }}>{reviewer1Score}</strong>
+                    <div style={{ background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#5b21b6', display: 'block', marginBottom: '2px', fontWeight: 700 }}>Giảng Viên 1</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#6d28d9' }}>{reviewer1Score}</strong>
                     </div>
-                    <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '0.72rem', color: '#fbbf24', display: 'block', marginBottom: '2px' }}>Giảng Viên 2</span>
-                      <strong style={{ fontSize: '1.05rem', color: '#fbbf24' }}>{reviewer2Score}</strong>
+                    <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#92400e', display: 'block', marginBottom: '2px', fontWeight: 700 }}>Giảng Viên 2</span>
+                      <strong style={{ fontSize: '1.05rem', color: '#b45309' }}>{reviewer2Score}</strong>
                     </div>
                   </div>
 
                   {/* Form Biên bản đồng thuận */}
-                  <form onSubmit={handleFinalizeConsensus} style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '10px 12px' }}>
-                    <h4 style={{ fontSize: '0.84rem', fontWeight: 700, marginBottom: '8px', color: '#34d399', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <FileText size={14} /> {lang === 'vi' ? 'Biên Bản Thống Nhất & Điểm Số Chính Thức (Consensus)' : 'Consensus Notes & Final Published Score'}
+                  <form onSubmit={handleFinalizeConsensus} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' }}>
+                    <h4 style={{ fontSize: '0.84rem', fontWeight: 800, marginBottom: '8px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <FileText size={14} color="#16a34a" /> {lang === 'vi' ? 'Biên Bản Thống Nhất & Điểm Số Chính Thức (Consensus)' : 'Consensus Notes & Final Published Score'}
                     </h4>
 
                     <div style={{ marginBottom: '8px' }}>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px' }}>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '4px', color: '#475569' }}>
                         {lang === 'vi' ? 'Nội dung thống nhất giữa 2 giảng viên (*):' : 'Joint Consensus Discussion Notes (*):'}
                       </label>
                       <textarea 
@@ -7409,9 +7490,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           width: '100%',
                           padding: '6px 10px',
                           borderRadius: '6px',
-                          background: 'var(--bg-glass)',
-                          border: '1px solid var(--border-color)',
-                          color: 'var(--text-main)',
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          color: '#0f172a',
                           fontSize: '0.8rem'
                         }}
                       />
@@ -7419,7 +7500,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155' }}>
                           {lang === 'vi' ? 'Điểm chính thức:' : 'Final Score:'}
                         </label>
                         <input 
@@ -7434,11 +7515,11 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                             width: '80px',
                             padding: '5px 8px',
                             borderRadius: '6px',
-                            background: 'rgba(0, 0, 0, 0.4)',
-                            border: '1px solid #10b981',
-                            color: '#34d399',
+                            background: '#f0fdf4',
+                            border: '1px solid #86efac',
+                            color: '#15803d',
                             fontSize: '1rem',
-                            fontWeight: 700,
+                            fontWeight: 800,
                             textAlign: 'center'
                           }}
                         />
@@ -7446,8 +7527,20 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
                       <button 
                         type="submit"
-                        className="btn-primary"
-                        style={{ fontSize: '0.78rem', padding: '6px 14px', background: 'linear-gradient(135deg, #10b981, #059669)', gap: '5px' }}
+                        style={{
+                          fontSize: '0.78rem',
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)'
+                        }}
                       >
                         <Award size={14} /> {lang === 'vi' ? 'Chốt Điểm & Công Bố' : 'Publish Consensus Grade'}
                       </button>
@@ -7457,14 +7550,25 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
               )}
 
               {/* Footer Modal */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.6rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.85rem', borderTop: '1px solid #e2e8f0', paddingTop: '0.65rem' }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <button 
                     type="button"
                     disabled={isRegrading}
                     onClick={handleRerunGrading}
-                    className="btn-secondary"
-                    style={{ gap: '5px', fontSize: '0.78rem', padding: '5px 12px' }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.78rem',
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#334155',
+                      fontWeight: 700,
+                      cursor: isRegrading ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     {isRegrading ? <Loader2 size={13} className="animate-spin" /> : <RotateCw size={13} />}
                     <span>{lang === 'vi' ? 'Chấm lại (Regrade)' : 'Re-run Sandbox Grading'}</span>
@@ -7473,8 +7577,19 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                   <button 
                     type="button"
                     onClick={() => handleViewGradingHistory(selectedSub.id)}
-                    className="btn-secondary"
-                    style={{ gap: '5px', fontSize: '0.78rem', padding: '5px 12px', background: 'rgba(124, 58, 237, 0.12)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#c4b5fd' }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.78rem',
+                      padding: '5px 12px',
+                      borderRadius: '6px',
+                      background: '#ede9fe',
+                      border: '1px solid #c4b5fd',
+                      color: '#6d28d9',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
                   >
                     <History size={13} />
                     <span>{lang === 'vi' ? 'Lịch sử chấm & So sánh' : 'Grading History & Diff'}</span>
@@ -7484,8 +7599,16 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 <button 
                   type="button" 
                   onClick={() => setSelectedSub(null)}
-                  className="btn-secondary"
-                  style={{ fontSize: '0.78rem', padding: '5px 14px' }}
+                  style={{
+                    fontSize: '0.78rem',
+                    padding: '5px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
                 >
                   {lang === 'vi' ? 'Đóng' : 'Close'}
                 </button>
