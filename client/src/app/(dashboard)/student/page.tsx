@@ -1917,14 +1917,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
         {/* Header Tab Title & Team Selector */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <GitBranch size={24} color="#a78bfa" /> {lang === 'vi' ? 'Báo Cáo Đóng Góp Git & Radar Free-Rider (BR-07)' : 'Git Contribution Report & Free-Rider Radar (BR-07)'}
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em', color: isDark ? '#f8fafc' : '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <GitBranch size={24} color={isDark ? '#a78bfa' : '#6d28d9'} /> {lang === 'vi' ? 'Báo Cáo Đóng Góp Git & Radar Free-Rider (BR-07)' : 'Git Contribution Report & Free-Rider Radar (BR-07)'}
             </h2>
           </div>
 
           {myTeams.length > 1 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.85rem', color: isDark ? '#94a3b8' : '#334155', fontWeight: 600 }}>
                 {lang === 'vi' ? 'Chọn nhóm:' : 'Select Team:'}
               </span>
               <select
@@ -1933,9 +1933,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 style={{
                   padding: '8px 14px',
                   borderRadius: '10px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  color: '#a78bfa',
+                  background: isDark ? 'var(--bg-card)' : '#ffffff',
+                  border: isDark ? '1px solid var(--border-color)' : '1px solid #cbd5e1',
+                  color: isDark ? '#c4b5fd' : '#5b21b6',
                   fontWeight: 700,
                   fontSize: '0.86rem',
                   outline: 'none',
@@ -1943,7 +1943,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 }}
               >
                 {myTeams.map(t => (
-                  <option key={t.team_id} value={t.team_id} style={{ background: '#0f172a', color: '#f8fafc' }}>
+                  <option key={t.team_id} value={t.team_id} style={{ background: isDark ? '#0f172a' : '#ffffff', color: isDark ? '#f8fafc' : '#0f172a' }}>
                     {t.team_name} ({t.course_code || 'SWD392'})
                   </option>
                 ))}
@@ -1957,12 +1957,12 @@ III. QUY CHUẨN DOCKER SANDBOX:
           <div style={{
             padding: '1rem 1.25rem',
             borderRadius: '12px',
-            background: 'rgba(139, 92, 246, 0.08)',
-            border: '1px solid rgba(139, 92, 246, 0.25)',
+            background: isDark ? 'rgba(139, 92, 246, 0.08)' : '#f5f3ff',
+            border: isDark ? '1px solid rgba(139, 92, 246, 0.25)' : '1px solid #c4b5fd',
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
-            color: '#a78bfa',
+            color: isDark ? '#c4b5fd' : '#5b21b6',
             fontSize: '0.88rem',
             fontWeight: 600
           }}>
@@ -1973,8 +1973,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
         {/* Telemetry Metrics & Member Distribution Table */}
         {loadingGit && !gitAnalytics ? (
-          <div className="glass-card" style={{ textAlign: 'center', padding: '3.5rem', borderRadius: '20px', color: 'var(--text-muted)' }}>
-            <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px', color: '#a78bfa' }} />
+          <div className="glass-card" style={{ textAlign: 'center', padding: '3.5rem', borderRadius: '20px', color: isDark ? '#94a3b8' : '#475569' }}>
+            <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px', color: isDark ? '#a78bfa' : '#6d28d9' }} />
             <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>{lang === 'vi' ? 'Đang nạp dữ liệu telemetry commit từ PostgreSQL...' : 'Loading commit telemetry...'}</p>
           </div>
         ) : (
@@ -1983,7 +1983,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
             style={{ 
               borderRadius: '20px', 
               overflow: 'hidden', 
-              border: '1px solid var(--border-color)',
+              border: isDark ? '1px solid var(--border-color)' : '1px solid #cbd5e1',
               padding: '1.5rem 1.75rem', 
               display: 'flex', 
               flexDirection: 'column', 
@@ -1995,10 +1995,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: isDark ? 'rgba(139, 92, 246, 0.15)' : '#ede9fe', color: isDark ? '#c4b5fd' : '#5b21b6', border: isDark ? 'none' : '1px solid #c4b5fd' }}>
                     {targetAnalyticsTeam?.course_code || 'SWD392'}
                   </span>
-                  <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: isDark ? '#f8fafc' : '#0f172a' }}>
                     {targetAnalyticsTeam?.team_name}
                   </h4>
                 </div>
@@ -2007,7 +2007,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                     href={customGitRepo || targetAnalyticsTeam?.repo_url} 
                     target="_blank" 
                     rel="noreferrer" 
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#a78bfa', textDecoration: 'none' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: isDark ? '#a78bfa' : '#4338ca', fontWeight: 600, textDecoration: 'none' }}
                   >
                     <ExternalLink size={13} /> {customGitRepo || targetAnalyticsTeam?.repo_url}
                   </a>
@@ -2017,14 +2017,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
               {/* Summary Badges, Branch Pill & Sync Action */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 {gitAnalytics && (
-                  <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
-                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 700 }}>
+                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: isDark ? 'rgba(139, 92, 246, 0.12)' : '#ede9fe', color: isDark ? '#c4b5fd' : '#5b21b6', border: isDark ? '1px solid rgba(139, 92, 246, 0.25)' : '1px solid #c4b5fd' }}>
                       {gitAnalytics.team_total_commits || 0} Commits
                     </span>
-                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: isDark ? 'rgba(16, 185, 129, 0.12)' : '#d1fae5', color: isDark ? '#34d399' : '#047857', border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #6ee7b7' }}>
                       +{(gitAnalytics.team_total_lines_added || 0).toLocaleString()} LOC
                     </span>
-                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
+                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: isDark ? 'rgba(244, 63, 94, 0.12)' : '#ffe4e6', color: isDark ? '#fb7185' : '#be123c', border: isDark ? '1px solid rgba(244, 63, 94, 0.25)' : '1px solid #fda4af' }}>
                       -{(gitAnalytics.team_total_lines_deleted || 0).toLocaleString()} LOC
                     </span>
                   </div>
@@ -2035,13 +2035,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '6px', 
-                  background: isDark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(241, 245, 249, 0.9)', 
+                  background: isDark ? 'rgba(30, 41, 59, 0.7)' : '#f8fafc', 
                   padding: '4px 10px', 
                   borderRadius: '8px', 
-                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(124,58,237,0.2)'}` 
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#cbd5e1'}` 
                 }}>
-                  <GitBranch size={14} color="#a78bfa" />
-                  <span style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b' }}>{lang === 'vi' ? 'Nhánh:' : 'Branch:'}</span>
+                  <GitBranch size={14} color={isDark ? '#a78bfa' : '#6d28d9'} />
+                  <span style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#334155', fontWeight: 600 }}>{lang === 'vi' ? 'Nhánh:' : 'Branch:'}</span>
                   <input
                     type="text"
                     value={gitBranch}
@@ -2051,7 +2051,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                     style={{
                       fontSize: '0.82rem',
                       fontWeight: 700,
-                      color: isDark ? '#c4b5fd' : '#7c3aed',
+                      color: isDark ? '#c4b5fd' : '#5b21b6',
                       background: 'transparent',
                       border: 'none',
                       outline: 'none',
@@ -2079,46 +2079,46 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 { 
                   label: lang === 'vi' ? 'Lượt commit của bạn' : 'Your Commits', 
                   value: myContribution ? `${myContribution.total_commits || 0}` : '0', 
-                  color: '#a78bfa',
+                  color: isDark ? '#c4b5fd' : '#5b21b6',
                   sub: lang === 'vi' ? `Tổng nhóm: ${gitAnalytics?.team_total_commits || 0} commits` : `Team: ${gitAnalytics?.team_total_commits || 0}`
                 },
                 { 
                   label: lang === 'vi' ? 'Dòng code thêm (LOC)' : 'Your LOC Added', 
                   value: myContribution ? `${(Number(myContribution.total_lines_added) || 0).toLocaleString()}` : '0', 
-                  color: '#a78bfa',
+                  color: isDark ? '#c4b5fd' : '#5b21b6',
                   sub: lang === 'vi' ? `Đã lọc file sinh tự động (Noise Filter)` : `Filtered noise code`
                 },
                 { 
                   label: lang === 'vi' ? 'Tỷ lệ đóng góp (LOC %)' : 'Contribution %', 
                   value: myContribution ? `${myContribution.contribution_percentage || 0}%` : '0%', 
-                  color: '#a78bfa',
+                  color: isDark ? '#c4b5fd' : '#5b21b6',
                   sub: lang === 'vi' ? 'Chỉ số đóng góp thực tế' : 'Actual contribution rate'
                 }
               ].map((item, idx) => (
-                <div key={idx} style={{ padding: '1rem 1.25rem', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>{item.label}</span>
+                <div key={idx} style={{ padding: '1rem 1.25rem', borderRadius: '14px', background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc', border: isDark ? '1px solid var(--border-color)' : '1px solid #cbd5e1' }}>
+                  <span style={{ fontSize: '0.78rem', color: isDark ? '#cbd5e1' : '#334155', display: 'block', marginBottom: '4px', fontWeight: 700 }}>{item.label}</span>
                   <span style={{ fontSize: '1.65rem', fontWeight: 800, color: item.color, display: 'block', lineHeight: 1.1 }}>{item.value}</span>
-                  <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{item.sub}</span>
+                  <span style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#475569', fontWeight: 500, marginTop: '4px', display: 'block' }}>{item.sub}</span>
                 </div>
               ))}
             </div>
 
             {/* Header Bảng Đóng Góp Thành Viên */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
-              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <GitBranch size={16} color="#a78bfa" />
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: isDark ? '#f8fafc' : '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <GitBranch size={16} color={isDark ? '#a78bfa' : '#6d28d9'} />
                 {lang === 'vi' ? 'Bảng thống kê đóng góp thành viên nhóm:' : 'Team Member Git Contributions:'}
               </h4>
-              <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '0.78rem', color: isDark ? '#34d399' : '#047857', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <ShieldCheck size={14} /> {lang === 'vi' ? 'Đã áp dụng bộ lọc Noise Filter BR-07' : 'Noise Filter BR-07 active'}
               </span>
             </div>
 
             {/* Member Contributions Table */}
-            <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ overflowX: 'auto', borderRadius: '12px', border: isDark ? '1px solid var(--border-color)' : '1px solid #cbd5e1' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                  <tr style={{ borderBottom: isDark ? '1px solid var(--border-color)' : '1px solid #cbd5e1', background: isDark ? 'rgba(255, 255, 255, 0.03)' : '#f1f5f9', color: isDark ? '#cbd5e1' : '#1e293b', textAlign: 'left', fontWeight: 700 }}>
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Thành viên nhóm' : 'Team Member'}</th>
                     <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'vi' ? 'Lượt Commits' : 'Commits'}</th>
                     <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Dòng Code (LOC Thêm/Xóa)' : 'LOC Added/Deleted'}</th>
@@ -2129,7 +2129,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 <tbody>
                   {membersList.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: isDark ? '#94a3b8' : '#475569' }}>
                         {lang === 'vi' ? 'Chưa có dữ liệu đóng góp commit từ GitHub.' : 'No commit contribution data available.'}
                       </td>
                     </tr>
@@ -2149,8 +2149,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                         <tr 
                           key={m.user_id || idx}
                           style={{
-                            borderBottom: '1px solid var(--border-color)',
-                            background: isMe ? 'rgba(139, 92, 246, 0.05)' : 'transparent',
+                            borderBottom: isDark ? '1px solid var(--border-color)' : '1px solid #e2e8f0',
+                            background: isMe ? (isDark ? 'rgba(139, 92, 246, 0.08)' : '#f5f3ff') : (isDark ? 'transparent' : '#ffffff'),
                             transition: 'background 0.15s ease'
                           }}
                         >
@@ -2158,29 +2158,29 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <div style={{
                                 width: '32px', height: '32px', borderRadius: '50%',
-                                background: isMe ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255, 255, 255, 0.08)',
-                                color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: isMe ? 'linear-gradient(135deg, #6366f1, #7c3aed)' : (isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'),
+                                color: isMe ? '#ffffff' : (isDark ? '#f8fafc' : '#1e293b'), display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontWeight: 700, fontSize: '0.8rem', flexShrink: 0
                               }}>
                                 {(m.full_name || 'U').charAt(0).toUpperCase()}
                               </div>
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ fontWeight: 700, color: isMe ? '#a78bfa' : 'var(--text-main)', fontSize: '0.9rem' }}>
+                                  <span style={{ fontWeight: 700, color: isMe ? (isDark ? '#c4b5fd' : '#5b21b6') : (isDark ? '#f8fafc' : '#0f172a'), fontSize: '0.9rem' }}>
                                     {m.full_name}
                                   </span>
                                   {isMe && (
-                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', fontWeight: 700 }}>
+                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: isDark ? 'rgba(139, 92, 246, 0.25)' : '#ddd6fe', color: isDark ? '#ddd6fe' : '#5b21b6', fontWeight: 700 }}>
                                       {lang === 'vi' ? 'BẠN' : 'YOU'}
                                     </span>
                                   )}
                                   {m.role === 'LEADER' && (
-                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', fontWeight: 700 }}>
+                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7', color: isDark ? '#fbbf24' : '#b45309', fontWeight: 700 }}>
                                       LEADER
                                     </span>
                                   )}
                                 </div>
-                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                                <span style={{ fontSize: '0.74rem', color: isDark ? '#94a3b8' : '#475569', fontWeight: 500, display: 'block', marginTop: '2px' }}>
                                   {m.email}
                                 </span>
                               </div>
@@ -2188,28 +2188,28 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           </td>
 
                           <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{commits}</span>
+                            <span style={{ fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>{commits}</span>
                           </td>
 
                           <td style={{ padding: '14px 16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem' }}>
-                              <span style={{ color: '#34d399', fontWeight: 700 }}>+{lines.toLocaleString()}</span>
-                              <span style={{ color: '#fb7185' }}>-{delLines.toLocaleString()}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem', fontWeight: 700 }}>
+                              <span style={{ color: isDark ? '#34d399' : '#047857' }}>+{lines.toLocaleString()}</span>
+                              <span style={{ color: isDark ? '#fb7185' : '#be123c' }}>-{delLines.toLocaleString()}</span>
                             </div>
                           </td>
 
                           <td style={{ padding: '14px 16px', minWidth: '160px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
-                              <span style={{ fontWeight: 700, color: isMe ? '#a78bfa' : 'var(--text-main)' }}>
+                              <span style={{ fontWeight: 700, color: isMe ? (isDark ? '#c4b5fd' : '#5b21b6') : (isDark ? '#f8fafc' : '#0f172a') }}>
                                 {pct}%
                               </span>
                             </div>
-                            <div style={{ height: '6px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                            <div style={{ height: '6px', borderRadius: '999px', background: isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0', overflow: 'hidden' }}>
                               <div style={{
                                 width: `${Math.min(100, Math.max(lines > 0 ? 3 : 0, pct))}%`,
                                 height: '100%',
                                 borderRadius: '999px',
-                                background: isTop ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #6366f1, #a855f7)',
+                                background: isTop ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #4f46e5, #7c3aed)',
                                 transition: 'width 0.4s ease'
                               }} />
                             </div>
@@ -2220,8 +2220,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '5px',
                                 padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
-                                background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
-                                border: '1px solid rgba(16, 185, 129, 0.35)', fontWeight: 700
+                                background: isDark ? 'rgba(16, 185, 129, 0.18)' : '#d1fae5', color: isDark ? '#34d399' : '#047857',
+                                border: isDark ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid #6ee7b7', fontWeight: 700
                               }}>
                                 ⭐ {lang === 'vi' ? 'Đóng góp xuất sắc' : 'Top Contributor'}
                               </span>
@@ -2229,8 +2229,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '5px',
                                 padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
-                                background: 'rgba(139, 92, 246, 0.12)', color: '#a78bfa',
-                                border: '1px solid rgba(139, 92, 246, 0.25)', fontWeight: 600
+                                background: isDark ? 'rgba(139, 92, 246, 0.18)' : '#ede9fe', color: isDark ? '#c4b5fd' : '#5b21b6',
+                                border: isDark ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid #c4b5fd', fontWeight: 700
                               }}>
                                 <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đạt chuẩn đóng góp' : 'Normal Contributor'}
                               </span>
@@ -2238,8 +2238,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: '5px',
                                 padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
-                                background: 'rgba(148, 163, 184, 0.1)', color: '#94a3b8',
-                                border: '1px solid rgba(148, 163, 184, 0.2)', fontWeight: 600
+                                background: isDark ? 'rgba(148, 163, 184, 0.14)' : '#f1f5f9', color: isDark ? '#cbd5e1' : '#334155',
+                                border: isDark ? '1px solid rgba(148, 163, 184, 0.25)' : '1px solid #cbd5e1', fontWeight: 600
                               }}>
                                 <Clock size={12} /> {lang === 'vi' ? 'Đang hoàn thiện' : 'In Progress'}
                               </span>
