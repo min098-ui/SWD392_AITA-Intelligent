@@ -838,7 +838,8 @@ main();
   // Helper bóc tách nội dung 4 câu hỏi của đề thi PE (Hỗ trợ Đề 1, Đề 2, Đề 3 & Đề tự soạn)
   const getExamQuestions = (assign: Assignment | any) => {
     if (!assign) return [];
-    // 1. Kiểm tra nếu đề có chứa đánh dấu tự soạn (Custom PE)
+    // 1. Kiểm tra nếu đề có chứa đánh dấu tự soạn (Custom PE / CSD201 Python 4 câu)
+    const isPyAssign = assign.allowed_language?.toLowerCase() === 'python';
     if (assign.description && assign.description.includes('===CUSTOM_Q1===')) {
       try {
         const parseQ = (marker: string, qNum: number, defaultPoints: string) => {
@@ -862,7 +863,7 @@ main();
             qNum,
             points: defaultPoints,
             title,
-            desc: desc || 'Yêu cầu cài đặt theo chuẩn Java OOP.',
+            desc: desc || (isPyAssign ? 'Yêu cầu cài đặt giải thuật bằng Python 3.11.' : 'Yêu cầu cài đặt theo chuẩn Java OOP.'),
             sampleInput: input || 'sample input',
             sampleOutput: output || 'sample output'
           };
@@ -878,8 +879,8 @@ main();
       }
     }
 
-    // 2. Kiểm tra nếu là Đề Số 2 (Employee & Manager)
-    if (assign.title?.includes('Đề Số 2') || assign.description?.includes('StaffList') || assign.description?.includes('Employee')) {
+    // 2. Kiểm tra nếu là Đề Số 2 Java (Employee & Manager)
+    if (!isPyAssign && (assign.title?.includes('Đề Số 2') || assign.description?.includes('StaffList') || assign.description?.includes('Employee'))) {
       return [
         {
           qNum: 1,
@@ -916,8 +917,8 @@ main();
       ];
     }
 
-    // 3. Kiểm tra nếu là Đề Số 3 (Book & Novel)
-    if (assign.title?.includes('Đề Số 3') || assign.description?.includes('BookList') || assign.description?.includes('Novel')) {
+    // 3. Kiểm tra nếu là Đề Số 3 Java (Book & Novel)
+    if (!isPyAssign && (assign.title?.includes('Đề Số 3') || assign.description?.includes('BookList') || assign.description?.includes('Novel'))) {
       return [
         {
           qNum: 1,
@@ -993,10 +994,12 @@ main();
 
   const handleDownloadExamDoc = (assign: Assignment | any) => {
     if (!assign) return;
-    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA');
+    const isPython = assign.allowed_language?.toLowerCase() === 'python';
+    const isJava = !isPython && Boolean(assign.title?.includes('PRO192') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PE'));
+    const isExamDoc = Boolean(isJava || isPython || assign.description?.includes('===CUSTOM_Q1===') || assign.title?.includes('PE'));
     const course = availableCourses.find(c => c.course_id === assign.course_id);
-    const courseCode = assign.course_code || course?.course_code || 'CSD201';
-    const courseName = assign.course_name || course?.course_name || 'Cấu trúc dữ liệu & Giải thuật';
+    const courseCode = assign.course_code || course?.course_code || (isPython ? 'CSD201' : 'PRO192');
+    const courseName = assign.course_name || course?.course_name || (isPython ? 'Cấu trúc dữ liệu & Giải thuật (Python)' : 'Lập trình hướng đối tượng (Java OOP)');
     
     const content = `<!DOCTYPE html>
 <html>
@@ -1045,14 +1048,14 @@ main();
 
   <div class="section-title">I. HƯỚNG DẪN CHUNG VÀ QUY ĐỊNH PHÒNG THI</div>
   <ol>
-    <li>Thí sinh nén tất cả các file mã nguồn bài làm (các file .java hoặc file mã nguồn chương trình) vào một file duy nhất có định dạng <strong>.ZIP</strong> (không nén định dạng .RAR hoặc .7z).</li>
+    <li>Thí sinh nén tất cả các file mã nguồn bài làm (${isPython ? 'các file .py theo từng thư mục Q1..Q4' : 'các file .java hoặc file mã nguồn chương trình'}) vào một file duy nhất có định dạng <strong>.ZIP</strong> (không nén định dạng .RAR hoặc .7z).</li>
     <li>Nộp file .ZIP lên hệ thống AITA trước hạn làm bài: <strong>${assign.due_date || assign.deadline || '23:59:00'}</strong>. Hệ thống sẽ tự động khóa sau giờ quy định.</li>
-    <li>Hệ thống AITA sử dụng Docker Sandbox <strong>${isJava ? 'aita-sandbox-java:latest (OpenJDK 17)' : 'Auto-Routing Docker Sandbox'}</strong> cô lập để tự động biên dịch và kiểm tra 10 Test Cases.</li>
+    <li>Hệ thống AITA sử dụng Docker Sandbox <strong>${isPython ? 'aita-sandbox-python:latest (Python 3.11)' : isJava ? 'aita-sandbox-java:latest (OpenJDK 17)' : 'Auto-Routing Docker Sandbox'}</strong> cô lập để tự động thực thi và kiểm tra các Test Cases.</li>
     <li>Nghiêm cấm mọi hành vi gian lận hoặc sao chép mã nguồn. Mọi bài thi đều được quét tự động bằng SHA-256 Code Checksum & AI Plagiarism Radar.</li>
   </ol>
 
   <div class="section-title">II. NỘI DUNG ĐỀ THI CHI TIẾT</div>
-  ${isJava ? getExamQuestions(assign).map((q: any) => `
+  ${isExamDoc ? getExamQuestions(assign).map((q: any) => `
   <div class="question-card">
     <strong>CÂU ${q.qNum} (${q.points}) - ${q.title}:</strong>
     <p style="white-space: pre-line;">${q.desc}</p>
@@ -1084,15 +1087,15 @@ ${q.sampleOutput}</pre>
     <tbody>
       <tr>
         <td style="padding: 6px; border: 1px solid #333; text-align: center;">1</td>
-        <td style="padding: 6px; border: 1px solid #333;">Kiểm tra biên dịch trong Docker Sandbox (Compilation)</td>
-        <td style="padding: 6px; border: 1px solid #333; text-align: center;">5.0s</td>
+        <td style="padding: 6px; border: 1px solid #333;">Kiểm tra cú pháp / biên dịch trong Docker Sandbox</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">${isJava ? '15.0s' : '10.0s'}</td>
         <td style="padding: 6px; border: 1px solid #333; text-align: center;">256MB</td>
         <td style="padding: 6px; border: 1px solid #333; text-align: center;">Điều kiện tiên quyết</td>
       </tr>
       <tr>
         <td style="padding: 6px; border: 1px solid #333; text-align: center;">2</td>
-        <td style="padding: 6px; border: 1px solid #333;">10 Automated Test Cases (Public & Hidden Sandbox Tests)</td>
-        <td style="padding: 6px; border: 1px solid #333; text-align: center;">3.0s / test</td>
+        <td style="padding: 6px; border: 1px solid #333;">Automated Test Cases (Public & Hidden Sandbox Tests)</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">${isJava ? '15.0s / test' : '10.0s / test'}</td>
         <td style="padding: 6px; border: 1px solid #333; text-align: center;">256MB</td>
         <td style="padding: 6px; border: 1px solid #333; text-align: center;">${assign.max_score || 10.0}đ</td>
       </tr>
@@ -1119,9 +1122,11 @@ ${q.sampleOutput}</pre>
 
   const handleCopyExamText = (assign: Assignment | any) => {
     if (!assign) return;
-    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA');
+    const isPython = assign.allowed_language?.toLowerCase() === 'python';
+    const isJava = !isPython && Boolean(assign.title?.includes('PRO192') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PE'));
+    const isExamDoc = Boolean(isJava || isPython || assign.description?.includes('===CUSTOM_Q1===') || assign.title?.includes('PE'));
     const course = availableCourses.find(c => c.course_id === assign.course_id);
-    const courseCode = assign.course_code || course?.course_code || 'CSD201';
+    const courseCode = assign.course_code || course?.course_code || (isPython ? 'CSD201' : 'PRO192');
     const text = `==========================================================
 TRƯỜNG ĐẠI HỌC FPT QUY NHƠN • CƠ SỞ QUY NHƠN
 KHOA CÔNG NGHỆ THÔNG TIN — BỘ MÔN KỸ THUẬT PHẦN MỀM
@@ -1131,19 +1136,19 @@ Thời gian: 75 phút | Thang điểm: ${assign.max_score || 10.0}đ | Nộp fil
 ==========================================================
 
 I. HƯỚNG DẪN NỘP BÀI:
-- Nén tất cả mã nguồn vào file .ZIP (Main.java, Car.java, SpecCar.java, MyList.java...).
-- Nộp lên AITA trước hạn. Chấm tự động qua Docker Sandbox OpenJDK 17 với 10 Test Cases.
+- Nén tất cả mã nguồn vào file .ZIP (${isPython ? 'Q1/main.py, Q2/main.py, Q3/main.py, Q4/main.py...' : 'Main.java, Car.java, SpecCar.java, MyList.java...'}).
+- Nộp lên AITA trước hạn. Chấm tự động qua Docker Sandbox ${isPython ? 'Python 3.11' : isJava ? 'OpenJDK 17' : 'Auto Sandbox'}.
 
 II. NỘI DUNG 4 CÂU HỎI:
-${isJava ? getExamQuestions(assign).map((q: any) => `
+${isExamDoc ? getExamQuestions(assign).map((q: any) => `
 - CÂU ${q.qNum} (${q.points}): ${q.title}
   ${q.desc}
   Sample Input: ${q.sampleInput.replace(/\n/g, ' ')} -> Output: ${q.sampleOutput.replace(/\n/g, ' ')}
 `).join('\n') : assign.description || 'Chưa có mô tả.'}
 
 III. QUY CHUẨN DOCKER SANDBOX:
-- Docker Image: aita-sandbox-java:latest (OpenJDK 17)
-- Giới hạn: 5000ms timeout / test, 256MB RAM, SHA-256 Checksum Verification.
+- Docker Image: ${isPython ? 'aita-sandbox-python:latest (Python 3.11)' : isJava ? 'aita-sandbox-java:latest (OpenJDK 17)' : 'Auto Sandbox'}
+- Giới hạn: ${isJava ? '15000ms' : '10000ms'} timeout / test, 256MB RAM, SHA-256 Checksum Verification.
 ==========================================================`;
 
     navigator.clipboard.writeText(text);
@@ -1518,6 +1523,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
         let artifactName = '';
         let commitVal = 'FILE_UPLOAD';
 
+        const curLang = (currentAssign?.allowed_language || '').toLowerCase();
+
         if (individualMethod === 'file' && uploadedFile) {
           artifactName = uploadedFile.name;
           // If text code file, read text directly into code_content
@@ -1528,31 +1535,40 @@ III. QUY CHUẨN DOCKER SANDBOX:
               finalCode = `// [Tệp mã nguồn đã tải lên]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.fullName || currentUser?.full_name || 'Sinh viên'}\n// Ghi chú: ${submissionNote.trim() || 'Nộp bài làm mã nguồn'}`;
             }
           } else if (uploadedFile.name.toLowerCase().endsWith('.zip')) {
+            const preferPythonZip = curLang === 'python';
+            let extractedIsPython = preferPythonZip;
             try {
               const zip = new JSZip();
               const loadedZip = await zip.loadAsync(uploadedFile);
-              const javaFileNames = Object.keys(loadedZip.files)
-                .filter(name => !name.startsWith('__MACOSX') && name.toLowerCase().endsWith('.java') && !loadedZip.files[name].dir)
+              const allZipFiles = Object.keys(loadedZip.files)
+                .filter(name => !name.startsWith('__MACOSX') && !loadedZip.files[name].dir)
                 .sort();
-              if (javaFileNames.length > 0) {
+              const javaFileNames = allZipFiles.filter(name => name.toLowerCase().endsWith('.java'));
+              const pyFileNames = allZipFiles.filter(name => name.toLowerCase().endsWith('.py'));
+              const usePython = preferPythonZip || (curLang !== 'java' && pyFileNames.length > 0 && javaFileNames.length === 0);
+              extractedIsPython = usePython;
+              const sourceFileNames = usePython ? pyFileNames : javaFileNames;
+              const cPrefix = usePython ? '#' : '//';
+
+              if (sourceFileNames.length > 0) {
                 const q1Files: string[] = [];
                 const q2Files: string[] = [];
                 const q3Files: string[] = [];
                 const q4Files: string[] = [];
                 const commonFiles: string[] = [];
 
-                for (const fName of javaFileNames) {
+                for (const fName of sourceFileNames) {
                   const lower = fName.toLowerCase();
                   const fileContent = await loadedZip.files[fName].async('text');
-                  const header = `// --- File: ${fName} ---\n${fileContent.trim()}`;
+                  const header = `${cPrefix} --- File: ${fName} ---\n${fileContent.trim()}`;
 
-                  if (lower.includes('q1') || lower.includes('cau1') || lower.includes('string') || lower.includes('palindrome') || lower.includes('vowel')) {
+                  if (lower.includes('q1') || lower.includes('cau1') || lower.includes('stack') || lower.includes('bracket') || lower.includes('twosum') || lower.includes('pair') || lower.includes('hash') || lower.includes('string') || lower.includes('palindrome') || lower.includes('vowel')) {
                     q1Files.push(header);
-                  } else if (lower.includes('q2') || lower.includes('cau2') || lower.includes('car') || lower.includes('speccar') || lower.includes('employee') || lower.includes('manager')) {
+                  } else if (lower.includes('q2') || lower.includes('cau2') || lower.includes('linked') || lower.includes('singly') || lower.includes('bst') || lower.includes('tree') || lower.includes('car') || lower.includes('speccar') || lower.includes('employee') || lower.includes('manager')) {
                     q2Files.push(header);
-                  } else if (lower.includes('q3') || lower.includes('cau3') || lower.includes('mylist') || lower.includes('node') || lower.includes('staff')) {
+                  } else if (lower.includes('q3') || lower.includes('cau3') || lower.includes('queue') || lower.includes('deque') || lower.includes('graph') || lower.includes('bfs') || lower.includes('dfs') || lower.includes('mylist') || lower.includes('node') || lower.includes('staff')) {
                     q3Files.push(header);
-                  } else if (lower.includes('q4') || lower.includes('cau4') || lower.includes('reverse') || lower.includes('word') || lower.includes('title')) {
+                  } else if (lower.includes('q4') || lower.includes('cau4') || lower.includes('sort') || lower.includes('merge') || lower.includes('search') || lower.includes('dijkstra') || lower.includes('shortest') || lower.includes('reverse') || lower.includes('word') || lower.includes('title')) {
                     q4Files.push(header);
                   } else {
                     commonFiles.push(header);
@@ -1561,17 +1577,17 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                 if (q1Files.length > 0 || q2Files.length > 0 || q3Files.length > 0 || q4Files.length > 0) {
                   const parts: string[] = [];
-                  if (q1Files.length > 0) parts.push(`// ==================== QUESTION 1 ====================\n` + q1Files.join('\n\n'));
-                  if (q2Files.length > 0) parts.push(`// ==================== QUESTION 2 ====================\n` + q2Files.join('\n\n'));
-                  if (q3Files.length > 0) parts.push(`// ==================== QUESTION 3 ====================\n` + q3Files.join('\n\n'));
-                  if (q4Files.length > 0) parts.push(`// ==================== QUESTION 4 ====================\n` + q4Files.join('\n\n'));
-                  if (commonFiles.length > 0) parts.push(`// ==================== COMMON FILES ====================\n` + commonFiles.join('\n\n'));
+                  if (q1Files.length > 0) parts.push(`${cPrefix} ==================== QUESTION 1 ====================\n` + q1Files.join('\n\n'));
+                  if (q2Files.length > 0) parts.push(`${cPrefix} ==================== QUESTION 2 ====================\n` + q2Files.join('\n\n'));
+                  if (q3Files.length > 0) parts.push(`${cPrefix} ==================== QUESTION 3 ====================\n` + q3Files.join('\n\n'));
+                  if (q4Files.length > 0) parts.push(`${cPrefix} ==================== QUESTION 4 ====================\n` + q4Files.join('\n\n'));
+                  if (commonFiles.length > 0) parts.push(`${cPrefix} ==================== COMMON FILES ====================\n` + commonFiles.join('\n\n'));
                   finalCode = parts.join('\n\n');
-                } else if (javaFileNames.length > 1) {
-                  const allContents = await Promise.all(javaFileNames.map(async f => `// --- File: ${f} ---\n` + (await loadedZip.files[f].async('text')).trim()));
+                } else if (sourceFileNames.length > 1) {
+                  const allContents = await Promise.all(sourceFileNames.map(async f => `${cPrefix} --- File: ${f} ---\n` + (await loadedZip.files[f].async('text')).trim()));
                   finalCode = allContents.join('\n\n');
                 } else {
-                  finalCode = await loadedZip.files[javaFileNames[0]].async('text');
+                  finalCode = await loadedZip.files[sourceFileNames[0]].async('text');
                 }
               }
             } catch (zipErr) {
@@ -1580,10 +1596,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
             if (!finalCode.trim()) {
               setIsSubmitting(false);
               setSubmitStep(0);
+              const expectedExt = extractedIsPython ? '.py' : '.java';
               setSubmitError(
                 lang === 'vi'
-                  ? 'Không tìm thấy tệp mã nguồn .java hợp lệ bên trong tệp .zip!'
-                  : 'No valid .java source files found inside the .zip archive!'
+                  ? `Không tìm thấy tệp mã nguồn ${expectedExt} hợp lệ bên trong tệp .zip!`
+                  : `No valid ${expectedExt} source files found inside the .zip archive!`
               );
               return;
             }
@@ -1596,7 +1613,6 @@ III. QUY CHUẨN DOCKER SANDBOX:
           commitVal = 'DIRECT_SUBMIT';
         }
 
-        const curLang = (currentAssign?.allowed_language || '').toLowerCase();
         const assignLang = curLang && curLang !== 'all'
           ? (curLang === 'java' ? 'java' : (curLang === 'python' ? 'python' : 'javascript'))
           : (uploadedFile?.name.endsWith('.java') ? 'java' : (uploadedFile?.name.endsWith('.py') ? 'python' : selectedLanguage));
@@ -3899,7 +3915,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       }}>
                         {filteredIndividualAssignments.map((a) => {
                           const info = getAssignmentLifecycleInfo(a, mySubmissions, currentUser?.userId || currentUser?.user_id, undefined);
-                          const isExam = Boolean(a.title?.includes('PE') || a.title?.includes('Practical Exam') || a.title?.toLowerCase().includes('exam') || a.allowed_language?.toUpperCase() === 'JAVA');
+                          const isExam = Boolean(a.title?.includes('PE') || a.title?.includes('Practical Exam') || a.title?.toLowerCase().includes('exam') || a.description?.includes('===CUSTOM_Q1===') || a.allowed_language?.toUpperCase() === 'JAVA');
                           const dueDate = a.due_date || a.deadline;
                           const isSelectedInRunner = String(selectedIndividualAssignmentId) === String(a.assignment_id);
 
@@ -4333,7 +4349,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             color: isDark ? '#94a3b8' : '#475569',
                             alignItems: 'center'
                           }}>
-                            <span>💻 {lang === 'vi' ? 'Ngôn ngữ:' : 'Language:'} <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{activeIndAssign.allowed_language === 'python' ? 'Python 3' : activeIndAssign.allowed_language === 'javascript' ? 'JavaScript' : 'Tùy chọn'}</strong></span>
+                            <span>💻 {lang === 'vi' ? 'Ngôn ngữ:' : 'Language:'} <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{activeIndAssign.allowed_language?.toLowerCase() === 'python' ? 'Python 3.11' : activeIndAssign.allowed_language?.toLowerCase() === 'java' ? 'Java 17 (OpenJDK)' : activeIndAssign.allowed_language?.toLowerCase() === 'javascript' ? 'JavaScript' : 'Tùy chọn'}</strong></span>
                             <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
                             <span>🔢 {lang === 'vi' ? 'Lượt nộp:' : 'Attempts:'} <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{indAssignInfo.maxSubs > 0 ? `${indAssignInfo.subCount}/${indAssignInfo.maxSubs}` : 'Không giới hạn'}</strong></span>
                             <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
@@ -4358,7 +4374,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           <input
                             ref={fileInputRef}
                             type="file"
-                            accept=".zip,.rar,.7z"
+                            accept=".zip,.rar,.7z,.py,.java,.js"
                             onChange={handleFileChange}
                             style={{ display: 'none' }}
                           />
@@ -4408,7 +4424,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   {lang === 'vi' ? 'Kéo thả tệp mã nguồn (.zip) vào đây hoặc nhấn để duyệt tệp' : 'Drag & drop source code file (.zip) here or click to browse'}
                                 </h5>
                                 <p style={{ margin: 0, fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#64748b' }}>
-                                  {lang === 'vi' ? 'Định dạng được hỗ trợ: Tệp nén ZIP (.zip) chứa toàn bộ mã nguồn bài làm Java OOP' : 'Supported format: Source code ZIP archive (.zip)'}
+                                  {lang === 'vi'
+                                    ? `Định dạng được hỗ trợ: Tệp nén ZIP (.zip) chứa toàn bộ mã nguồn bài làm ${activeIndAssign?.allowed_language?.toLowerCase() === 'python' ? 'Python (.py)' : activeIndAssign?.allowed_language?.toLowerCase() === 'java' ? 'Java OOP (.java)' : 'mã nguồn'}`
+                                    : 'Supported format: Source code ZIP archive (.zip)'}
                                 </p>
                               </div>
                               <button
@@ -4794,9 +4812,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                           {(() => {
                             const assign = viewingAssignmentDetail.assignment;
+                            const isPyAssignDetail = assign?.allowed_language?.toLowerCase() === 'python';
                             const isPE = Boolean(
                               assign?.title?.includes('PE') ||
                               assign?.title?.includes('PRO192') ||
+                              assign?.title?.includes('CSD201') ||
                               assign?.title?.toLowerCase().includes('bài thi') ||
                               assign?.description?.includes('===CUSTOM_Q1===') ||
                               assign?.allowed_language?.toUpperCase() === 'JAVA'
@@ -4819,7 +4839,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     <strong style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
                                       <AlertTriangle size={14} /> QUY ĐỊNH NỘP BÀI THI:
                                     </strong>
-                                    Nén tất cả các file mã nguồn vào một file <strong>.ZIP</strong> duy nhất. Hệ thống sẽ tự động biên dịch và kiểm tra bằng <strong>Docker Sandbox Runner cô lập</strong>.
+                                    Nén tất cả các file mã nguồn vào một file <strong>.ZIP</strong> duy nhất. Hệ thống sẽ tự động thực thi và kiểm tra bằng <strong>{isPyAssignDetail ? 'Docker Python 3.11 Sandbox cô lập' : 'Docker Sandbox Runner cô lập'}</strong>.
                                   </div>
 
                                   {/* 4 câu hỏi chi tiết */}
@@ -4838,7 +4858,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                             {scheme.icon} CÂU {q.qNum} ({q.points}): {q.title}
                                           </span>
                                           <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: scheme.badgeBg, color: scheme.badgeColor }}>
-                                            {q.qNum === 2 || q.qNum === 3 ? '3 Test Cases' : '2 Test Cases'} ({q.points})
+                                            {isPyAssignDetail ? `Auto Test Case (${q.points})` : `${q.qNum === 2 || q.qNum === 3 ? '3 Test Cases' : '2 Test Cases'} (${q.points})`}
                                           </span>
                                         </div>
                                         <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.55, margin: '0 0 10px 0', whiteSpace: 'pre-line' }}>
@@ -4979,9 +4999,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
         {/* MODAL: XEM VĂN BẢN ĐỀ THI CHÍNH THỨC CHUẨN FPT (OFFICIAL EXAM DOCUMENT VIEWER FOR STUDENT) */}
         {viewingExamAssignment && (() => {
           const assign = viewingExamAssignment;
-          const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
+          const isPython = assign.allowed_language?.toLowerCase() === 'python';
+          const isJava = !isPython && Boolean(assign.title?.includes('PRO192') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PE'));
+          const isExamDoc = Boolean(isJava || isPython || assign.description?.includes('===CUSTOM_Q1===') || assign.title?.includes('PE'));
           const course = availableCourses.find(c => c.course_id === assign.course_id);
-          const courseCode = assign.course_code || course?.course_code || (isJava ? 'PRO192' : 'CSD201');
+          const courseCode = assign.course_code || course?.course_code || (isPython ? 'CSD201' : isJava ? 'PRO192' : 'CSD201');
           const courseName = assign.course_name || course?.course_name || (isJava ? 'Object-Oriented Programming (Java OOP)' : 'Data Structures & Algorithms');
 
           return (
@@ -5013,7 +5035,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', padding: '2px 7px', borderRadius: '4px', fontWeight: 800 }}>
-                          {isJava ? 'PE EXAM' : 'ASSIGNMENT DOC'}
+                          {isExamDoc ? 'PE EXAM' : 'ASSIGNMENT DOC'}
                         </span>
                         <span style={{ fontSize: '0.75rem', color: '#6d28d9', fontWeight: 700 }}>
                           Mã đề: PE_{courseCode}_0{assign.assignment_id || '1'}
@@ -5166,7 +5188,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       <span style={{ color: '#cbd5e1' }}>•</span>
                       <span>📦 Hình thức: <strong style={{ color: '#0284c7' }}>File .ZIP (Mã nguồn)</strong></span>
                       <span style={{ color: '#cbd5e1' }}>•</span>
-                      <span>☕ Docker: <strong style={{ color: '#b91c1c' }}>{isJava ? 'aita-sandbox-java:latest (Java 17)' : 'Auto Sandbox'}</strong></span>
+                      <span>{isPython ? '🐍' : '☕'} Docker: <strong style={{ color: isPython ? '#6d28d9' : '#b91c1c' }}>{isPython ? 'aita-sandbox-python:latest (Python 3.11)' : isJava ? 'aita-sandbox-java:latest (Java 17)' : 'Auto Sandbox'}</strong></span>
                     </div>
                   </div>
 
@@ -5187,14 +5209,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       <li style={{ marginBottom: '3px' }}>
                         Thí sinh tạo một thư mục mã nguồn chứa đầy đủ các file theo yêu cầu của từng câu (ví dụ:{' '}
                         <code style={{ background: '#ffe4e6', border: '1px solid #fecdd3', color: '#9f1239', padding: '1px 5px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
-                          Main.java, Car.java, SpecCar.java, MyList.java
+                          {isPython ? 'Q1/main.py, Q2/main.py, Q3/main.py, Q4/main.py' : 'Main.java, Car.java, SpecCar.java, MyList.java'}
                         </code>).
                       </li>
                       <li style={{ marginBottom: '3px' }}>
                         Nén thư mục thành file <strong>.ZIP</strong> duy nhất và nộp lên hệ thống AITA trước hạn: <strong style={{ color: '#9f1239', textDecoration: 'underline' }}>{assign.due_date || assign.deadline || '23:59:00'}</strong>.
                       </li>
                       <li style={{ marginBottom: '3px' }}>
-                        Bài làm được chạy và chấm tự động hoàn toàn trên môi trường cô lập <strong>Docker OpenJDK 17 Sandbox</strong> với 10 Test Cases (thang điểm 10.0đ).
+                        Bài làm được chạy và chấm tự động hoàn toàn trên môi trường cô lập <strong>{isPython ? 'Docker Python 3.11 Sandbox' : isJava ? 'Docker OpenJDK 17 Sandbox' : 'Docker Isolated Sandbox'}</strong> (thang điểm {assign.max_score || 10.0}đ).
                       </li>
                       <li>
                         Nghiêm cấm sao chép code. Hệ thống kiểm tra đối sánh bằng <strong>SHA-256 Checksum + AI Plagiarism Radar</strong>.
@@ -5203,7 +5225,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                   </div>
 
                   {/* NỘI DUNG CHI TIẾT 4 CÂU HỎI */}
-                  {isJava ? (
+                  {isExamDoc ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginTop: '6px' }}>
                       {getExamQuestions(assign).map((q: any, idx: number) => {
                         const palettesPaper = [
@@ -5220,7 +5242,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 {scheme.icon} CÂU {q.qNum} ({q.points}): {q.title}
                               </span>
                               <span style={{ fontSize: '0.78rem', fontWeight: 800, padding: '3px 10px', borderRadius: '8px', background: scheme.badgeBg, color: scheme.badgeColor, border: `1px solid ${scheme.border}` }}>
-                                {q.qNum === 2 || q.qNum === 3 ? '3 Test Cases' : '2 Test Cases'} ({q.points})
+                                {isPython ? `Auto Test Case (${q.points})` : `${q.qNum === 2 || q.qNum === 3 ? '3 Test Cases' : '2 Test Cases'} (${q.points})`}
                               </span>
                             </div>
                             <p style={{ fontSize: '0.88rem', color: '#334155', lineHeight: 1.6, margin: '0 0 12px 0', whiteSpace: 'pre-line' }}>
@@ -5267,7 +5289,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                     fontSize: '0.8rem'
                   }}>
                     <span style={{ color: '#475569' }}>
-                      ⚙️ Chế độ chấm: <strong>Docker Sandbox Runner cô lập</strong> (Timeout 5000ms / Test, RAM 256MB)
+                      ⚙️ Chế độ chấm: <strong>Docker Sandbox Runner cô lập</strong> (Timeout {isJava ? '15000ms' : '10000ms'} / Test, RAM 256MB)
                     </span>
                     <span style={{ color: '#16a34a', fontWeight: 700 }}>
                       ✓ Hệ thống tự động xác thực SHA-256 Checksum khi nộp bài

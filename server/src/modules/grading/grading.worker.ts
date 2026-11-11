@@ -26,6 +26,14 @@ export function normalizeOutput(raw: string): string {
     .replace(/^\n+|\n+$/g, '');
 }
 
+/**
+ * Per-language Docker sandbox timeout (ms).
+ * Java gets 15s for javac + JVM warmup; Python/JS get 10s so Docker startup never causes false TLEs.
+ */
+export function getSandboxTimeoutMs(language: string): number {
+  return language === 'java' ? 15000 : 10000;
+}
+
 export class GradingWorkerService {
   private worker: Worker<GradingJobPayload> | null = null;
 
@@ -166,9 +174,9 @@ function extractQuestionCode(fullCode: string, ruleCriterion: string): string {
 
   const qNum = qMatch[1]; // "1", "2", "3", "4"
 
-  // 1. Explicit section delimiters: // ==================== QUESTION 1 ====================
+  // 1. Explicit section delimiters: // ==================== QUESTION 1 ==================== or # ==================== QUESTION 1 ====================
   const delimiterRegex = new RegExp(
-    `(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}\\s*\\*\\/)([\\s\\S]*?)(?=(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|$))`,
+    `(?:(?:\\/\\/|#)\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}\\s*\\*\\/)([\\s\\S]*?)(?=(?:(?:\\/\\/|#)\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|$))`,
     'i'
   );
   const match = fullCode.match(delimiterRegex);
@@ -212,7 +220,7 @@ function extractQuestionCode(fullCode: string, ruleCriterion: string): string {
             code: codeToRun,
             language: language,
             inputData: rule.input_data || '',
-            timeoutMs: language === 'java' ? 15000 : 5000, // 15s for Java (JVM warm-up & compilation), 5s for others (BR-03)
+            timeoutMs: getSandboxTimeoutMs(language),
           });
 
           actualOutput = sandboxRes.stdout || sandboxRes.stderr || '';
@@ -230,7 +238,7 @@ function extractQuestionCode(fullCode: string, ruleCriterion: string): string {
             testStatus = 'TIME_LIMIT_EXCEEDED';
             hasTimeout = true;
             actualOutput = sandboxRes.stdout || '';
-            const limitMs = language === 'java' ? 15000 : 5000;
+            const limitMs = getSandboxTimeoutMs(language);
             ruleAiFeedback = `[BR-03] Quá thời gian thực thi (Time Limit Exceeded: ${limitMs}ms). Container đã bị ngắt an toàn.`;
           } else if (sandboxRes.memoryExceeded) {
             testStatus = 'MEMORY_LIMIT_EXCEEDED';
@@ -339,7 +347,7 @@ function extractQuestionCode(fullCode: string, ruleCriterion: string): string {
       const submissionFinalStatus = 'GRADED';
       let finalAiFeedback = '';
       if (hasTimeout) {
-        const limitMs = language === 'java' ? 15000 : 5000;
+        const limitMs = getSandboxTimeoutMs(language);
         finalAiFeedback = `Cảnh báo BR-03: Phát hiện vòng lặp vô hạn hoặc thời gian xử lý vượt quá giới hạn ${limitMs.toLocaleString()}ms. Watchdog đã can thiệp ngắt container an toàn.\nPassed: ${passCount}, Failed: ${failCount}\n` + testSummaries.join('\n');
       } else if (accumulatedAiFeedbacks.length > 0) {
         finalAiFeedback = accumulatedAiFeedbacks.join('\n\n---\n\n') + `\n\nPassed: ${passCount}, Failed: ${failCount}\n` + testSummaries.join('\n');

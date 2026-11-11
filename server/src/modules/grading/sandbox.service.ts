@@ -252,7 +252,10 @@ export class SandboxService {
       const tarStream = this.createTarArchive(filename, code, inputData);
       await container.putArchive(tarStream as any, { path: '/app' });
 
-      // 3. Start Timeout Watchdog
+      // 3. Start Container before execution watchdog so Docker Desktop cold-start IPC overhead does not consume user timeout
+      await container.start();
+
+      // 4. Start Timeout Watchdog
       const timeoutPromise = new Promise<{ isTimeout: boolean; data?: any }>((resolve) => {
         timeoutTimer = setTimeout(async () => {
           timedOut = true;
@@ -266,9 +269,6 @@ export class SandboxService {
           resolve({ isTimeout: true });
         }, timeoutMs);
       });
-
-      // 4. Start Container
-      await container.start();
 
       // 5. Wait for completion
       const waitPromise = container.wait().then((data: any) => ({ isTimeout: false, data }));
