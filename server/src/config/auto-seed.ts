@@ -1,6 +1,7 @@
 import { pool } from './db';
 import path from 'path';
 import fs from 'fs';
+import { seedPeExam } from '../scripts/seed-pe-exam';
 
 function findSqlFile(filename: string): string | null {
   const candidates = [
@@ -155,6 +156,14 @@ export async function ensureDatabaseSeeded(): Promise<void> {
       ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS assignment_id INT;
       ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS evaluated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
       ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS status VARCHAR(50);
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS container_id VARCHAR(50);
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS docker_image VARCHAR(100);
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS exit_code INT DEFAULT 0;
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS code_hash VARCHAR(64);
+      ALTER TABLE grading_jobs ADD COLUMN IF NOT EXISTS container_id VARCHAR(50);
+      ALTER TABLE grading_jobs ADD COLUMN IF NOT EXISTS docker_image VARCHAR(100);
+      ALTER TABLE grading_jobs ADD COLUMN IF NOT EXISTS code_hash VARCHAR(64);
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS code_hash VARCHAR(64);
 
       -- Ensure team 2 has Ánh Mai & Tường Vy in team_members
       INSERT INTO team_members (team_id, user_id, assigned_module, role)
@@ -177,34 +186,37 @@ export async function ensureDatabaseSeeded(): Promise<void> {
         role = 'LECTURER',
         status = 'ACTIVE';
 
+      -- Ensure 14 unassigned demo students exist
+      INSERT INTO users (full_name, email, password_hash, role, status)
+      VALUES
+        ('Trần Bảo Nam', 'namtbqe180101@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Hoàng Minh Quân', 'quanhmqe180102@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Phan Thảo Vy', 'vyptqe180103@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Vũ Đức Trọng', 'trongvdqe180104@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Bùi Thu Trang', 'trangbtqe180105@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Đặng Quang Huy', 'huydqqe180106@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Trịnh Ngọc Hân', 'hantnqe180107@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Dương Quốc Anh', 'anhdqqe180108@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Ngô Diệu Linh', 'linhndqe180109@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Phạm Tuấn Kiệt', 'kietptqe180110@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Lâm Gia Hưng', 'hunglgqe180111@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Mai Phương Thảo', 'thaompqe180112@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Đỗ Hoàng Long', 'longdhqe180113@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+        ('Huỳnh Thanh Trúc', 'truchttqe180114@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE')
+      ON CONFLICT (email) DO UPDATE SET
+        full_name = EXCLUDED.full_name,
+        role = 'STUDENT',
+        status = 'ACTIVE';
+
       UPDATE courses
       SET lecturer_id = (SELECT user_id FROM users WHERE email = 'n011vynt@gmail.com' LIMIT 1)
       WHERE course_code = 'CSD201' OR course_id = 2;
 
-      -- Ensure individual assignments for CSD201 & SWD392
-      INSERT INTO assignments (assignment_id, course_id, title, description, allowed_language, max_score, deadline, due_date, submission_type, status, max_submissions, allow_resubmission, allow_late_submission)
-      VALUES
-      (51, 2, 'Assignment 1: Linked List & Binary Search Tree – Quản lý Điểm Du lịch (Cá nhân)', 'Xây dựng cấu trúc danh sách liên kết kép và cây nhị phân tìm kiếm BST để quản lý và tra cứu các điểm du lịch theo mã số.', 'ALL', 10, '2026-11-22 23:59:00+07', '2026-11-22 23:59:00+07', 'INDIVIDUAL', 'PUBLISHED', 5, true, true),
-      (52, 2, 'Assignment 2: Graph & Dijkstra Algorithm – Tối ưu Lộ trình Du lịch (Cá nhân)', 'Cài đặt thuật toán Dijkstra tìm đường đi ngắn nhất giữa các địa điểm du lịch trên đồ thị có trọng số.', 'ALL', 10, '2026-11-27 23:59:00+07', '2026-11-27 23:59:00+07', 'INDIVIDUAL', 'PUBLISHED', 5, true, true),
-      (65, 1, 'Assignment 1: Cài đặt JWT Authentication & RBAC Middleware Bảo mật (Cá nhân)', 'Cài đặt JWT verify token, phân quyền RBAC Middleware (STUDENT, LECTURER, ADMIN) và xử lý refresh token an toàn theo chuẩn OWASP.', 'ALL', 10, '2026-11-25 23:59:00+07', '2026-11-25 23:59:00+07', 'INDIVIDUAL', 'PUBLISHED', 5, true, true),
-      (66, 1, 'Assignment 2: Thiết kế RESTful API Service & Caching Redis cho Student Portal (Cá nhân)', 'Xây dựng service API chuẩn RESTful kết hợp caching Redis đệm kết quả truy vấn thông tin sinh viên và phòng chống race condition.', 'ALL', 10, '2026-11-30 23:59:00+07', '2026-11-30 23:59:00+07', 'INDIVIDUAL', 'PUBLISHED', 5, true, true),
-      (67, 1, 'Practical Exam: Cài đặt Dockerized Sandbox Runner & Worker Queue Cá Nhân', 'Bài thi thực hành: Viết module Docker Sandbox runner cô lập mã nguồn sinh viên, cấu hình timeout 10s và giới hạn bộ nhớ 256MB.', 'ALL', 10, '2026-12-05 23:59:00+07', '2026-12-05 23:59:00+07', 'INDIVIDUAL', 'PUBLISHED', 3, true, false)
-      ON CONFLICT (assignment_id) DO UPDATE SET
-        course_id = EXCLUDED.course_id,
-        title = EXCLUDED.title,
-        description = EXCLUDED.description,
-        allowed_language = EXCLUDED.allowed_language,
-        max_score = EXCLUDED.max_score,
-        deadline = EXCLUDED.deadline,
-        due_date = EXCLUDED.due_date,
-        submission_type = EXCLUDED.submission_type,
-        status = EXCLUDED.status,
-        max_submissions = EXCLUDED.max_submissions,
-        allow_resubmission = EXCLUDED.allow_resubmission,
-        allow_late_submission = EXCLUDED.allow_late_submission;
-
       SELECT setval('assignments_assignment_id_seq', (SELECT COALESCE(MAX(assignment_id), 1) FROM assignments));
     `);
+
+    // Ensure PRO192 Java PE Exam (Assignment 70) and Telemetry
+    await seedPeExam();
 
     if (!needSeed) {
       console.log('✅ [Auto-Seed] PostgreSQL ready: Schema safeguards verified & full seed data present.');
