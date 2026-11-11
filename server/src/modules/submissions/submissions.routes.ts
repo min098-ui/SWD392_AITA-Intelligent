@@ -37,7 +37,11 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
               'expected_output', ${isStudent ? `CASE WHEN rr.is_hidden THEN '[PROTECTED TEST CASE]' ELSE rr.expected_output END` : `rr.expected_output`},
               'actual_output', ${isStudent ? `CASE WHEN rr.is_hidden THEN 'Output ẩn theo chuẩn BR-06' ELSE gr.actual_output END` : `gr.actual_output`},
               'status', COALESCE(gr.status, CASE WHEN gr.passed THEN 'Accepted' ELSE 'Wrong Answer' END),
-              'ai_feedback', gr.ai_feedback
+              'ai_feedback', gr.ai_feedback,
+              'container_id', gr.container_id,
+              'docker_image', gr.docker_image,
+              'exit_code', gr.exit_code,
+              'code_hash', gr.code_hash
             ) ORDER BY rr.rubric_rule_id ASC
           )
           FROM grading_results gr
@@ -118,7 +122,11 @@ router.get('/:id', authenticateJWT, async (req: Request, res: Response) => {
                     'expected_output', ${isStudent ? `CASE WHEN rr.is_hidden THEN '[PROTECTED TEST CASE]' ELSE rr.expected_output END` : `rr.expected_output`},
                     'actual_output', ${isStudent ? `CASE WHEN rr.is_hidden THEN 'Output ẩn theo chuẩn BR-06' ELSE gr.actual_output END` : `gr.actual_output`},
                     'status', COALESCE(gr.status, CASE WHEN gr.passed THEN 'ACCEPTED' ELSE 'WRONG_ANSWER' END),
-                    'ai_feedback', gr.ai_feedback
+                    'ai_feedback', gr.ai_feedback,
+                    'container_id', gr.container_id,
+                    'docker_image', gr.docker_image,
+                    'exit_code', gr.exit_code,
+                    'code_hash', gr.code_hash
                   ) ORDER BY rr.rubric_rule_id ASC
                 )
                 FROM grading_results gr
