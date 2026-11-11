@@ -3929,14 +3929,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       style={{
                         padding: '1.25rem 1.6rem',
                         borderRadius: '18px',
-                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(20, 32, 58, 0.96) 100%)',
-                        border: '1px solid rgba(139, 92, 246, 0.28)',
+                        background: isDark ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(20, 32, 58, 0.96) 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%)',
+                        border: isDark ? '1px solid rgba(139, 92, 246, 0.28)' : '1px solid #ddd6fe',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         flexWrap: 'wrap',
                         gap: '16px',
-                        boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.5)'
+                        boxShadow: isDark ? '0 10px 30px -10px rgba(0, 0, 0, 0.5)' : '0 4px 20px rgba(124, 58, 237, 0.08)'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '300px' }}>
@@ -3945,45 +3945,45 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             width: '50px',
                             height: '50px',
                             borderRadius: '14px',
-                            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25))',
-                            border: '1px solid rgba(139, 92, 246, 0.4)',
+                            background: isDark ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25))' : '#ede9fe',
+                            border: isDark ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid #c4b5fd',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#a78bfa',
+                            color: isDark ? '#a78bfa' : '#7c3aed',
                             flexShrink: 0,
-                            boxShadow: '0 0 16px rgba(139, 92, 246, 0.2)'
+                            boxShadow: isDark ? '0 0 16px rgba(139, 92, 246, 0.2)' : '0 2px 10px rgba(124, 58, 237, 0.12)'
                           }}
                         >
                           <UploadCloud size={26} />
                         </div>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                            <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.5px' }}>
+                            <span style={{ background: 'rgba(239, 68, 68, 0.15)', color: isDark ? '#f87171' : '#dc2626', border: '1px solid rgba(239, 68, 68, 0.35)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.5px' }}>
                               ASSIGNMENT
                             </span>
                             {activeIndCourse && (
-                              <span style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.3)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700 }}>
+                              <span style={{ background: isDark ? 'rgba(139, 92, 246, 0.15)' : '#ede9fe', color: isDark ? '#a78bfa' : '#6d28d9', border: isDark ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid #ddd6fe', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700 }}>
                                 {activeIndCourse.course_code}
                               </span>
                             )}
-                            <span style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#cbd5e1', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontFamily: 'var(--font-mono, monospace)' }}>
+                            <span style={{ background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9', color: isDark ? '#cbd5e1' : '#475569', border: isDark ? 'none' : '1px solid #e2e8f0', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontFamily: 'var(--font-mono, monospace)' }}>
                               ID: ASM-{activeIndAssign.assignment_id}
                             </span>
                           </div>
 
-                          <h3 style={{ margin: '0 0 4px 0', fontSize: '1.18rem', fontWeight: 800, color: '#f8fafc' }}>
+                          <h3 style={{ margin: '0 0 4px 0', fontSize: '1.18rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#1e1b4b' }}>
                             {lang === 'vi' ? 'Cổng Nộp Bài Lập Trình (Student Code Submission)' : 'Student Code Submission'}
                           </h3>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem', color: '#94a3b8' }}>
-                            <span>👤 {lang === 'vi' ? 'Sinh viên:' : 'Student:'} <strong style={{ color: '#f1f5f9' }}>{currentUser?.fullName || currentUser?.full_name || currentUser?.name || (lang === 'vi' ? 'Sinh viên' : 'Student')}</strong></span>
-                            <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
-                            <span>📝 <strong style={{ color: '#a78bfa' }}>{activeIndAssign.title}</strong></span>
-                            <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b' }}>
+                            <span>👤 {lang === 'vi' ? 'Sinh viên:' : 'Student:'} <strong style={{ color: isDark ? '#f1f5f9' : '#1e1b4b' }}>{currentUser?.fullName || currentUser?.full_name || currentUser?.name || (lang === 'vi' ? 'Sinh viên' : 'Student')}</strong></span>
+                            <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
+                            <span>📝 <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{activeIndAssign.title}</strong></span>
+                            <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
                             <span>
                               ⏳ {lang === 'vi' ? 'Hạn chót:' : 'Deadline:'}{' '}
-                              <strong style={{ color: '#fde047' }}>
+                              <strong style={{ color: isDark ? '#fde047' : '#d97706' }}>
                                 {formatVNTime(activeIndAssign.due_date || activeIndAssign.deadline)}
                               </strong>{' '}
                               <span style={{
@@ -3991,16 +3991,16 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 borderRadius: '4px',
                                 fontSize: '0.68rem',
                                 fontWeight: 800,
-                                background: indAssignInfo.canSubmit ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)',
-                                color: indAssignInfo.canSubmit ? '#4ade80' : '#f87171'
+                                background: indAssignInfo.canSubmit ? (isDark ? 'rgba(34, 197, 94, 0.18)' : '#dcfce7') : (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2'),
+                                color: indAssignInfo.canSubmit ? (isDark ? '#4ade80' : '#15803d') : (isDark ? '#f87171' : '#dc2626')
                               }}>
                                 {indAssignInfo.canSubmit ? (lang === 'vi' ? 'CÒN HẠN' : 'OPEN') : (lang === 'vi' ? 'ĐÃ ĐÓNG' : 'CLOSED')}
                               </span>
                             </span>
                             {activeIndCourse?.lecturer_name && (
                               <>
-                                <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
-                                <span>👨‍🏫 {lang === 'vi' ? 'Giảng viên:' : 'Lecturer:'} <strong style={{ color: '#e2e8f0' }}>{activeIndCourse.lecturer_name}</strong></span>
+                                <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
+                                <span>👨‍🏫 {lang === 'vi' ? 'Giảng viên:' : 'Lecturer:'} <strong style={{ color: isDark ? '#e2e8f0' : '#334155' }}>{activeIndCourse.lecturer_name}</strong></span>
                               </>
                             )}
                           </div>
@@ -4029,12 +4029,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       padding: '2rem 2.25rem', 
                       borderRadius: '20px', 
                       position: 'relative',
-                      background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                      border: '1px solid rgba(139, 92, 246, 0.22)'
+                      background: isDark ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)' : '#ffffff',
+                      border: isDark ? '1px solid rgba(139, 92, 246, 0.22)' : '1px solid #ede9fe',
+                      boxShadow: isDark ? 'none' : '0 10px 30px rgba(124, 58, 237, 0.06)'
                     }}
                   >
-                    <h4 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#f8fafc', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Sparkles size={20} color="#a78bfa" />
+                    <h4 style={{ fontSize: '1.18rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#1e1b4b', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sparkles size={20} color={isDark ? '#a78bfa' : '#7c3aed'} />
                       <span>{lang === 'vi' ? 'Nộp Bài Làm Mới' : 'Submit New Work'}</span>
                     </h4>
 
@@ -4042,7 +4043,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       
                       {/* 1. CHỌN LỚP HỌC PHẦN (COURSE & CLASS) */}
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                           1. {lang === 'vi' ? 'CHỌN LỚP HỌC PHẦN (COURSE & CLASS)' : '1. SELECT COURSE & CLASS'} <span style={{ color: '#f43f5e' }}>*</span>
                         </label>
                         <select
@@ -4051,10 +4052,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           style={{
                             width: '100%',
                             padding: '11px 14px',
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            background: isDark ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1.5px solid #cbd5e1',
                             borderRadius: '10px',
-                            color: '#f8fafc',
+                            color: isDark ? '#f8fafc' : '#1e1b4b',
                             fontSize: '0.88rem',
                             fontWeight: 500,
                             outline: 'none'
@@ -4071,7 +4072,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                       {/* 2. CHỌN BÀI TẬP / ĐỀ THI CẦN NỘP */}
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                           2. {lang === 'vi' ? 'CHỌN BÀI TẬP / ĐỀ THI CẦN NỘP' : '2. SELECT ASSIGNMENT / EXAM'} <span style={{ color: '#f43f5e' }}>*</span>
                         </label>
                         <select
@@ -4082,10 +4083,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           style={{
                             width: '100%',
                             padding: '11px 14px',
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            background: isDark ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1.5px solid #cbd5e1',
                             borderRadius: '10px',
-                            color: '#f8fafc',
+                            color: isDark ? '#f8fafc' : '#1e1b4b',
                             fontSize: '0.88rem',
                             fontWeight: 500,
                             outline: 'none'
@@ -4106,19 +4107,20 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             marginTop: '10px',
                             padding: '10px 14px',
                             borderRadius: '10px',
-                            background: 'rgba(15, 23, 42, 0.75)',
-                            border: '1px solid rgba(139, 92, 246, 0.25)',
+                            background: isDark ? 'rgba(15, 23, 42, 0.75)' : '#f5f3ff',
+                            border: isDark ? '1px solid rgba(139, 92, 246, 0.25)' : '1.5px solid #ddd6fe',
                             display: 'flex',
                             flexWrap: 'wrap',
                             gap: '12px',
-                            fontSize: '0.76rem',
-                            color: '#94a3b8'
+                            fontSize: '0.78rem',
+                            color: isDark ? '#94a3b8' : '#475569',
+                            alignItems: 'center'
                           }}>
-                            <span>💻 {lang === 'vi' ? 'Ngôn ngữ:' : 'Language:'} <strong style={{ color: '#a78bfa' }}>{activeIndAssign.allowed_language === 'python' ? 'Python 3' : activeIndAssign.allowed_language === 'javascript' ? 'JavaScript' : 'Tùy chọn'}</strong></span>
-                            <span>•</span>
-                            <span>🔢 {lang === 'vi' ? 'Lượt nộp:' : 'Attempts:'} <strong style={{ color: '#a78bfa' }}>{indAssignInfo.maxSubs > 0 ? `${indAssignInfo.subCount}/${indAssignInfo.maxSubs}` : 'Không giới hạn'}</strong></span>
-                            <span>•</span>
-                            <span>Thang điểm: <strong style={{ color: '#34d399' }}>{activeIndAssign.max_score} điểm</strong></span>
+                            <span>💻 {lang === 'vi' ? 'Ngôn ngữ:' : 'Language:'} <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{activeIndAssign.allowed_language === 'python' ? 'Python 3' : activeIndAssign.allowed_language === 'javascript' ? 'JavaScript' : 'Tùy chọn'}</strong></span>
+                            <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
+                            <span>🔢 {lang === 'vi' ? 'Lượt nộp:' : 'Attempts:'} <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{indAssignInfo.maxSubs > 0 ? `${indAssignInfo.subCount}/${indAssignInfo.maxSubs}` : 'Không giới hạn'}</strong></span>
+                            <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
+                            <span>Thang điểm: <strong style={{ color: isDark ? '#34d399' : '#059669' }}>{activeIndAssign.max_score} điểm</strong></span>
                           </div>
                         )}
                       </div>
@@ -4126,10 +4128,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       {/* 3. TẢI LÊN TỆP MÃ NGUỒN BÀI LÀM (.ZIP) */}
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                          <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                             3. {lang === 'vi' ? 'TẢI LÊN TỆP MÃ NGUỒN BÀI LÀM (.ZIP)' : '3. UPLOAD SOURCE CODE FILE (.ZIP)'} <span style={{ color: '#f43f5e' }}>*</span>
                           </label>
-                          <span style={{ fontSize: '0.74rem', color: '#c4b5fd', background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(139, 92, 246, 0.35)', padding: '2px 9px', borderRadius: '6px', fontWeight: 600 }}>
+                          <span style={{ fontSize: '0.74rem', color: isDark ? '#c4b5fd' : '#7c3aed', background: isDark ? 'rgba(124, 58, 237, 0.15)' : '#ede9fe', border: isDark ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid #ddd6fe', padding: '3px 10px', borderRadius: '6px', fontWeight: 600 }}>
                             📦 {lang === 'vi' ? 'Hình thức nộp: Tệp nén ZIP' : 'Submission format: ZIP Archive'}
                           </span>
                         </div>
@@ -4151,8 +4153,12 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               onDrop={handleDrop}
                               onClick={() => fileInputRef.current?.click()}
                               style={{
-                                border: fileIsDragging ? '2px dashed #a78bfa' : '2px dashed rgba(139, 92, 246, 0.4)',
-                                background: fileIsDragging ? 'rgba(139, 92, 246, 0.12)' : 'rgba(15, 23, 42, 0.45)',
+                                border: fileIsDragging 
+                                  ? (isDark ? '2px dashed #a78bfa' : '2px dashed #7c3aed') 
+                                  : (isDark ? '2px dashed rgba(139, 92, 246, 0.4)' : '2px dashed #c4b5fd'),
+                                background: fileIsDragging 
+                                  ? (isDark ? 'rgba(139, 92, 246, 0.12)' : '#ede9fe') 
+                                  : (isDark ? 'rgba(15, 23, 42, 0.45)' : 'linear-gradient(135deg, #fdfbf7 0%, #f5f3ff 100%)'),
                                 borderRadius: '16px',
                                 padding: '2.5rem 1.5rem',
                                 textAlign: 'center',
@@ -4170,21 +4176,21 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   width: '56px',
                                   height: '56px',
                                   borderRadius: '16px',
-                                  background: 'rgba(139, 92, 246, 0.14)',
-                                  border: '1px solid rgba(139, 92, 246, 0.3)',
+                                  background: isDark ? 'rgba(139, 92, 246, 0.14)' : '#ede9fe',
+                                  border: isDark ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid #ddd6fe',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  color: '#a78bfa'
+                                  color: isDark ? '#a78bfa' : '#7c3aed'
                                 }}
                               >
                                 <UploadCloud size={30} />
                               </div>
                               <div>
-                                <h5 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>
+                                <h5 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#1e1b4b' }}>
                                   {lang === 'vi' ? 'Kéo thả tệp mã nguồn (.zip) vào đây hoặc nhấn để duyệt tệp' : 'Drag & drop source code file (.zip) here or click to browse'}
                                 </h5>
-                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>
+                                <p style={{ margin: 0, fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#64748b' }}>
                                   {lang === 'vi' ? 'Định dạng được hỗ trợ: Tệp nén ZIP (.zip) chứa toàn bộ mã nguồn bài làm Java OOP' : 'Supported format: Source code ZIP archive (.zip)'}
                                 </p>
                               </div>
@@ -4200,9 +4206,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   fontSize: '0.85rem',
                                   gap: '8px',
                                   borderRadius: '10px',
-                                  background: 'rgba(139, 92, 246, 0.12)',
-                                  border: '1px solid rgba(139, 92, 246, 0.35)',
-                                  color: '#a78bfa'
+                                  background: isDark ? 'rgba(139, 92, 246, 0.12)' : '#ffffff',
+                                  border: isDark ? '1px solid rgba(139, 92, 246, 0.35)' : '1.5px solid #7c3aed',
+                                  color: isDark ? '#a78bfa' : '#6d28d9',
+                                  boxShadow: isDark ? 'none' : '0 2px 8px rgba(124, 58, 237, 0.12)',
+                                  fontWeight: 600
                                 }}
                               >
                                 <Paperclip size={15} />
@@ -4212,15 +4220,18 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           ) : (
                             <div
                               style={{
-                                border: '1px solid rgba(34, 197, 94, 0.45)',
-                                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                                border: isDark ? '1px solid rgba(34, 197, 94, 0.45)' : '1.5px solid #86efac',
+                                background: isDark 
+                                  ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)' 
+                                  : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
                                 borderRadius: '14px',
                                 padding: '1.25rem 1.6rem',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 flexWrap: 'wrap',
-                                gap: '14px'
+                                gap: '14px',
+                                boxShadow: isDark ? 'none' : '0 4px 14px rgba(34, 197, 94, 0.08)'
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -4229,8 +4240,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     width: '48px',
                                     height: '48px',
                                     borderRadius: '12px',
-                                    background: 'rgba(34, 197, 94, 0.2)',
-                                    color: '#4ade80',
+                                    background: isDark ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
+                                    color: isDark ? '#4ade80' : '#16a34a',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -4241,12 +4252,12 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 </div>
                                 <div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                    <strong style={{ color: '#f8fafc', fontSize: '0.96rem' }}>{uploadedFile.name}</strong>
-                                    <span style={{ fontSize: '0.72rem', background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', padding: '1px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                                    <strong style={{ color: isDark ? '#f8fafc' : '#065f46', fontSize: '0.96rem' }}>{uploadedFile.name}</strong>
+                                    <span style={{ fontSize: '0.72rem', background: isDark ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7', color: isDark ? '#4ade80' : '#15803d', padding: '1px 8px', borderRadius: '4px', fontWeight: 700 }}>
                                       {(uploadedFile.size / 1024).toFixed(1)} KB
                                     </span>
                                   </div>
-                                  <span style={{ fontSize: '0.78rem', color: '#86efac' }}>
+                                  <span style={{ fontSize: '0.78rem', color: isDark ? '#86efac' : '#15803d', fontWeight: 600 }}>
                                     ✅ {lang === 'vi' ? 'Tệp ZIP bài làm đã sẵn sàng để gửi lên hệ thống' : 'ZIP file is ready for submission'}
                                   </span>
                                 </div>
@@ -4257,7 +4268,16 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   type="button"
                                   onClick={() => fileInputRef.current?.click()}
                                   className="btn-secondary"
-                                  style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                                  style={{ 
+                                    padding: '6px 12px', 
+                                    fontSize: '0.78rem',
+                                    background: isDark ? 'rgba(139, 92, 246, 0.12)' : '#ffffff',
+                                    border: isDark ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid #cbd5e1',
+                                    color: isDark ? '#a78bfa' : '#475569',
+                                    boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.05)',
+                                    borderRadius: '8px',
+                                    fontWeight: 600
+                                  }}
                                 >
                                   {lang === 'vi' ? 'Chọn tệp khác' : 'Change file'}
                                 </button>
@@ -4265,9 +4285,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   type="button"
                                   onClick={() => setUploadedFile(null)}
                                   style={{
-                                    background: 'rgba(239, 68, 68, 0.15)',
-                                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                                    color: '#f87171',
+                                    background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2',
+                                    border: isDark ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #fecaca',
+                                    color: isDark ? '#f87171' : '#dc2626',
                                     borderRadius: '8px',
                                     padding: '6px 12px',
                                     fontSize: '0.78rem',
@@ -4285,7 +4305,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                       {/* 4. LỜI NHẮN / GHI CHÚ GỬI GIẢNG VIÊN (TÙY CHỌN) */}
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
                           4. {lang === 'vi' ? 'LỜI NHẮN / GHI CHÚ GỬI GIẢNG VIÊN (TÙY CHỌN)' : '4. NOTE TO INSTRUCTOR (OPTIONAL)'}
                         </label>
                         <textarea
@@ -4296,10 +4316,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           style={{
                             width: '100%',
                             padding: '10px 14px',
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            background: isDark ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1.5px solid #cbd5e1',
                             borderRadius: '10px',
-                            color: '#f8fafc',
+                            color: isDark ? '#f8fafc' : '#1e1b4b',
                             fontSize: '0.86rem',
                             outline: 'none',
                             resize: 'vertical'
@@ -4321,8 +4341,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                       {/* Error Alert */}
                       {submitError && (
-                        <div style={{ background: 'rgba(244, 63, 94, 0.12)', border: '1px solid rgba(244, 63, 94, 0.35)', borderRadius: '10px', padding: '12px 16px', color: '#fda4af', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <AlertTriangle size={18} color="#f43f5e" />
+                        <div style={{ background: isDark ? 'rgba(244, 63, 94, 0.12)' : '#fff1f2', border: isDark ? '1px solid rgba(244, 63, 94, 0.35)' : '1.5px solid #fecdd3', borderRadius: '10px', padding: '12px 16px', color: isDark ? '#fda4af' : '#e11d48', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <AlertTriangle size={18} color={isDark ? '#f43f5e' : '#e11d48'} />
                           <span>{submitError}</span>
                         </div>
                       )}
