@@ -196,7 +196,7 @@ export default function HomePage() {
     <>
       <Navigation />
       
-      <main style={{ overflowX: 'hidden', paddingBottom: '4rem' }}>
+      <main className="landing-page-root" style={{ overflowX: 'hidden', paddingBottom: '4rem' }}>
 
         {/* ============================================================ */}
         {/* --- SECTION 1: HERO SECTION (HALO STYLE MASSIVE CARD) --- */}
@@ -206,8 +206,8 @@ export default function HomePage() {
           margin: '2rem auto 4rem',
           padding: '0 1.5rem',
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 14, 23, 0.96) 100%)',
+          <div className="landing-dark-card" style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(10, 14, 23, 0.98) 100%)',
             border: '1px solid rgba(255, 255, 255, 0.09)',
             borderRadius: '36px',
             padding: '4.5rem 3.5rem',
@@ -272,11 +272,15 @@ export default function HomePage() {
                 marginBottom: '1.5rem',
                 color: '#ffffff'
               }}>
-                {cur.heroTitle1} <br />
+                <span style={{ color: '#ffffff' }}>{cur.heroTitle1}</span> <br />
                 <span style={{
-                  background: 'linear-gradient(135deg, #a855f7 0%, #818cf8 50%, #c084fc 100%)',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #e9d5ff 25%, #c084fc 65%, #f472b6 100%)',
                   WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
+                  color: 'transparent',
+                  display: 'inline-block',
+                  filter: 'drop-shadow(0 2px 24px rgba(192, 132, 252, 0.45))'
                 }}>
                   {cur.heroTitle2}
                 </span>
@@ -285,7 +289,7 @@ export default function HomePage() {
               {/* Subheadline description */}
               <p style={{
                 fontSize: '1.12rem',
-                color: '#94a3b8',
+                color: '#cbd5e1',
                 lineHeight: 1.65,
                 maxWidth: '520px',
                 marginBottom: '2.5rem'
@@ -606,46 +610,47 @@ export default function HomePage() {
 
                 {/* Visual Widget: Team Contribution Bars */}
                 <div style={{
-                  background: 'rgba(0, 0, 0, 0.35)',
+                  background: 'rgba(15, 23, 42, 0.75)',
                   borderRadius: '16px',
                   padding: '16px',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  marginBottom: '1.5rem'
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  marginBottom: '1.5rem',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)'
                 }}>
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#e2e8f0', marginBottom: '4px' }}>
-                      <span>Student A (Lead)</span>
-                      <span style={{ color: '#34d399', fontWeight: 600 }}>46% LOC</span>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+                      <span style={{ color: '#f8fafc', fontWeight: 600 }}>Student A (Lead)</span>
+                      <span style={{ color: '#34d399', fontWeight: 700 }}>46% LOC</span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
-                      <div style={{ width: '46%', height: '100%', borderRadius: '4px', background: '#34d399' }} />
+                    <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.12)' }}>
+                      <div style={{ width: '46%', height: '100%', borderRadius: '4px', background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)', boxShadow: '0 0 10px rgba(52, 211, 153, 0.5)' }} />
                     </div>
                   </div>
 
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#e2e8f0', marginBottom: '4px' }}>
-                      <span>Student B</span>
-                      <span style={{ color: '#a78bfa', fontWeight: 600 }}>42% LOC</span>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+                      <span style={{ color: '#f8fafc', fontWeight: 600 }}>Student B</span>
+                      <span style={{ color: '#c084fc', fontWeight: 700 }}>42% LOC</span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
-                      <div style={{ width: '42%', height: '100%', borderRadius: '4px', background: '#a78bfa' }} />
+                    <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.12)' }}>
+                      <div style={{ width: '42%', height: '100%', borderRadius: '4px', background: 'linear-gradient(90deg, #8b5cf6 0%, #c084fc 100%)', boxShadow: '0 0 10px rgba(168, 85, 247, 0.5)' }} />
                     </div>
                   </div>
 
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#f87171', marginBottom: '4px' }}>
-                      <span>Student C</span>
-                      <span style={{ fontWeight: 600 }}>12% (Flagged)</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+                      <span style={{ color: '#fca5a5', fontWeight: 600 }}>Student C</span>
+                      <span style={{ color: '#f87171', fontWeight: 700 }}>12% (Flagged)</span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
-                      <div style={{ width: '12%', height: '100%', borderRadius: '4px', background: '#f87171' }} />
+                    <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.12)' }}>
+                      <div style={{ width: '12%', height: '100%', borderRadius: '4px', background: 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)', boxShadow: '0 0 10px rgba(239, 68, 68, 0.5)' }} />
                     </div>
                   </div>
                 </div>
               </div>
 
               <p style={{
-                color: '#94a3b8',
+                color: '#cbd5e1',
                 fontSize: '0.92rem',
                 lineHeight: 1.6
               }}>
@@ -989,12 +994,12 @@ export default function HomePage() {
           margin: '0 auto 6rem',
           padding: '0 1.5rem'
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(10, 14, 23, 0.95) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+          <div className="landing-dark-card" style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(10, 14, 23, 0.98) 100%)',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
             borderRadius: '32px',
             padding: '3.5rem',
-            boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5)'
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6)'
           }}>
             <div style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 3rem' }}>
               <div style={{
@@ -1014,9 +1019,9 @@ export default function HomePage() {
               </div>
 
               <h2 style={{ fontSize: 'clamp(2rem, 3.2vw, 2.8rem)', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '1rem' }}>
-                {cur.demoTitle}
+                <span style={{ color: '#ffffff' }}>{cur.demoTitle}</span>
               </h2>
-              <p style={{ color: '#94a3b8', fontSize: '1.05rem', lineHeight: 1.6 }}>
+              <p style={{ color: '#cbd5e1', fontSize: '1.05rem', lineHeight: 1.6 }}>
                 {cur.demoDesc}
               </p>
             </div>
@@ -1225,14 +1230,14 @@ function shortestPath(graph: Graph, src: number): number[] {
         {/* ============================================================ */}
         {/* --- SECTION 7: HIGH-CONVERSION BOTTOM CALL TO ACTION --- */}
         {/* ============================================================ */}
-        <section style={{
+        <section id="cta" style={{
           maxWidth: '1360px',
           margin: '0 auto',
           padding: '0 1.5rem',
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(10, 14, 23, 0.98) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+          <div className="landing-dark-card" style={{
+            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.94) 0%, rgba(10, 14, 23, 0.98) 100%)',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
             borderRadius: '36px',
             padding: '5rem 3rem',
             textAlign: 'center',
@@ -1248,7 +1253,7 @@ function shortestPath(graph: Graph, src: number): number[] {
               transform: 'translate(-50%, -50%)',
               width: '600px',
               height: '350px',
-              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)',
               filter: 'blur(90px)',
               pointerEvents: 'none'
             }} />
@@ -1262,11 +1267,11 @@ function shortestPath(graph: Graph, src: number): number[] {
                 marginBottom: '1.5rem',
                 lineHeight: 1.15
               }}>
-                {cur.ctaBottomTitle}
+                <span style={{ color: '#ffffff' }}>{cur.ctaBottomTitle}</span>
               </h2>
 
               <p style={{
-                color: '#94a3b8',
+                color: '#cbd5e1',
                 fontSize: '1.15rem',
                 lineHeight: 1.6,
                 marginBottom: '2.8rem'
