@@ -89,7 +89,38 @@ async function runReset() {
       -- AI API Keys safeguards
       ALTER TABLE ai_api_keys ADD COLUMN IF NOT EXISTS api_key_encrypted VARCHAR(255);
       ALTER TABLE ai_api_keys ADD COLUMN IF NOT EXISTS key_value_encrypted VARCHAR(255);
+      ALTER TABLE ai_api_keys ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
       UPDATE ai_api_keys SET key_value_encrypted = api_key_encrypted WHERE key_value_encrypted IS NULL AND api_key_encrypted IS NOT NULL;
+
+      -- Assignments safeguards
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS deadline TIMESTAMPTZ;
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS max_score FLOAT NOT NULL DEFAULT 10.0;
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS submission_type VARCHAR(20) NOT NULL DEFAULT 'TEAM';
+
+      -- Submissions safeguards (BR-09 & Tracking)
+      ALTER TABLE submissions ALTER COLUMN status TYPE VARCHAR(50);
+      ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_status_check;
+      ALTER TABLE submissions ADD CONSTRAINT submissions_status_check CHECK (status IN ('SUBMITTED', 'QUEUED', 'GRADING', 'GRADED', 'FAILED', 'AI_PREGRADED', 'FIRST_REVIEWED', 'PENDING_SECOND_REVIEW', 'FINALIZED'));
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS submitted_by_user_id INT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS ai_score FLOAT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS ai_feedback TEXT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewer_1_id INT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewer_1_score FLOAT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewer_1_notes TEXT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS needs_second_review BOOLEAN DEFAULT FALSE;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewer_2_id INT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewer_2_score FLOAT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewer_2_notes TEXT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS consensus_notes TEXT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS final_score FLOAT;
+
+      -- Git Commits & Peer Audits safeguards (Member 4)
+      ALTER TABLE git_commits ADD COLUMN IF NOT EXISTS commit_message TEXT;
+      ALTER TABLE git_commits ADD COLUMN IF NOT EXISTS assignment_id INT;
+      ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS assignment_id INT;
+      ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS evaluated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
     `);
 
     // Run schema.sql

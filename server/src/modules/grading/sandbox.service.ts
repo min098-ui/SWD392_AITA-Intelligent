@@ -6,10 +6,10 @@ import fs from 'fs';
 
 export interface SandboxExecutionOptions {
   code: string;
-  language?: 'javascript' | 'nodejs' | 'python';
+  language?: 'javascript' | 'nodejs' | 'python' | 'java';
   inputData?: string;
   timeoutMs?: number;       // Default: 10,000ms, max 30,000ms (BR-03)
-  cpuQuota?: number;        // Default: 0.5 core = 500,000,000 NanoCpus
+  cpuQuota?: number;        // Default: 1.0 core = 1,000,000,000 NanoCpus
   memoryLimitBytes?: number;// Default: 256MB = 256 * 1024 * 1024
 }
 
@@ -21,6 +21,8 @@ export interface SandboxExecutionResult {
   timedOut: boolean;
   memoryExceeded: boolean;
   error?: string;
+  containerId?: string;
+  dockerImage?: string;
 }
 
 export class SandboxService {
@@ -49,11 +51,24 @@ export class SandboxService {
     }
   }
 
-  public async ensureSandboxImage(language: 'javascript' | 'nodejs' | 'python' = 'javascript'): Promise<string> {
+  public async ensureSandboxImage(language: 'javascript' | 'nodejs' | 'python' | 'java' = 'javascript'): Promise<string> {
+    const isJava = language === 'java';
     const isPython = language === 'python';
-    const imageName = isPython ? 'aita-sandbox-python:latest' : 'aita-sandbox-node:latest';
-    const fallbackImage = isPython ? 'python:3.11-alpine' : 'node:20-alpine';
-    const dockerfileTarget = isPython ? 'Dockerfile.python' : 'Dockerfile.node';
+    const imageName = isJava
+      ? 'aita-sandbox-java:latest'
+      : isPython
+      ? 'aita-sandbox-python:latest'
+      : 'aita-sandbox-node:latest';
+    const fallbackImage = isJava
+      ? 'eclipse-temurin:17-alpine'
+      : isPython
+      ? 'python:3.11-alpine'
+      : 'node:20-alpine';
+    const dockerfileTarget = isJava
+      ? 'Dockerfile.java'
+      : isPython
+      ? 'Dockerfile.python'
+      : 'Dockerfile.node';
 
     try {
       const images = await this.docker.listImages({ filters: { reference: [imageName] } });
@@ -164,18 +179,29 @@ export class SandboxService {
       language = 'javascript',
       inputData,
       timeoutMs = 10000,
-      cpuQuota = 500_000_000,
+      cpuQuota = 1_000_000_000, // 1.0 core = 1,000,000,000 NanoCpus
       memoryLimitBytes = 256 * 1024 * 1024,
     } = options;
 
     const startTime = Date.now();
+    const isJava = language === 'java';
     const isPython = language === 'python';
-    const filename = isPython ? 'main.py' : 'main.js';
 
-    // Command redirection: reads from /app/input.txt
-    const runCommand = isPython
-      ? ['sh', '-c', 'python main.py < /app/input.txt']
-      : ['sh', '-c', 'node main.js < /app/input.txt'];
+    let filename = 'main.js';
+    let runCommand = ['sh', '-c', 'node main.js < /app/input.txt'];
+    let envVars = ['NODE_ENV=production'];
+
+    if (isJava) {
+      const classMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/) || code.match(/class\s+([A-Za-z0-9_]+)/);
+      const className = classMatch ? classMatch[1] : 'Main';
+      filename = `${className}.java`;
+      runCommand = ['sh', '-c', `javac -encoding UTF-8 ${className}.java && java -Xmx256m ${className} < /app/input.txt`];
+      envVars = ['JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8'];
+    } else if (isPython) {
+      filename = 'main.py';
+      runCommand = ['sh', '-c', 'python main.py < /app/input.txt'];
+      envVars = ['PYTHONUNBUFFERED=1', 'PYTHONDONTWRITEBYTECODE=1'];
+    }
 
     const available = await this.checkDockerAvailability();
     if (!available) {
@@ -193,6 +219,7 @@ export class SandboxService {
     const imageName = await this.ensureSandboxImage(language);
 
     let container: Docker.Container | null = null;
+    let containerId: string | undefined = undefined;
     let timedOut = false;
     let timeoutTimer: NodeJS.Timeout | null = null;
 
@@ -204,6 +231,7 @@ export class SandboxService {
         WorkingDir: '/app',
         User: 'runner',
         Tty: false,
+        Env: envVars,
         HostConfig: {
           Memory: memoryLimitBytes,
           MemorySwap: memoryLimitBytes,
@@ -217,6 +245,8 @@ export class SandboxService {
           AutoRemove: false,
         },
       });
+
+      containerId = container.id ? container.id.slice(0, 12) : undefined;
 
       // 2. Put code and input file into container
       const tarStream = this.createTarArchive(filename, code, inputData);
@@ -280,12 +310,25 @@ export class SandboxService {
           timedOut: true,
           memoryExceeded: false,
           error: 'TIME_LIMIT_EXCEEDED',
+          containerId,
+          dockerImage: imageName,
         };
       }
 
       const inspectData = await container.inspect();
       const exitCode = inspectData.State?.ExitCode ?? raceResult.data?.StatusCode ?? 0;
       const oomKilled = inspectData.State?.OOMKilled || false;
+
+      let determinedError: string | undefined = undefined;
+      if (exitCode !== 0) {
+        if (oomKilled) {
+          determinedError = 'MEMORY_LIMIT_EXCEEDED';
+        } else if (isJava && (stderr.includes('error:') || stderr.includes('javac'))) {
+          determinedError = 'COMPILATION_ERROR';
+        } else {
+          determinedError = 'RUNTIME_ERROR';
+        }
+      }
 
       return {
         stdout: stdout.trim(),
@@ -294,7 +337,9 @@ export class SandboxService {
         executionTimeMs,
         timedOut: false,
         memoryExceeded: oomKilled,
-        error: exitCode !== 0 ? (oomKilled ? 'MEMORY_LIMIT_EXCEEDED' : 'RUNTIME_ERROR') : undefined,
+        error: determinedError,
+        containerId,
+        dockerImage: imageName,
       };
     } catch (err: any) {
       const executionTimeMs = Date.now() - startTime;
@@ -306,6 +351,8 @@ export class SandboxService {
         timedOut,
         memoryExceeded: false,
         error: err.message,
+        containerId,
+        dockerImage: imageName,
       };
     } finally {
       if (timeoutTimer) {

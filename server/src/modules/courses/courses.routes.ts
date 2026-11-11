@@ -24,15 +24,17 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
     } else {
       // Sinh viên xem các môn học mình tham gia (qua teams) hoặc tất cả môn đang mở
       query = `
-        SELECT DISTINCT c.*, u.full_name as lecturer_name, u.email as lecturer_email
+        SELECT DISTINCT c.*, u.full_name as lecturer_name, u.email as lecturer_email,
+               (ce.user_id IS NOT NULL OR tm.user_id IS NOT NULL) as is_enrolled
         FROM courses c
         JOIN users u ON c.lecturer_id = u.user_id
         LEFT JOIN teams t ON c.course_id = t.course_id
-        LEFT JOIN team_members tm ON t.team_id = tm.team_id
-        WHERE tm.user_id = $1 OR tm.user_id IS NULL
+        LEFT JOIN team_members tm ON t.team_id = tm.team_id AND tm.user_id = $1
+        LEFT JOIN course_enrollments ce ON c.course_id = ce.course_id AND ce.user_id = $1
+        WHERE (ce.user_id = $1 OR tm.user_id = $1 OR $2 = true)
         ORDER BY c.course_id DESC
       `;
-      params = [user.userId];
+      params = [user.userId, req.query.all === 'true'];
     }
 
     const result = await pool.query(query, params);
@@ -44,7 +46,7 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
 });
 
 // POST /api/courses - Chỉ Giảng viên mới có quyền tạo môn học mới
-router.post('/', authenticateJWT, requireRole('LECTURER'), async (req: Request, res: Response) => {
+router.post('/', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req: Request, res: Response) => {
   const { course_code, course_name, semester, lecturer_id } = req.body;
 
   if (!course_code || !course_name || !semester) {
@@ -306,12 +308,17 @@ router.put('/:id', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req
       return res.status(403).json({ message: 'Bạn chỉ có quyền chỉnh sửa môn học do mình giảng dạy.' });
     }
 
+    let newLecturerId = course.lecturer_id;
+    if (req.user!.role === 'ADMIN' && req.body.lecturer_id) {
+      newLecturerId = parseInt(req.body.lecturer_id, 10);
+    }
+
     const result = await pool.query(
       `UPDATE courses 
-       SET course_code = $1, course_name = $2, semester = $3 
-       WHERE course_id = $4 
+       SET course_code = $1, course_name = $2, semester = $3, lecturer_id = $4 
+       WHERE course_id = $5 
        RETURNING *`,
-      [course_code.trim(), course_name.trim(), semester.trim(), courseId]
+      [course_code.trim(), course_name.trim(), semester.trim(), newLecturerId, courseId]
     );
 
     return res.json({
@@ -320,6 +327,44 @@ router.put('/:id', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async (req
     });
   } catch (error) {
     console.error('Error updating course:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// PATCH /api/courses/:id/lecturer - Admin đổi giảng viên phụ trách môn học
+router.patch('/:id/lecturer', authenticateJWT, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  const courseId = parseInt(req.params.id, 10);
+  const { lecturer_id } = req.body;
+
+  if (isNaN(courseId) || !lecturer_id) {
+    return res.status(400).json({ message: 'Vui lòng cung cấp mã môn học và lecturer_id hợp lệ.' });
+  }
+
+  try {
+    const lecturerCheck = await pool.query(
+      'SELECT user_id, full_name, email, role FROM users WHERE user_id = $1 AND role = \'LECTURER\'',
+      [parseInt(lecturer_id, 10)]
+    );
+
+    if (lecturerCheck.rows.length === 0) {
+      return res.status(400).json({ message: 'Giảng viên không tồn tại hoặc không có vai trò LECTURER.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE courses 
+       SET lecturer_id = $1 
+       WHERE course_id = $2 
+       RETURNING *`,
+      [parseInt(lecturer_id, 10), courseId]
+    );
+
+    return res.json({
+      message: `Đã chuyển quyền quản lý môn học cho giảng viên ${lecturerCheck.rows[0].full_name} (${lecturerCheck.rows[0].email})`,
+      course: result.rows[0],
+      lecturer: lecturerCheck.rows[0]
+    });
+  } catch (error) {
+    console.error('Error reassigning course lecturer:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

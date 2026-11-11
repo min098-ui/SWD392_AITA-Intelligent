@@ -65,7 +65,7 @@ async function seedAssignments() {
       },
       {
         title: 'Bài cá nhân 4: Bộ lọc Noise Filter & Phân tích LOC Git (Nguyễn Tường Vy)',
-        desc: 'Kiểm thử thuật toán lọc file rác (node_modules, package-lock.json) để tính chỉ số đóng góp thực chất (Phân hệ Git Analytics & Peer Audit).',
+        desc: 'Kiểm thử thuật toán lọc file rác (node_modules, package-lock.json) để tính chỉ số đóng góp thực chất (Phân hệ Git Analytics & Noise Filter).',
         rubrics: [
           { crit: 'Test 1 (Public): Nhận diện file mã nguồn hợp lệ (.ts, .js)', input: 'server/src/index.ts', output: 'VALID_SOURCE', score: 5.0, hidden: false },
           { crit: 'Test 2 (Hidden): Loại bỏ file lock không tính vào LOC (BR-06)', input: 'package-lock.json', output: 'IGNORED_NOISE', score: 5.0, hidden: true }

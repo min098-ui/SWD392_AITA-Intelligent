@@ -45,8 +45,8 @@ export default function RegisterPage() {
         }}>
           {/* Top Icon Badge */}
           <div style={{
-            background: 'rgba(59, 130, 246, 0.12)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
+            background: 'rgba(139, 92, 246, 0.12)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
             width: '70px',
             height: '70px',
             borderRadius: '20px',
@@ -91,8 +91,8 @@ export default function RegisterPage() {
           <div style={{
             padding: '16px',
             borderRadius: '12px',
-            background: 'rgba(59, 130, 246, 0.05)',
-            border: '1px solid rgba(59, 130, 246, 0.15)',
+            background: 'rgba(139, 92, 246, 0.05)',
+            border: '1px solid rgba(139, 92, 246, 0.15)',
             marginBottom: '2rem',
             textAlign: 'left',
             fontSize: '0.88rem',

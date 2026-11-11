@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navigation from '../components/Navigation';
+import AitaLogo from '../components/AitaLogo';
 import { useLanguage } from '../context/LanguageContext';
 import { 
   Bot, ShieldCheck, Terminal, Cpu, Database, GitCommit, 
@@ -195,7 +196,7 @@ export default function HomePage() {
     <>
       <Navigation />
       
-      <main style={{ overflowX: 'hidden', paddingBottom: '4rem' }}>
+      <main className="landing-page-root" style={{ overflowX: 'hidden', paddingBottom: '4rem' }}>
 
         {/* ============================================================ */}
         {/* --- SECTION 1: HERO SECTION (HALO STYLE MASSIVE CARD) --- */}
@@ -205,8 +206,8 @@ export default function HomePage() {
           margin: '2rem auto 4rem',
           padding: '0 1.5rem',
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(10, 14, 23, 0.96) 100%)',
+          <div className="landing-dark-card" style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(10, 14, 23, 0.98) 100%)',
             border: '1px solid rgba(255, 255, 255, 0.09)',
             borderRadius: '36px',
             padding: '4.5rem 3.5rem',
@@ -225,7 +226,7 @@ export default function HomePage() {
               left: '-10%',
               width: '500px',
               height: '500px',
-              background: 'radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.18) 0%, transparent 70%)',
               filter: 'blur(70px)',
               pointerEvents: 'none',
               zIndex: 0
@@ -251,11 +252,11 @@ export default function HomePage() {
                 gap: '8px',
                 padding: '6px 14px',
                 borderRadius: '9999px',
-                background: 'rgba(56, 189, 248, 0.08)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
+                background: 'rgba(139, 92, 246, 0.08)',
+                border: '1px solid rgba(139, 92, 246, 0.25)',
                 fontSize: '0.8rem',
                 fontWeight: 600,
-                color: '#38bdf8',
+                color: '#a78bfa',
                 letterSpacing: '0.04em',
                 marginBottom: '1.8rem'
               }}>
@@ -271,11 +272,15 @@ export default function HomePage() {
                 marginBottom: '1.5rem',
                 color: '#ffffff'
               }}>
-                {cur.heroTitle1} <br />
+                <span style={{ color: '#ffffff' }}>{cur.heroTitle1}</span> <br />
                 <span style={{
-                  background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%)',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #e9d5ff 25%, #c084fc 65%, #f472b6 100%)',
                   WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
+                  color: 'transparent',
+                  display: 'inline-block',
+                  filter: 'drop-shadow(0 2px 24px rgba(192, 132, 252, 0.45))'
                 }}>
                   {cur.heroTitle2}
                 </span>
@@ -284,7 +289,7 @@ export default function HomePage() {
               {/* Subheadline description */}
               <p style={{
                 fontSize: '1.12rem',
-                color: '#94a3b8',
+                color: '#cbd5e1',
                 lineHeight: 1.65,
                 maxWidth: '520px',
                 marginBottom: '2.5rem'
@@ -360,7 +365,7 @@ export default function HomePage() {
                   right: '18px',
                   background: 'rgba(10, 14, 23, 0.85)',
                   backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  border: '1px solid rgba(139, 92, 246, 0.3)',
                   borderRadius: '9999px',
                   padding: '6px 14px',
                   display: 'flex',
@@ -368,10 +373,10 @@ export default function HomePage() {
                   gap: '8px',
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  color: '#38bdf8',
+                  color: '#a78bfa',
                   boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
                 }}>
-                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 8px #38bdf8' }} />
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 8px #a78bfa' }} />
                   0.18s Sandbox Execution
                 </div>
 
@@ -485,7 +490,7 @@ export default function HomePage() {
                     fontSize: '0.78rem',
                     fontWeight: 700,
                     textTransform: 'uppercase',
-                    color: '#38bdf8',
+                    color: '#a78bfa',
                     letterSpacing: '0.05em',
                     marginBottom: '0.8rem'
                   }}>
@@ -505,11 +510,11 @@ export default function HomePage() {
                 <div style={{
                   padding: '6px 14px',
                   borderRadius: '9999px',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  background: 'rgba(139, 92, 246, 0.12)',
+                  border: '1px solid rgba(139, 92, 246, 0.3)',
                   fontSize: '0.75rem',
                   fontWeight: 600,
-                  color: '#38bdf8'
+                  color: '#a78bfa'
                 }}>
                   {cur.bento1Badge}
                 </div>
@@ -521,7 +526,7 @@ export default function HomePage() {
                 margin: '2rem 0',
                 borderRadius: '20px',
                 overflow: 'hidden',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
                 boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5)'
               }}>
                 <img 
@@ -546,7 +551,7 @@ export default function HomePage() {
                   left: '16px',
                   fontSize: '0.75rem',
                   fontWeight: 600,
-                  color: '#38bdf8',
+                  color: '#a78bfa',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px'
@@ -605,46 +610,47 @@ export default function HomePage() {
 
                 {/* Visual Widget: Team Contribution Bars */}
                 <div style={{
-                  background: 'rgba(0, 0, 0, 0.35)',
+                  background: 'rgba(15, 23, 42, 0.75)',
                   borderRadius: '16px',
                   padding: '16px',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  marginBottom: '1.5rem'
+                  border: '1px solid rgba(139, 92, 246, 0.25)',
+                  marginBottom: '1.5rem',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)'
                 }}>
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#e2e8f0', marginBottom: '4px' }}>
-                      <span>Student A (Lead)</span>
-                      <span style={{ color: '#34d399', fontWeight: 600 }}>46% LOC</span>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+                      <span style={{ color: '#f8fafc', fontWeight: 600 }}>Student A (Lead)</span>
+                      <span style={{ color: '#34d399', fontWeight: 700 }}>46% LOC</span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
-                      <div style={{ width: '46%', height: '100%', borderRadius: '4px', background: '#34d399' }} />
+                    <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.12)' }}>
+                      <div style={{ width: '46%', height: '100%', borderRadius: '4px', background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)', boxShadow: '0 0 10px rgba(52, 211, 153, 0.5)' }} />
                     </div>
                   </div>
 
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#e2e8f0', marginBottom: '4px' }}>
-                      <span>Student B</span>
-                      <span style={{ color: '#38bdf8', fontWeight: 600 }}>42% LOC</span>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+                      <span style={{ color: '#f8fafc', fontWeight: 600 }}>Student B</span>
+                      <span style={{ color: '#c084fc', fontWeight: 700 }}>42% LOC</span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
-                      <div style={{ width: '42%', height: '100%', borderRadius: '4px', background: '#38bdf8' }} />
+                    <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.12)' }}>
+                      <div style={{ width: '42%', height: '100%', borderRadius: '4px', background: 'linear-gradient(90deg, #8b5cf6 0%, #c084fc 100%)', boxShadow: '0 0 10px rgba(168, 85, 247, 0.5)' }} />
                     </div>
                   </div>
 
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#f87171', marginBottom: '4px' }}>
-                      <span>Student C</span>
-                      <span style={{ fontWeight: 600 }}>12% (Flagged)</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+                      <span style={{ color: '#fca5a5', fontWeight: 600 }}>Student C</span>
+                      <span style={{ color: '#f87171', fontWeight: 700 }}>12% (Flagged)</span>
                     </div>
-                    <div style={{ width: '100%', height: '6px', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }}>
-                      <div style={{ width: '12%', height: '100%', borderRadius: '4px', background: '#f87171' }} />
+                    <div style={{ width: '100%', height: '8px', borderRadius: '4px', background: 'rgba(255, 255, 255, 0.12)' }}>
+                      <div style={{ width: '12%', height: '100%', borderRadius: '4px', background: 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)', boxShadow: '0 0 10px rgba(239, 68, 68, 0.5)' }} />
                     </div>
                   </div>
                 </div>
               </div>
 
               <p style={{
-                color: '#94a3b8',
+                color: '#cbd5e1',
                 fontSize: '0.92rem',
                 lineHeight: 1.6
               }}>
@@ -781,7 +787,7 @@ export default function HomePage() {
                 display: 'block',
                 fontSize: '0.8rem',
                 fontWeight: 700,
-                color: '#38bdf8',
+                color: '#a78bfa',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 marginBottom: '1rem'
@@ -820,8 +826,8 @@ export default function HomePage() {
                     justifyContent: 'space-between',
                     padding: '14px 20px',
                     borderRadius: '16px',
-                    border: activeMode === 'lecturer' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: activeMode === 'lecturer' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    border: activeMode === 'lecturer' ? '1px solid #a78bfa' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: activeMode === 'lecturer' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(255, 255, 255, 0.03)',
                     color: activeMode === 'lecturer' ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     fontWeight: 600,
@@ -831,10 +837,10 @@ export default function HomePage() {
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Code2 size={18} color={activeMode === 'lecturer' ? '#38bdf8' : '#64748b'} />
+                    <Code2 size={18} color={activeMode === 'lecturer' ? '#a78bfa' : '#64748b'} />
                     {cur.modeLecturer}
                   </span>
-                  <ChevronRight size={18} color={activeMode === 'lecturer' ? '#38bdf8' : '#64748b'} />
+                  <ChevronRight size={18} color={activeMode === 'lecturer' ? '#a78bfa' : '#64748b'} />
                 </button>
 
                 <button 
@@ -845,8 +851,8 @@ export default function HomePage() {
                     justifyContent: 'space-between',
                     padding: '14px 20px',
                     borderRadius: '16px',
-                    border: activeMode === 'student' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: activeMode === 'student' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    border: activeMode === 'student' ? '1px solid #a78bfa' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: activeMode === 'student' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(255, 255, 255, 0.03)',
                     color: activeMode === 'student' ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     fontWeight: 600,
@@ -856,10 +862,10 @@ export default function HomePage() {
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Bot size={18} color={activeMode === 'student' ? '#38bdf8' : '#64748b'} />
+                    <Bot size={18} color={activeMode === 'student' ? '#a78bfa' : '#64748b'} />
                     {cur.modeStudent}
                   </span>
-                  <ChevronRight size={18} color={activeMode === 'student' ? '#38bdf8' : '#64748b'} />
+                  <ChevronRight size={18} color={activeMode === 'student' ? '#a78bfa' : '#64748b'} />
                 </button>
 
                 <button 
@@ -870,8 +876,8 @@ export default function HomePage() {
                     justifyContent: 'space-between',
                     padding: '14px 20px',
                     borderRadius: '16px',
-                    border: activeMode === 'admin' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-                    background: activeMode === 'admin' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    border: activeMode === 'admin' ? '1px solid #a78bfa' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: activeMode === 'admin' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(255, 255, 255, 0.03)',
                     color: activeMode === 'admin' ? '#ffffff' : '#94a3b8',
                     cursor: 'pointer',
                     fontWeight: 600,
@@ -881,10 +887,10 @@ export default function HomePage() {
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <ShieldCheck size={18} color={activeMode === 'admin' ? '#38bdf8' : '#64748b'} />
+                    <ShieldCheck size={18} color={activeMode === 'admin' ? '#a78bfa' : '#64748b'} />
                     {cur.modeAdmin}
                   </span>
-                  <ChevronRight size={18} color={activeMode === 'admin' ? '#38bdf8' : '#64748b'} />
+                  <ChevronRight size={18} color={activeMode === 'admin' ? '#a78bfa' : '#64748b'} />
                 </button>
               </div>
             </div>
@@ -905,7 +911,7 @@ export default function HomePage() {
                   fontSize: '0.75rem',
                   fontWeight: 700,
                   textTransform: 'uppercase',
-                  color: '#38bdf8',
+                  color: '#a78bfa',
                   letterSpacing: '0.06em',
                   marginBottom: '1rem'
                 }}>
@@ -938,7 +944,7 @@ export default function HomePage() {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
-                    color: '#38bdf8',
+                    color: '#a78bfa',
                     fontWeight: 600,
                     fontSize: '0.95rem',
                     textDecoration: 'none',
@@ -988,12 +994,12 @@ export default function HomePage() {
           margin: '0 auto 6rem',
           padding: '0 1.5rem'
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(10, 14, 23, 0.95) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+          <div className="landing-dark-card" style={{
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(10, 14, 23, 0.98) 100%)',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
             borderRadius: '32px',
             padding: '3.5rem',
-            boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5)'
+            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.6)'
           }}>
             <div style={{ textAlign: 'center', maxWidth: '700px', margin: '0 auto 3rem' }}>
               <div style={{
@@ -1002,20 +1008,20 @@ export default function HomePage() {
                 gap: '8px',
                 padding: '6px 14px',
                 borderRadius: '9999px',
-                background: 'rgba(56, 189, 248, 0.1)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
+                background: 'rgba(139, 92, 246, 0.1)',
+                border: '1px solid rgba(139, 92, 246, 0.25)',
                 fontSize: '0.78rem',
                 fontWeight: 600,
-                color: '#38bdf8',
+                color: '#a78bfa',
                 marginBottom: '1.2rem'
               }}>
                 <Terminal size={14} /> {cur.demoBadge}
               </div>
 
               <h2 style={{ fontSize: 'clamp(2rem, 3.2vw, 2.8rem)', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em', marginBottom: '1rem' }}>
-                {cur.demoTitle}
+                <span style={{ color: '#ffffff' }}>{cur.demoTitle}</span>
               </h2>
-              <p style={{ color: '#94a3b8', fontSize: '1.05rem', lineHeight: 1.6 }}>
+              <p style={{ color: '#cbd5e1', fontSize: '1.05rem', lineHeight: 1.6 }}>
                 {cur.demoDesc}
               </p>
             </div>
@@ -1093,8 +1099,8 @@ function shortestPath(graph: Graph, src: number): number[] {
                   <button 
                     onClick={() => setDemoActiveTab('console')}
                     style={{
-                      background: demoActiveTab === 'console' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                      color: demoActiveTab === 'console' ? '#38bdf8' : '#94a3b8',
+                      background: demoActiveTab === 'console' ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
+                      color: demoActiveTab === 'console' ? '#a78bfa' : '#94a3b8',
                       border: 'none',
                       padding: '6px 14px',
                       borderRadius: '8px',
@@ -1151,7 +1157,7 @@ function shortestPath(graph: Graph, src: number): number[] {
                 {/* Tab 1: Docker Output */}
                 {demoActiveTab === 'console' && (
                   <div style={{ fontFamily: 'monospace', fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.6 }}>
-                    <div style={{ color: '#38bdf8', marginBottom: '8px' }}>[INFO] Spawning isolated Docker container (node:20-alpine)...</div>
+                    <div style={{ color: '#a78bfa', marginBottom: '8px' }}>[INFO] Spawning isolated Docker container (node:20-alpine)...</div>
                     <div style={{ color: '#94a3b8', marginBottom: '8px' }}>[SEC] Seccomp profile mounted. Syscalls filtered: ptrace, reboot, mount.</div>
                     <div style={{ color: '#34d399', marginBottom: '6px' }}>✓ Test 1: Empty Graph Edge Case ............. PASSED (12ms)</div>
                     <div style={{ color: '#34d399', marginBottom: '6px' }}>✓ Test 2: Dense 1,000 Nodes Random Graph .... PASSED (38ms)</div>
@@ -1206,7 +1212,7 @@ function shortestPath(graph: Graph, src: number): number[] {
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                         <span>Branch:</span>
-                        <span style={{ color: '#38bdf8' }}>feature/dijkstra-pathfinding</span>
+                        <span style={{ color: '#a78bfa' }}>feature/dijkstra-pathfinding</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Commit Status:</span>
@@ -1224,14 +1230,14 @@ function shortestPath(graph: Graph, src: number): number[] {
         {/* ============================================================ */}
         {/* --- SECTION 7: HIGH-CONVERSION BOTTOM CALL TO ACTION --- */}
         {/* ============================================================ */}
-        <section style={{
+        <section id="cta" style={{
           maxWidth: '1360px',
           margin: '0 auto',
           padding: '0 1.5rem',
         }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(10, 14, 23, 0.98) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+          <div className="landing-dark-card" style={{
+            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.94) 0%, rgba(10, 14, 23, 0.98) 100%)',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
             borderRadius: '36px',
             padding: '5rem 3rem',
             textAlign: 'center',
@@ -1247,7 +1253,7 @@ function shortestPath(graph: Graph, src: number): number[] {
               transform: 'translate(-50%, -50%)',
               width: '600px',
               height: '350px',
-              background: 'radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)',
               filter: 'blur(90px)',
               pointerEvents: 'none'
             }} />
@@ -1261,11 +1267,11 @@ function shortestPath(graph: Graph, src: number): number[] {
                 marginBottom: '1.5rem',
                 lineHeight: 1.15
               }}>
-                {cur.ctaBottomTitle}
+                <span style={{ color: '#ffffff' }}>{cur.ctaBottomTitle}</span>
               </h2>
 
               <p style={{
-                color: '#94a3b8',
+                color: '#cbd5e1',
                 fontSize: '1.15rem',
                 lineHeight: 1.6,
                 marginBottom: '2.8rem'
@@ -1323,20 +1329,9 @@ function shortestPath(graph: Graph, src: number): number[] {
           {/* Brand Info */}
           <div style={{ gridColumn: 'span 2' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.2rem' }}>
-              <div style={{
-                background: 'var(--accent-gradient)',
-                width: '36px',
-                height: '36px',
-                borderRadius: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: 'var(--shadow-neon)'
-              }}>
-                <Bot size={20} color="#fff" />
-              </div>
+              <AitaLogo size={36} />
               <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#ffffff', letterSpacing: '-0.02em' }}>
-                AITA<span style={{ color: '#38bdf8' }}>.INTELLIGENT</span>
+                AITA<span style={{ color: '#a78bfa' }}>.INTELLIGENT</span>
               </span>
             </div>
             <p style={{ color: '#94a3b8', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: '420px', marginBottom: '1.5rem' }}>

@@ -34,6 +34,109 @@ router.post('/sessions', authenticateJWT, async (req: Request, res: Response) =>
   }
 });
 
+// GET /api/ai-tutor/history - Get recent chat history for the logged-in student
+router.get('/history', authenticateJWT, async (req: Request, res: Response) => {
+  const user = req.user!;
+  try {
+    const result = await pool.query(
+      `SELECT m.*, s.session_title
+       FROM tutor_chat_messages m
+       LEFT JOIN tutor_chat_sessions s ON m.session_id = s.session_id
+       WHERE m.user_id = $1
+       ORDER BY m.message_id ASC
+       LIMIT 50`,
+      [user.userId]
+    );
+    return res.json({ messages: result.rows });
+  } catch (error: any) {
+    console.error('Error fetching chat history:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
+
+// POST /api/ai-tutor/chat - Quick Chat endpoint for Student Dashboard
+router.post('/chat', authenticateJWT, async (req: Request, res: Response) => {
+  const user = req.user!;
+  const { content, message, session_id } = req.body;
+  const userQuestion = content || message;
+
+  if (!userQuestion || !userQuestion.trim()) {
+    return res.status(400).json({ message: 'Message content cannot be empty' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    let activeSessionId = session_id ? parseInt(session_id, 10) : null;
+    if (!activeSessionId) {
+      // Find latest session or create new one
+      const latestSessionRes = await client.query(
+        `SELECT session_id FROM tutor_chat_sessions WHERE user_id = $1 ORDER BY session_id DESC LIMIT 1`,
+        [user.userId]
+      );
+      if (latestSessionRes.rows.length > 0) {
+        activeSessionId = latestSessionRes.rows[0].session_id;
+      } else {
+        const newSessionRes = await client.query(
+          `INSERT INTO tutor_chat_sessions (user_id, session_title) VALUES ($1, $2) RETURNING session_id`,
+          [user.userId, 'Phiên trợ giảng Socratic AI']
+        );
+        activeSessionId = newSessionRes.rows[0].session_id;
+      }
+    }
+
+    // Call Socratic AI engine with key rotation on HTTP 429
+    const socraticResult = await aiTutorService.generateSocraticResponse(userQuestion.trim());
+
+    // 1. Record student message
+    const studentMsgRes = await client.query(
+      `INSERT INTO tutor_chat_messages 
+       (session_id, user_id, prompt_template_id, ai_api_key_id, sender_type, content)
+       VALUES ($1, $2, $3, $4, 'STUDENT', $5) 
+       RETURNING *`,
+      [
+        activeSessionId,
+        user.userId,
+        socraticResult.promptTemplateId || null,
+        socraticResult.keyInfo?.id || null,
+        userQuestion.trim(),
+      ]
+    );
+
+    // 2. Record AI response
+    const aiMsgRes = await client.query(
+      `INSERT INTO tutor_chat_messages 
+       (session_id, user_id, prompt_template_id, ai_api_key_id, sender_type, content)
+       VALUES ($1, $2, $3, $4, 'AI', $5) 
+       RETURNING *`,
+      [
+        activeSessionId,
+        user.userId,
+        socraticResult.promptTemplateId || null,
+        socraticResult.keyInfo?.id || null,
+        socraticResult.aiResponseText,
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({
+      session_id: activeSessionId,
+      student_message: studentMsgRes.rows[0],
+      ai_message: aiMsgRes.rows[0],
+      ai_response: socraticResult.aiResponseText,
+      key_info: socraticResult.keyInfo,
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error in AI Tutor chat:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 // GET /api/ai-tutor/sessions/:sessionId/messages - Get message history of a session
 router.get('/sessions/:sessionId/messages', authenticateJWT, async (req: Request, res: Response) => {
   const sessionId = req.params.sessionId;

@@ -1,41 +1,99 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../../config/db';
-import { authenticateJWT } from '../../common/auth.middleware';
+import { authenticateJWT, requireRole } from '../../common/auth.middleware';
 import { Octokit } from '@octokit/rest';
 
 const router = Router();
 
-// Regex patterns to filter out generated/noise files from LOC analytics (BR-07)
-const NOISE_PATTERNS = [
-  /node_modules[\\\/]/i,
-  /package-lock\.json$/i,
-  /yarn\.lock$/i,
-  /pnpm-lock\.yaml$/i,
-  /dist[\\\/]/i,
-  /build[\\\/]/i,
-  /\.next[\\\/]/i,
-  /\.min\.(js|css)$/i,
-  /\.map$/i,
-  /\.git[\\\/]/i,
-];
+import { isSourceCodeFile, parseGitHubUrl } from './noise-filter.service';
+export { isNoiseFile, isSourceCodeFile, parseGitHubUrl } from './noise-filter.service';
 
-// Helper to check if a file path is considered "noise"
-export function isNoiseFile(filename: string): boolean {
-  return NOISE_PATTERNS.some((pattern) => pattern.test(filename));
-}
+/**
+ * Known GitHub usernames, emails & aliases mapped to member accounts.
+ */
+const GITHUB_USER_ALIASES: Record<string, string[]> = {
+  // Nguyễn Tường Vy
+  'vyntqe180099@fpt.edu.vn': ['gi098', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
+  'tuongvy22102004@gmail.com': ['gi098', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
+  // Lê Nguyễn Ánh Mai
+  'lenguyenlinhnhi2110@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'min098-ui', 'anhmai', 'lenguyenlinhnhi', 'mai', 'member1'],
+  'lenguyenanhmai05@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'min098-ui', 'anhmai', 'lenguyenlinhnhi', 'mai', 'member1'],
+  // Nguyễn Quốc Thanh Phong
+  'tfongcs05@gmail.com': ['thanhfong05', 'tfongcs05', 'thanhphong', 'phong', 'member5'],
+  // Đỗ Trần Đăng Khoa
+  'dotrandangkhoa17@gmail.com': ['dotrandangkhoa17', 'dotrandangkhoa17-gif', 'khoa.dotrandang', 'dangkhoa', 'khoa', 'member3', 'ai-tutor', 'socratic'],
+  // Đinh Gia Huy
+  'dinhgiahuylol12345@gmail.com': ['dinhgiahuylol12345', 'dinhgiahuy140905', 'giahuy', 'dinhgiahuy', 'huy', 'member4', 'peer audit', 'git-analytics'],
+};
 
-// Helper to parse GitHub owner and repo from various Git URL formats
-export function parseGitHubUrl(repoUrl: string): { owner: string; repo: string } | null {
-  if (!repoUrl) return null;
-  const cleaned = repoUrl.trim().replace(/\.git$/, '');
-  const httpsMatch = cleaned.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-  if (httpsMatch) {
-    return { owner: httpsMatch[1], repo: httpsMatch[2] };
+/**
+ * Intelligent committer-to-member matcher supporting login, email aliases, normalized name, and commit log indicators.
+ */
+function matchCommitAuthor(gc: any, members: Array<{ user_id: number; full_name: string; email: string }>): number | null {
+  const committerEmail = (gc.commit?.author?.email || '').toLowerCase().trim();
+  const committerLogin = (gc.author?.login || '').toLowerCase().trim();
+  const committerName = (gc.commit?.author?.name || '').toLowerCase().trim();
+  const commitMsg = (gc.commit?.message || '').toLowerCase();
+
+  // 1. Exact or prefix match on email
+  for (const m of members) {
+    const memEmail = m.email.toLowerCase().trim();
+    const memUserPart = memEmail.split('@')[0];
+    if (committerEmail && (committerEmail === memEmail || committerEmail.startsWith(memUserPart) || memEmail.includes(committerEmail.split('@')[0]))) {
+      return m.user_id;
+    }
   }
-  const sshMatch = cleaned.match(/github\.com:([^\/]+)\/([^\/]+)/);
-  if (sshMatch) {
-    return { owner: sshMatch[1], repo: sshMatch[2] };
+
+  // 2. Match GitHub login or known aliases
+  for (const m of members) {
+    const memEmail = m.email.toLowerCase().trim();
+    const aliases = GITHUB_USER_ALIASES[memEmail] || [];
+    if (committerLogin && (aliases.includes(committerLogin) || committerLogin.includes(memEmail.split('@')[0]))) {
+      return m.user_id;
+    }
+    if (aliases.some((alias) => committerEmail.includes(alias) || committerName.includes(alias) || committerLogin.includes(alias))) {
+      return m.user_id;
+    }
   }
+
+  // 3. Name similarity / normalization (Vietnamese accents removed)
+  const normalize = (str: string) =>
+    str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const normCommitterName = normalize(committerName);
+  const normCommitterLogin = normalize(committerLogin);
+
+  for (const m of members) {
+    const normMemName = normalize(m.full_name);
+    if (normCommitterName && (normMemName.includes(normCommitterName) || normCommitterName.includes(normMemName))) {
+      return m.user_id;
+    }
+    const words = m.full_name.toLowerCase().split(/\s+/);
+    if (words.length >= 2) {
+      const lastTwo = normalize(words.slice(-2).join(' '));
+      const lastName = normalize(words[words.length - 1]);
+      if (normCommitterName.includes(lastTwo) || normCommitterLogin.includes(lastTwo) || normCommitterLogin.includes(lastName)) {
+        return m.user_id;
+      }
+    }
+  }
+
+  // 4. Commit message patterns (e.g. ai_logs_vy, _vy, etc.)
+  for (const m of members) {
+    const memEmail = m.email.toLowerCase().trim();
+    const aliases = GITHUB_USER_ALIASES[memEmail] || [];
+    for (const alias of aliases) {
+      if (alias.length >= 2 && (commitMsg.includes(`_${alias}`) || commitMsg.includes(`ai_logs_${alias}`) || commitMsg.includes(`/${alias}`))) {
+        return m.user_id;
+      }
+    }
+  }
+
+  // 5. Fallback only if single member
+  if (members.length === 1) {
+    return members[0].user_id;
+  }
+
   return null;
 }
 
@@ -48,12 +106,21 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
   const teamId = Number(req.params.teamId);
 
   try {
-    // 1. Fetch team info and repo_url
+    // 1. Fetch team info and repo_url, support updating repo_url and selecting branch
+    const { branch, repo_url } = req.body || {};
     const teamRes = await pool.query('SELECT team_id, team_name, repo_url FROM teams WHERE team_id = $1', [teamId]);
     if (teamRes.rows.length === 0) {
       return res.status(404).json({ message: 'Team not found' });
     }
     const team = teamRes.rows[0];
+
+    let effectiveRepoUrl = team.repo_url;
+    if (repo_url && typeof repo_url === 'string' && repo_url.trim() && repo_url.trim() !== team.repo_url) {
+      effectiveRepoUrl = repo_url.trim();
+      await pool.query('UPDATE teams SET repo_url = $1 WHERE team_id = $2', [effectiveRepoUrl, teamId]);
+    }
+
+    const targetBranch = (branch && typeof branch === 'string' && branch.trim()) ? branch.trim() : 'main';
 
     // 2. Fetch team members to map GitHub committer emails to users
     const membersRes = await pool.query(
@@ -65,9 +132,9 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
     );
     const members = membersRes.rows;
 
-    const parsed = parseGitHubUrl(team.repo_url);
+    const parsed = parseGitHubUrl(effectiveRepoUrl);
     const octokit = new Octokit({
-      auth: process.env.GITHUB_TOKEN || undefined,
+      auth: process.env.GITHUB_ACCESS_TOKEN || process.env.GITHUB_TOKEN || undefined,
     });
 
     let commitsToUpsert: Array<{
@@ -83,31 +150,36 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
 
     if (parsed) {
       try {
-        const { data: githubCommits } = await octokit.rest.repos.listCommits({
-          owner: parsed.owner,
-          repo: parsed.repo,
-          per_page: 25,
-        });
+        let githubCommits: any[] = [];
+        try {
+          const listRes = await octokit.rest.repos.listCommits({
+            owner: parsed.owner,
+            repo: parsed.repo,
+            sha: targetBranch,
+            per_page: 30,
+          });
+          githubCommits = listRes.data;
+        } catch (branchErr: any) {
+          if (targetBranch !== 'main') {
+            console.warn(`[GitSync] Branch "${targetBranch}" not found, falling back to default branch.`);
+            const fallbackRes = await octokit.rest.repos.listCommits({
+              owner: parsed.owner,
+              repo: parsed.repo,
+              per_page: 30,
+            });
+            githubCommits = fallbackRes.data;
+          } else {
+            throw branchErr;
+          }
+        }
 
         for (const gc of githubCommits) {
           const hash = gc.sha;
           const msg = gc.commit.message || 'Commit from GitHub';
           const committedAt = gc.commit.author?.date ? new Date(gc.commit.author.date) : new Date();
-          const committerEmail = (gc.commit.author?.email || gc.author?.login || '').toLowerCase();
 
-          // Match author to team member
-          let authorUserId: number | null = null;
-          const matchedMember = members.find(
-            (m) =>
-              m.email.toLowerCase() === committerEmail ||
-              committerEmail.includes(m.email.split('@')[0].toLowerCase()) ||
-              (gc.commit.author?.name && m.full_name.toLowerCase().includes(gc.commit.author.name.toLowerCase()))
-          );
-          if (matchedMember) {
-            authorUserId = matchedMember.user_id;
-          } else if (members.length > 0) {
-            authorUserId = members[0].user_id;
-          }
+          // Intelligent committer-to-member matching
+          const authorUserId = matchCommitAuthor(gc, members);
 
           // Fetch detailed commit to apply Noise Filter (BR-07)
           let linesAdded = 0;
@@ -122,18 +194,14 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
 
             if (detail.files && detail.files.length > 0) {
               for (const file of detail.files) {
-                if (!isNoiseFile(file.filename)) {
+                if (isSourceCodeFile(file.filename)) {
                   linesAdded += file.additions || 0;
                   linesDeleted += file.deletions || 0;
                 }
               }
-            } else if (detail.stats) {
-              linesAdded = detail.stats.additions || 0;
-              linesDeleted = detail.stats.deletions || 0;
             }
           } catch (fileErr) {
-            linesAdded = 15;
-            linesDeleted = 5;
+            throw fileErr;
           }
 
           commitsToUpsert.push({
@@ -155,6 +223,18 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
 
     // Fallback seed if GitHub API rate-limited or repository is private/offline
     if (commitsToUpsert.length === 0) {
+      // Check if team already has existing real commits in DB
+      const existingCommits = await pool.query('SELECT COUNT(*)::int as cnt FROM git_commits WHERE team_id = $1', [teamId]);
+      if (existingCommits.rows[0]?.cnt > 0) {
+        return res.status(200).json({
+          message: 'GitHub API tạm thời giới hạn. Hệ thống bảo lưu toàn bộ dữ liệu commit đã xác thực trong cơ sở dữ liệu!',
+          team_id: teamId,
+          source: 'database_preserved',
+          synced_commits_count: existingCommits.rows[0].cnt,
+          noise_filter_applied: true,
+        });
+      }
+
       source = 'simulated_offline';
       const sampleCommits = [
         { msg: '[TV1] feat: core auth, JWT RBAC middleware & Docker setup', linesA: 340, linesD: 45, userIdx: 0, dateOffset: 5 },
@@ -180,17 +260,17 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
       }
     }
 
-    // 3. Upsert commits into database (using message column)
+    // 3. Upsert commits into database (using commit_message column)
     let insertedCount = 0;
     for (const c of commitsToUpsert) {
       await pool.query(
-        `INSERT INTO git_commits (team_id, author_user_id, commit_hash, message, lines_added, lines_deleted, committed_at)
+        `INSERT INTO git_commits (team_id, author_user_id, commit_hash, commit_message, lines_added, lines_deleted, committed_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (commit_hash) DO UPDATE SET
            author_user_id = EXCLUDED.author_user_id,
            lines_added = EXCLUDED.lines_added,
            lines_deleted = EXCLUDED.lines_deleted,
-           message = EXCLUDED.message,
+           commit_message = EXCLUDED.commit_message,
            committed_at = EXCLUDED.committed_at`,
         [teamId, c.authorUserId, c.hash, c.message, c.linesAdded, c.linesDeleted, c.committedAt]
       );
@@ -203,7 +283,13 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
       source,
       synced_commits_count: insertedCount,
       noise_filter_applied: true,
-      filtered_patterns: ['node_modules/', 'package-lock.json', 'dist/', '.next/'],
+      filtered_patterns: [
+        'node_modules/', 'dist/', 'build/', '.next/', 'coverage/',
+        'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb',
+        '*.min.js', '*.map', '.env*', '.DS_Store',
+        '.eslintrc*', '.prettierrc*', 'tsconfig*.json', 'vite.config.*', 'tailwind.config.*',
+        '*.png', '*.jpg', '*.jpeg', '*.svg', '*.ico', '*.webp', '*.woff2',
+      ],
     });
   } catch (error: any) {
     console.error('Error in POST /api/git/:teamId/sync:', error);
@@ -215,7 +301,7 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
  * GET /api/git/:teamId/commits
  * Retrieve commit list and aggregated member contributions with Free-Rider Detection (BR-07)
  */
-router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Response) => {
+const getContributions = async (req: Request, res: Response) => {
   const teamId = Number(req.params.teamId);
 
   try {
@@ -251,13 +337,15 @@ router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Respon
     // 3. Compute Free-Rider metric (BR-07: LOC contribution < 5%)
     const rawMembers = statsRes.rows;
     const teamTotalLinesAdded = rawMembers.reduce((sum, m) => sum + Number(m.total_lines_added), 0);
+    const teamTotalLinesDeleted = rawMembers.reduce((sum, m) => sum + Number(m.total_lines_deleted), 0);
     const teamTotalCommits = rawMembers.reduce((sum, m) => sum + Number(m.total_commits), 0);
     const FREE_RIDER_THRESHOLD_PERCENT = 5.0;
 
     const memberContributions = rawMembers.map((m) => {
       const linesAdded = Number(m.total_lines_added);
+      const linesDeleted = Number(m.total_lines_deleted);
       const percentage = teamTotalLinesAdded > 0 ? (linesAdded / teamTotalLinesAdded) * 100 : 0;
-      const isFreeRider = teamTotalLinesAdded >= 50 && percentage < FREE_RIDER_THRESHOLD_PERCENT;
+      const isFreeRider = teamTotalLinesAdded >= 50 && (percentage < FREE_RIDER_THRESHOLD_PERCENT || Number(m.total_commits) === 0);
 
       return {
         user_id: m.user_id,
@@ -266,19 +354,23 @@ router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Respon
         assigned_module: m.assigned_module,
         total_commits: m.total_commits,
         total_lines_added: linesAdded,
-        total_lines_deleted: Number(m.total_lines_deleted),
+        total_lines_deleted: linesDeleted,
+        net_loc: linesAdded - linesDeleted,
         contribution_percentage: Number(percentage.toFixed(1)),
         is_free_rider: isFreeRider,
         status: isFreeRider ? 'FREE_RIDER_WARNING' : 'NORMAL',
         warning_message: isFreeRider 
-          ? `Cảnh báo BR-07: Đóng góp (${percentage.toFixed(1)}%) thấp hơn ngưỡng tối thiểu 5% của nhóm!` 
+          ? `Cảnh báo BR-07: Đóng góp thấp hơn ngưỡng tối thiểu 5% của nhóm!` 
           : null,
       };
     });
 
+    if (req.path.endsWith('/free-riders')) return res.json({ team_id: teamId, team_total_lines_added: teamTotalLinesAdded, free_riders: memberContributions.filter(m => m.is_free_rider) });
     return res.json({
       team_id: teamId,
       team_total_lines_added: teamTotalLinesAdded,
+      team_total_lines_deleted: teamTotalLinesDeleted,
+      team_total_net_loc: teamTotalLinesAdded - teamTotalLinesDeleted,
       team_total_commits: teamTotalCommits,
       free_rider_threshold_percent: FREE_RIDER_THRESHOLD_PERCENT,
       member_contributions: memberContributions,
@@ -288,6 +380,168 @@ router.get('/:teamId/commits', authenticateJWT, async (req: Request, res: Respon
     console.error('Error fetching git commits:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
-});
+};
+router.get('/:teamId/commits', authenticateJWT, getContributions);
+router.get('/:teamId/free-riders', authenticateJWT, requireRole('LECTURER', 'ADMIN'), getContributions);
+
+/**
+ * GET /api/git/:teamId/team-health
+ * Scorecard "Team Health" hợp nhất Git LOC và điểm đánh giá chéo (BR-09).
+ * Giảng viên 1 và Giảng viên 2 chỉ cần một lời gọi API để thấy toàn cảnh nhóm.
+ */
+const EXCELLENT_LOC_PERCENT = 20;
+const FREE_RIDER_LOC_PERCENT = 5;
+const EXCELLENT_PEER_SCORE = 8;
+const POOR_PEER_SCORE = 5;
+const MIN_TEAM_LOC = 50;
+
+const classifyMember = (
+  contributionPercentage: number,
+  totalCommits: number,
+  averagePeerScore: number | null,
+  teamLocEnough: boolean,
+) => {
+  const hasPeerReviews = averagePeerScore !== null;
+  if (teamLocEnough && (contributionPercentage < FREE_RIDER_LOC_PERCENT || totalCommits === 0)) {
+    return 'FREE_RIDER_WARNING';
+  }
+  if (hasPeerReviews && (averagePeerScore as number) < POOR_PEER_SCORE) return 'POOR_PEER_RATING';
+  if (contributionPercentage >= EXCELLENT_LOC_PERCENT && hasPeerReviews && (averagePeerScore as number) >= EXCELLENT_PEER_SCORE) {
+    return 'EXCELLENT';
+  }
+  return 'NORMAL';
+};
+
+const getTeamHealth = async (req: Request, res: Response) => {
+  const teamId = Number(req.params.teamId);
+
+  if (!Number.isInteger(teamId) || teamId <= 0) {
+    return res.status(400).json({ message: 'teamId must be a positive integer' });
+  }
+
+  try {
+    const teamRes = await pool.query('SELECT team_id, team_name FROM teams WHERE team_id = $1', [teamId]);
+    if (teamRes.rows.length === 0) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    // Sinh viên chỉ được xem scorecard của chính nhóm mình (LECTURER/ADMIN xem mọi nhóm)
+    if (req.user!.role === 'STUDENT') {
+      const membership = await pool.query(
+        'SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2',
+        [teamId, req.user!.userId]
+      );
+      if (membership.rows.length === 0) {
+        return res.status(403).json({ message: 'You can only view the health scorecard of your own team' });
+      }
+    }
+
+    const [statsRes, peerRes] = await Promise.all([
+      pool.query(
+        `SELECT
+           u.user_id,
+           u.full_name,
+           u.email,
+           tm.assigned_module,
+           COUNT(c.commit_id)::int AS total_commits,
+           COALESCE(SUM(c.lines_added), 0)::int AS total_lines_added,
+           COALESCE(SUM(c.lines_deleted), 0)::int AS total_lines_deleted
+         FROM team_members tm
+         JOIN users u ON tm.user_id = u.user_id
+         LEFT JOIN git_commits c ON c.author_user_id = u.user_id AND c.team_id = tm.team_id
+         WHERE tm.team_id = $1
+         GROUP BY u.user_id, u.full_name, u.email, tm.assigned_module
+         ORDER BY total_lines_added DESC`,
+        [teamId]
+      ),
+      pool.query(
+        `SELECT reviewee_id,
+                COUNT(audit_id)::int AS total_reviews,
+                ROUND(AVG(score)::numeric, 2) AS average_score
+         FROM peer_audits
+         WHERE team_id = $1
+         GROUP BY reviewee_id`,
+        [teamId]
+      ),
+    ]);
+
+    const peerStats = new Map<number, { total_reviews: number; average_score: number }>();
+    for (const row of peerRes.rows) {
+      peerStats.set(Number(row.reviewee_id), {
+        total_reviews: Number(row.total_reviews),
+        average_score: Number(row.average_score),
+      });
+    }
+
+    const totalLinesAdded = statsRes.rows.reduce((sum, m) => sum + Number(m.total_lines_added), 0);
+    const totalLinesDeleted = statsRes.rows.reduce((sum, m) => sum + Number(m.total_lines_deleted), 0);
+    const teamLocEnough = totalLinesAdded >= MIN_TEAM_LOC;
+
+    const members = statsRes.rows.map((m) => {
+      const linesAdded = Number(m.total_lines_added);
+      const linesDeleted = Number(m.total_lines_deleted);
+      const totalCommits = Number(m.total_commits);
+      // Phan loai BR-07 bang ty le GOC, chi lam tron khi tra ve response
+      const rawContributionPercentage = totalLinesAdded > 0 ? (linesAdded / totalLinesAdded) * 100 : 0;
+      const contributionPercentage = Number(rawContributionPercentage.toFixed(1));
+      const peer = peerStats.get(Number(m.user_id));
+      const averagePeerScore = peer ? peer.average_score : null;
+      const isFreeRider = teamLocEnough && (rawContributionPercentage < FREE_RIDER_LOC_PERCENT || totalCommits === 0);
+      const label = classifyMember(rawContributionPercentage, totalCommits, averagePeerScore, teamLocEnough);
+
+      return {
+        user_id: m.user_id,
+        full_name: m.full_name,
+        email: m.email,
+        assigned_module: m.assigned_module,
+        total_commits: totalCommits,
+        total_lines_added: linesAdded,
+        total_lines_deleted: linesDeleted,
+        net_loc: linesAdded - linesDeleted,
+        contribution_percentage: contributionPercentage,
+        is_free_rider: isFreeRider,
+        average_peer_score: averagePeerScore,
+        peer_reviews_count: peer ? peer.total_reviews : 0,
+        health_label: label,
+      };
+    });
+
+    const freeRiderCount = members.filter((m) => m.health_label === 'FREE_RIDER_WARNING').length;
+    const poorPeerCount = members.filter((m) => m.health_label === 'POOR_PEER_RATING').length;
+    const excellentCount = members.filter((m) => m.health_label === 'EXCELLENT').length;
+
+    return res.json({
+      team_id: teamId,
+      team_name: teamRes.rows[0].team_name,
+      generated_at: new Date().toISOString(),
+      thresholds: {
+        min_team_loc: MIN_TEAM_LOC,
+        free_rider_loc_percent: FREE_RIDER_LOC_PERCENT,
+        excellent_loc_percent: EXCELLENT_LOC_PERCENT,
+        excellent_peer_score: EXCELLENT_PEER_SCORE,
+        poor_peer_score: POOR_PEER_SCORE,
+      },
+      team_totals: {
+        total_lines_added: totalLinesAdded,
+        total_lines_deleted: totalLinesDeleted,
+        net_loc: totalLinesAdded - totalLinesDeleted,
+        total_commits: members.reduce((sum, m) => sum + m.total_commits, 0),
+      },
+      team_status: freeRiderCount > 0 || poorPeerCount > 0 ? 'AT_RISK' : 'HEALTHY',
+      summary: {
+        member_count: members.length,
+        free_rider_count: freeRiderCount,
+        poor_peer_rating_count: poorPeerCount,
+        excellent_count: excellentCount,
+      },
+      members,
+    });
+  } catch (error: any) {
+    console.error('Error building team health scorecard:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+router.get('/:teamId/team-health', authenticateJWT, requireRole('LECTURER', 'ADMIN', 'STUDENT'), getTeamHealth);
 
 export default router;

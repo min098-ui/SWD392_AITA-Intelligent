@@ -2,7 +2,8 @@
 
 import React, { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import AitaLogo from '../../../components/AitaLogo';
 
 function CallbackContent() {
   const router = useRouter();
@@ -49,18 +50,7 @@ function CallbackContent() {
       color: 'var(--text-main)',
       gap: '16px',
     }}>
-      <div style={{
-        background: 'var(--accent-gradient)',
-        width: '56px',
-        height: '56px',
-        borderRadius: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: 'var(--shadow-neon)',
-      }}>
-        <Bot size={30} color="#fff" />
-      </div>
+      <AitaLogo size={60} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.05rem', fontWeight: 600 }}>
         <Loader2 size={20} className="animate-spin" color="var(--accent-cyan)" />
         <span>Đang hoàn tất xác thực đăng nhập...</span>

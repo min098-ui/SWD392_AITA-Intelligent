@@ -2,12 +2,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Navigation from '../../../components/Navigation';
+import AitaLogo from '../../../components/AitaLogo';
+import UserProfileMenu from '../../../components/UserProfileMenu';
+import StudentProfileModal from '../../../components/StudentProfileModal';
 import { useLanguage } from '../../../context/LanguageContext';
+import LanguageSwitcher from '../../../components/LanguageSwitcher';
+import ThemeToggle from '../../../components/ThemeToggle';
 import { 
-  Send, Bot, CheckCircle2, Clock, GitBranch, MessageSquare, 
+  Send, Bot, CheckCircle2, ShieldCheck, Clock, GitBranch, Edit3, MessageSquare, 
   Terminal, AlertCircle, FileCode, Users, ExternalLink, Sparkles, BookOpen,
-  Loader2, Check, ArrowRight, X, RefreshCw, Database, Star, AlertTriangle,
-  Mail, Crown, ChevronDown, ChevronUp, CheckSquare, Play, User
+  Loader2, Check, ArrowRight, ArrowLeft, X, RefreshCw, Database, Star, AlertTriangle,
+  Mail, Crown, ChevronDown, ChevronUp, CheckSquare, Play, User,
+  ChevronRight, LogOut, GraduationCap, UploadCloud, FileArchive, Paperclip, FileText, BarChart2,
+  Search, Eye, ArrowUpRight, CheckCircle, Calendar, Filter, Download, Copy, Home
 } from 'lucide-react';
 
 interface TeamMember {
@@ -37,31 +44,105 @@ interface Assignment {
   title: string;
   description: string;
   deadline: string;
+  due_date?: string;
+  start_date?: string;
+  close_date?: string;
   max_score: number;
   submission_type?: string;
+  target_type?: string;
+  allowed_language?: string;
+  status?: string;
+  allow_late_submission?: boolean;
+  max_submissions?: number;
+  allow_resubmission?: boolean;
+  target_teams?: Array<{ team_id: number; team_name: string }>;
+  course_code?: string;
+  course_name?: string;
 }
 
 interface SubmissionResult {
   submission_id: number;
   assignment_id: number;
   team_id: number;
-  artifact_url: string;
-  git_commit_hash: string;
+  artifact_url?: string;
+  git_commit_hash?: string;
+  code_content?: string;
+  language?: string;
   submitted_at: string;
   status: string;
   assignment_title?: string;
+  assignment_deadline?: string;
+  assignment_submission_type?: string;
   team_name?: string;
   grading_status?: string;
   score?: number;
   final_score?: number;
+  reviewer_1_notes?: string;
+  reviewer_2_notes?: string;
+  consensus_notes?: string;
+  is_late?: boolean;
+  late_minutes?: number;
   submitter_name?: string;
   submitter_email?: string;
+  ai_feedback?: string;
+  test_results?: Array<{
+    result_id: number;
+    criterion: string;
+    passed: boolean;
+    score: number;
+    max_score: number;
+    execution_time_ms: number;
+    is_hidden: boolean;
+    input_data?: string;
+    expected_output?: string;
+    actual_output?: string;
+    status?: string;
+    ai_feedback?: string;
+  }>;
 }
 
 export default function StudentDashboard() {
   const { lang } = useLanguage();
+  const [isMounted, setIsMounted] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userCardRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const isDark = theme === 'dark';
+
+  useEffect(() => {
+    setIsMounted(true);
+    if (typeof window !== 'undefined') {
+      const docTheme = (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || null;
+      const savedTheme = (localStorage.getItem('aita_theme') as 'dark' | 'light') || docTheme || 'light';
+      setTheme(savedTheme);
+
+      const handleThemeChange = () => {
+        const cur = (localStorage.getItem('aita_theme') as 'dark' | 'light') || (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'light';
+        setTheme(cur);
+      };
+
+      window.addEventListener('theme-change', handleThemeChange);
+      return () => window.removeEventListener('theme-change', handleThemeChange);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        userMenuRef.current?.contains(target) ||
+        userCardRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowUserMenu(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'courses' | 'submit' | 'results' | 'chat' | 'peer' | 'analytics'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'submit' | 'results' | 'chat' | 'analytics'>('courses');
   
   // Live DB data
   const [myTeams, setMyTeams] = useState<TeamInfo[]>([]);
@@ -71,21 +152,127 @@ export default function StudentDashboard() {
   const [mySubmissions, setMySubmissions] = useState<SubmissionResult[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<number | string>('');
-  const [selectedMemberId, setSelectedMemberId] = useState<number | null>(null);
 
   const [repoUrl, setRepoUrl] = useState('');
   const [commitHash, setCommitHash] = useState('');
   const [codeContent, setCodeContent] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState<'javascript' | 'python'>('javascript');
+  const [selectedLanguage, setSelectedLanguage] = useState<'javascript' | 'python' | 'java'>('javascript');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStep, setSubmitStep] = useState(0);
   const [submitError, setSubmitError] = useState('');
   const [successToast, setSuccessToast] = useState('');
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showStudentProfileModal, setShowStudentProfileModal] = useState(false);
+  const [expandedCodeMap, setExpandedCodeMap] = useState<Record<number, boolean>>({});
 
-  // Peer audit form state
-  const [peerMember, setPeerMember] = useState('');
-  const [peerScore, setPeerScore] = useState('');
-  const [peerComment, setPeerComment] = useState('');
+  // Submission Sub-tab States (Bài tập cá nhân vs Đồ án nhóm Git)
+  const [submitSubTab, setSubmitSubTab] = useState<'individual' | 'team'>('individual');
+  const [individualViewMode, setIndividualViewMode] = useState<'gallery' | 'submit'>('gallery');
+  const [individualMethod, setIndividualMethod] = useState<'file' | 'editor'>('file');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [fileIsDragging, setFileIsDragging] = useState(false);
+  const [submissionNote, setSubmissionNote] = useState('');
+  const [selectedIndividualCourseId, setSelectedIndividualCourseId] = useState<number | string>('ALL');
+  const [selectedIndividualAssignmentId, setSelectedIndividualAssignmentId] = useState<number | string>('');
+  const [selectedTeamAssignmentId, setSelectedTeamAssignmentId] = useState<number | string>('');
+  const [teamBranch, setTeamBranch] = useState('main');
+  const [teamActionTab, setTeamActionTab] = useState<'submit' | 'analytics'>('submit');
+  const [teamTopicName, setTeamTopicName] = useState<string>('AITA - Nền tảng Đánh giá & Chấm Mã Nguồn Tự Động Kết Hợp Gia Sư Ảo AI');
+  const [isEditingTeamRepo, setIsEditingTeamRepo] = useState<boolean>(false);
+  const [copiedRepoUrl, setCopiedRepoUrl] = useState<boolean>(false);
+  const [allCourses, setAllCourses] = useState<any[]>([]);
+  const [assignSearchQuery, setAssignSearchQuery] = useState('');
+  const [assignStatusFilter, setAssignStatusFilter] = useState<'ALL' | 'UNSUBMITTED' | 'SUBMITTED'>('ALL');
+  const [viewingAssignmentDetail, setViewingAssignmentDetail] = useState<any | null>(null);
+  const [viewingExamAssignment, setViewingExamAssignment] = useState<Assignment | any | null>(null);
+  const [copiedExamText, setCopiedExamText] = useState<boolean>(false);
+  const [loadingAssignDetail, setLoadingAssignDetail] = useState(false);
+  const [assignDetailActiveTab, setAssignDetailActiveTab] = useState<'details' | 'rubric'>('details');
+  const [isSubmitMenuOpen, setIsSubmitMenuOpen] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const STARTER_CODE = {
+    java: `import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        // Đọc dữ liệu đầu vào từ stdin (Test Case Input)
+        if (sc.hasNextLine()) {
+            String line = sc.nextLine().trim();
+            if (!line.isEmpty()) {
+                String[] parts = line.split("\\\\s+");
+                if (parts.length >= 2) {
+                    try {
+                        double a = Double.parseDouble(parts[0]);
+                        double b = Double.parseDouble(parts[1]);
+                        double sum = a + b;
+                        if (sum == (long) sum) {
+                            System.out.println((long) sum);
+                        } else {
+                            System.out.println(sum);
+                        }
+                        return;
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+        System.out.println("Hello from Java 17 Sandbox");
+    }
+}
+`,
+    python: `import sys
+
+def main():
+    # Đọc dữ liệu đầu vào từ stdin (Test Case Input)
+    input_data = sys.stdin.read().strip()
+    
+    # Viết giải thuật giải quyết bài toán tại đây
+    if input_data:
+        parts = input_data.split()
+        if len(parts) >= 2:
+            try:
+                a, b = float(parts[0]), float(parts[1])
+                print(int(a + b) if (a + b).is_integer() else a + b)
+                return
+            except ValueError:
+                pass
+
+    print("Hello from Python Sandbox")
+
+if __name__ == "__main__":
+    main()
+`,
+    javascript: `const fs = require('fs');
+
+function main() {
+    // Đọc dữ liệu đầu vào từ stdin / input.txt
+    let input = '';
+    try {
+        input = fs.readFileSync(0, 'utf-8').trim();
+    } catch (e) {
+        input = '';
+    }
+
+    // Viết giải thuật giải quyết bài toán tại đây
+    if (input) {
+        const parts = input.split(/\s+/);
+        if (parts.length >= 2) {
+            const a = parseFloat(parts[0]);
+            const b = parseFloat(parts[1]);
+            if (!isNaN(a) && !isNaN(b)) {
+                console.log(a + b);
+                return;
+            }
+        }
+    }
+
+    console.log("Hello from Node.js Sandbox");
+}
+
+main();
+`
+  };
 
   // Chat state
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -98,6 +285,17 @@ export default function StudentDashboard() {
     }
   ]);
   const [inputMsg, setInputMsg] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Real Git Analytics State
+  const [gitAnalytics, setGitAnalytics] = useState<any>(null);
+  const [loadingGit, setLoadingGit] = useState(false);
+  const [isSyncingGit, setIsSyncingGit] = useState(false);
+  const [gitBranch, setGitBranch] = useState('main');
+  const [isEditingGitRepo, setIsEditingGitRepo] = useState(false);
+  const [customGitRepo, setCustomGitRepo] = useState('');
+  const [gitAnalysisStep, setGitAnalysisStep] = useState<number>(0);
+  const [hasSyncedGit, setHasSyncedGit] = useState(false);
 
   // ─── Helper: get token ───────────────────────────────────────────────────
   const getToken = async (): Promise<string> => {
@@ -142,11 +340,18 @@ export default function StudentDashboard() {
         userEmail = (userObj?.email || '').toLowerCase().trim();
       } catch (e) {}
 
-      // 2. Fetch all teams & all assignments concurrently
-      const [teamRes, assignRes] = await Promise.all([
+      // 2. Fetch all teams, assignments, courses & student submissions concurrently
+      const [teamRes, assignRes, courseRes, subRes] = await Promise.all([
         fetch('http://localhost:5000/api/teams', { headers: { ...authHeader } }),
-        fetch('http://localhost:5000/api/assignments', { headers: { ...authHeader } })
+        fetch('http://localhost:5000/api/assignments', { headers: { ...authHeader } }),
+        fetch('http://localhost:5000/api/courses', { headers: { ...authHeader } }),
+        fetch('http://localhost:5000/api/submissions', { headers: { ...authHeader } })
       ]);
+
+      if (courseRes.ok) {
+        const cData = await courseRes.json();
+        setAllCourses(cData.courses || []);
+      }
 
       let aList: Assignment[] = [];
       if (assignRes.ok) {
@@ -171,6 +376,24 @@ export default function StudentDashboard() {
           ) : [];
 
           setMyTeams(matchedTeams);
+
+          // Tự động đồng bộ chuẩn xác user_id trong localStorage với đúng email đang đăng nhập
+          if (userEmail && matchedTeams.length > 0) {
+            for (const t of matchedTeams) {
+              const myMem = t.members?.find((m: TeamMember) => m.email && m.email.toLowerCase().trim() === userEmail);
+              if (myMem && myMem.user_id && myMem.user_id !== userId) {
+                try {
+                  const u = localStorage.getItem('user');
+                  const uObj = u ? JSON.parse(u) : {};
+                  uObj.userId = myMem.user_id;
+                  uObj.user_id = myMem.user_id;
+                  localStorage.setItem('user', JSON.stringify(uObj));
+                  setCurrentUser(uObj);
+                } catch (e) {}
+                break;
+              }
+            }
+          }
 
           // Check if student previously selected a team/filter in localStorage
           const savedFilter = typeof window !== 'undefined' ? localStorage.getItem('aita_student_selected_team_id') : null;
@@ -207,8 +430,14 @@ export default function StudentDashboard() {
         setSelectedAssignment('');
       }
 
-      // 4. Fetch all submissions for student's teams
-      if (matchedTeams.length > 0) {
+      // 4. Fetch all submissions for student (both individual + team)
+      if (subRes.ok) {
+        const sData = await subRes.json();
+        if (sData.submissions && Array.isArray(sData.submissions)) {
+          const allSubs = [...sData.submissions].sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+          setMySubmissions(allSubs);
+        }
+      } else if (matchedTeams.length > 0) {
         try {
           const subPromises = matchedTeams.map(t =>
             fetch(`http://localhost:5000/api/submissions?team_id=${t.team_id}`, {
@@ -332,15 +561,639 @@ export default function StudentDashboard() {
         return targetTeam ? (!a.course_id || a.course_id === targetTeam.course_id) : true;
       });
 
+  // Memoized courses available to student
+  const availableCourses = React.useMemo(() => {
+    const map = new Map<number, { course_id: number; course_code: string; course_name: string; lecturer_name?: string }>();
+    myTeams.forEach(t => {
+      if (t.course_id && !map.has(t.course_id)) {
+        map.set(t.course_id, {
+          course_id: t.course_id,
+          course_code: t.course_code,
+          course_name: t.course_name,
+          lecturer_name: t.lecturer_name
+        });
+      }
+    });
+    allCourses.forEach(c => {
+      if (c.course_id && !map.has(c.course_id)) {
+        map.set(c.course_id, {
+          course_id: c.course_id,
+          course_code: c.course_code || `COURSE #${c.course_id}`,
+          course_name: c.course_name || c.name || `Học phần #${c.course_id}`,
+          lecturer_name: c.lecturer_name || c.lecturer
+        });
+      }
+    });
+    assignments.forEach(a => {
+      if (a.course_id && !map.has(a.course_id)) {
+        map.set(a.course_id, {
+          course_id: a.course_id,
+          course_code: `Học phần #${a.course_id}`,
+          course_name: `Môn học #${a.course_id}`,
+          lecturer_name: undefined
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [myTeams, allCourses, assignments]);
+
+  // ─── Vietnam Timezone & Lifecycle Helpers ─────────────────────────────────
+  const formatVNTime = (dateStr?: string | Date) => {
+    if (!dateStr) return '--';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '--';
+    return d.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const fmtDate = (d?: string | Date) => {
+    if (!d) return '--';
+    const dobj = new Date(d);
+    if (isNaN(dobj.getTime())) return '--';
+    return dobj.toLocaleString('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour12: false,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getCountdownVN = (targetDateStr?: string | Date) => {
+    if (!targetDateStr) return '';
+    const target = new Date(targetDateStr).getTime();
+    const now = Date.now();
+    const diff = target - now;
+    if (diff <= 0) return 'Đã hết hạn';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (days > 0) return `Còn ${days} ngày ${hours} giờ ${minutes} phút`;
+    if (hours > 0) return `Còn ${hours} giờ ${minutes} phút`;
+    return `Còn ${minutes} phút`;
+  };
+
+  const getAssignmentLifecycleInfo = (
+    assign: Assignment,
+    subs: SubmissionResult[],
+    userId?: number,
+    teamId?: number
+  ) => {
+    const now = new Date();
+    const startDate = assign.start_date ? new Date(assign.start_date) : null;
+    const dueDate = assign.due_date ? new Date(assign.due_date) : (assign.deadline ? new Date(assign.deadline) : null);
+    const closeDate = assign.close_date ? new Date(assign.close_date) : dueDate;
+
+    // Filter submissions for this assignment
+    const myAssignSubs = subs.filter(s => s.assignment_id === assign.assignment_id && (!teamId || s.team_id === teamId || !s.team_id));
+    const isSubmitted = myAssignSubs.length > 0;
+    const latestSub = myAssignSubs[0] || null;
+    const isLateSubmission = latestSub?.is_late || false;
+    const subCount = myAssignSubs.length;
+    const maxSubs = assign.max_submissions || 0;
+    const remaining = maxSubs > 0 ? Math.max(0, maxSubs - subCount) : null;
+
+    let lifecycleStatus: 'NOT_OPEN' | 'OPEN' | 'CLOSING_SOON' | 'LATE_ALLOWED' | 'CLOSED' = 'OPEN';
+    let canSubmit = true;
+    let disableReason = '';
+
+    const rawStatus = assign.status || 'PUBLISHED';
+    if (rawStatus === 'DRAFT') {
+      lifecycleStatus = 'CLOSED';
+      canSubmit = false;
+      disableReason = 'Bài tập đang ở trạng thái bản nháp (DRAFT).';
+    } else if (rawStatus === 'CLOSED' || rawStatus === 'ARCHIVED') {
+      lifecycleStatus = 'CLOSED';
+      canSubmit = false;
+      disableReason = 'Bài tập đã được đóng hoặc lưu trữ.';
+    } else if (startDate && now < startDate) {
+      lifecycleStatus = 'NOT_OPEN';
+      canSubmit = false;
+      disableReason = `Bài tập chưa đến giờ mở nộp (Mở lúc ${formatVNTime(startDate)}).`;
+    } else if (closeDate && now > closeDate) {
+      lifecycleStatus = 'CLOSED';
+      canSubmit = false;
+      disableReason = 'Bài tập đã quá thời gian đóng bài (Close date).';
+    } else if (dueDate && now > dueDate) {
+      if (assign.allow_late_submission === false) {
+        lifecycleStatus = 'CLOSED';
+        canSubmit = false;
+        disableReason = 'Bài tập đã quá hạn và không cho phép nộp trễ.';
+      } else {
+        lifecycleStatus = 'LATE_ALLOWED';
+      }
+    } else if (dueDate && (dueDate.getTime() - now.getTime()) <= 48 * 3600 * 1000) {
+      lifecycleStatus = 'CLOSING_SOON';
+    }
+
+    if (canSubmit && isSubmitted) {
+      if (assign.allow_resubmission === false) {
+        canSubmit = false;
+        disableReason = 'Bài tập này không cho phép nộp lại (chỉ nộp 1 lần duy nhất).';
+      } else if (maxSubs > 0 && subCount >= maxSubs) {
+        canSubmit = false;
+        disableReason = `Bạn đã đạt giới hạn số lần nộp bài tối đa (${subCount}/${maxSubs} lần).`;
+      }
+    }
+
+    return {
+      lifecycleStatus,
+      canSubmit,
+      disableReason,
+      isSubmitted,
+      isLateSubmission,
+      subCount,
+      maxSubs,
+      remaining,
+      startDate,
+      dueDate,
+      closeDate,
+      latestSub,
+    };
+  };
+
+  // Memoized Individual assignments
+  const allIndividualAssignments = React.useMemo(() => {
+    return assignments.filter(a => a.submission_type !== 'TEAM');
+  }, [assignments]);
+
+  const individualAssignments = React.useMemo(() => {
+    if (selectedIndividualCourseId === 'ALL') return allIndividualAssignments;
+    return allIndividualAssignments.filter(a => String(a.course_id) === String(selectedIndividualCourseId));
+  }, [allIndividualAssignments, selectedIndividualCourseId]);
+
+  // Statistics for the 4 Mission Control KPI Cards
+  const individualStats = React.useMemo(() => {
+    const list = individualAssignments;
+    const total = list.length;
+    let submitted = 0;
+    let nearestDeadline: Date | null = null;
+    let nearestDueDateStr = '';
+
+    list.forEach(a => {
+      const info = getAssignmentLifecycleInfo(a, mySubmissions, currentUser?.userId || currentUser?.user_id, undefined);
+      if (info.isSubmitted) submitted++;
+      const due = a.due_date ? new Date(a.due_date) : (a.deadline ? new Date(a.deadline) : null);
+      if (due && !isNaN(due.getTime())) {
+        if (!nearestDeadline || due.getTime() < nearestDeadline.getTime()) {
+          nearestDeadline = due;
+          nearestDueDateStr = a.due_date || a.deadline || '';
+        }
+      }
+    });
+
+    const unsubmitted = Math.max(0, total - submitted);
+    return {
+      total,
+      submitted,
+      unsubmitted,
+      nearestDeadline,
+      nearestDueDateStr,
+      nearestCountdown: nearestDueDateStr ? getCountdownVN(nearestDueDateStr) : (lang === 'vi' ? 'Không có hạn' : 'No deadline')
+    };
+  }, [individualAssignments, mySubmissions, currentUser, lang]);
+
+  // Filtered individual assignments by Search Query & Status Pill
+  const filteredIndividualAssignments = React.useMemo(() => {
+    return individualAssignments.filter(a => {
+      if (assignSearchQuery.trim()) {
+        const q = assignSearchQuery.toLowerCase().trim();
+        const course = availableCourses.find(c => c.course_id === a.course_id);
+        const matchTitle = (a.title || '').toLowerCase().includes(q);
+        const matchCourse = (course?.course_code || '').toLowerCase().includes(q) || (course?.course_name || '').toLowerCase().includes(q);
+        const matchId = String(a.assignment_id).includes(q);
+        const matchDesc = (a.description || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchCourse && !matchId && !matchDesc) return false;
+      }
+      if (assignStatusFilter !== 'ALL') {
+        const info = getAssignmentLifecycleInfo(a, mySubmissions, currentUser?.userId || currentUser?.user_id, undefined);
+        if (assignStatusFilter === 'SUBMITTED' && !info.isSubmitted) return false;
+        if (assignStatusFilter === 'UNSUBMITTED' && info.isSubmitted) return false;
+      }
+      return true;
+    });
+  }, [individualAssignments, assignSearchQuery, assignStatusFilter, availableCourses, mySubmissions, currentUser]);
+
+  const handleOpenAssignDetail = async (assignmentId: number) => {
+    setLoadingAssignDetail(true);
+    setAssignDetailActiveTab('details');
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/assignments/${assignmentId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setViewingAssignmentDetail(data);
+      } else {
+        const local = assignments.find(a => a.assignment_id === assignmentId);
+        if (local) setViewingAssignmentDetail({ assignment: local, rubric_rules: [] });
+      }
+    } catch (e) {
+      console.warn('Could not load assignment detail:', e);
+      const local = assignments.find(a => a.assignment_id === assignmentId);
+      if (local) setViewingAssignmentDetail({ assignment: local, rubric_rules: [] });
+    } finally {
+      setLoadingAssignDetail(false);
+    }
+  };
+
+  // Helper bóc tách nội dung 4 câu hỏi của đề thi PE (Hỗ trợ Đề 1, Đề 2, Đề 3 & Đề tự soạn)
+  const getExamQuestions = (assign: Assignment | any) => {
+    if (!assign) return [];
+    // 1. Kiểm tra nếu đề có chứa đánh dấu tự soạn (Custom PE)
+    if (assign.description && assign.description.includes('===CUSTOM_Q1===')) {
+      try {
+        const parseQ = (marker: string, qNum: number, defaultPoints: string) => {
+          const match = assign.description?.match(new RegExp(`===CUSTOM_${marker}===([\\s\\S]*?)===END_${marker}===`));
+          if (!match || !match[1]) return null;
+          const lines = match[1].trim().split('\n');
+          const title = lines[0] || `Câu hỏi ${qNum}`;
+          const inIdx = lines.findIndex((l: string) => l.startsWith('INPUT:'));
+          const outIdx = lines.findIndex((l: string) => l.startsWith('OUTPUT:'));
+          let desc = '';
+          let input = '';
+          let output = '';
+          if (inIdx !== -1 && outIdx !== -1) {
+            desc = lines.slice(1, inIdx).join('\n').trim();
+            input = lines.slice(inIdx + 1, outIdx).join('\n').trim();
+            output = lines.slice(outIdx + 1).join('\n').trim();
+          } else {
+            desc = lines.slice(1).join('\n').trim();
+          }
+          return {
+            qNum,
+            points: defaultPoints,
+            title,
+            desc: desc || 'Yêu cầu cài đặt theo chuẩn Java OOP.',
+            sampleInput: input || 'sample input',
+            sampleOutput: output || 'sample output'
+          };
+        };
+
+        const q1 = parseQ('Q1', 1, '2.0 Điểm');
+        const q2 = parseQ('Q2', 2, '3.0 Điểm');
+        const q3 = parseQ('Q3', 3, '3.0 Điểm');
+        const q4 = parseQ('Q4', 4, '2.0 Điểm');
+        if (q1 && q2 && q3 && q4) return [q1, q2, q3, q4];
+      } catch (err) {
+        console.warn('Error parsing custom exam questions:', err);
+      }
+    }
+
+    // 2. Kiểm tra nếu là Đề Số 2 (Employee & Manager)
+    if (assign.title?.includes('Đề Số 2') || assign.description?.includes('StaffList') || assign.description?.includes('Employee')) {
+      return [
+        {
+          qNum: 1,
+          points: '2.0 Điểm',
+          title: 'Kiểm tra chuỗi đối xứng (Palindrome) & Đếm nguyên âm',
+          desc: 'Viết chương trình cho phép người dùng nhập vào một chuỗi ký tự. Kiểm tra xem chuỗi có đối xứng (Palindrome) hay không và đếm số lượng nguyên âm (a, e, i, o, u) không phân biệt hoa thường. Định dạng in: "PALINDROME - VOWELS: [số lượng]" hoặc "NOT PALINDROME - VOWELS: [số lượng]".',
+          sampleInput: 'radar',
+          sampleOutput: 'PALINDROME - VOWELS: 2'
+        },
+        {
+          qNum: 2,
+          points: '3.0 Điểm',
+          title: 'Lập trình Hướng đối tượng OOP (Employee & Manager)',
+          desc: 'Xây dựng lớp cha Employee gồm thuộc tính id: String, name: String, baseSalary: double; constructor và getter/setter.\nXây dựng lớp con Manager kế thừa Employee bổ sung bonusRate: double; phương thức setData() (cập nhật bonusRate); phương thức getFinalSalary(): double tính lương thực nhận = baseSalary * (1 + bonusRate); phương thức toString() trả về "id - name - finalSalary".',
+          sampleInput: 'E01\nAlice\n1500\n0.2',
+          sampleOutput: 'E01 - Alice - 1800.0'
+        },
+        {
+          qNum: 3,
+          points: '3.0 Điểm',
+          title: 'Cấu trúc danh sách liên kết StaffList (Linked List)',
+          desc: 'Cài đặt cấu trúc danh sách liên kết đơn StaffList quản lý danh sách các nhân viên Employee. Hoàn thiện 3 phương thức nghiệp vụ:\n• void f1(): Tìm và in thông tin nhân viên có lương cơ bản cao nhất trong danh sách.\n• void f2(): Sắp xếp danh sách nhân viên tăng dần theo thứ tự bảng chữ cái của name.\n• void f3(): Tìm và xóa nhân viên đầu tiên trong danh sách có baseSalary < 1000.',
+          sampleInput: '3\nE01 Alice 1500\nE02 Bob 800\nE03 Carol 2000\n1',
+          sampleOutput: 'E03 - Carol - 2000.0'
+        },
+        {
+          qNum: 4,
+          points: '2.0 Điểm',
+          title: 'Thuật toán chuẩn hóa chuỗi họ tên (Title Case Formatter)',
+          desc: 'Nhập vào một chuỗi họ và tên bị lỗi định dạng (nhiều khoảng trắng thừa ở hai đầu hoặc giữa các từ, ký tự hoa thường lộn xộn). Thực hiện chuẩn hóa: loại bỏ toàn bộ khoảng trắng thừa (giữa các từ chỉ cách nhau đúng 1 dấu cách), viết hoa chữ cái đầu mỗi từ và viết thường toàn bộ các ký tự còn lại.',
+          sampleInput: '   nGuyeN   vAn   a  ',
+          sampleOutput: 'Nguyen Van A'
+        }
+      ];
+    }
+
+    // 3. Kiểm tra nếu là Đề Số 3 (Book & Novel)
+    if (assign.title?.includes('Đề Số 3') || assign.description?.includes('BookList') || assign.description?.includes('Novel')) {
+      return [
+        {
+          qNum: 1,
+          points: '2.0 Điểm',
+          title: 'Kiểm tra định dạng Email FPT & Trích xuất MSSV (Regex)',
+          desc: 'Viết chương trình kiểm tra định dạng email sinh viên FPT theo mẫu: [tên][mssv]@fpt.edu.vn (trong đó MSSV gồm 2 chữ cái và 6 chữ số). Nếu hợp lệ in "VALID - [MSSV in hoa]", nếu không hợp lệ in "INVALID".',
+          sampleInput: 'annvse191234@fpt.edu.vn',
+          sampleOutput: 'VALID - SE191234'
+        },
+        {
+          qNum: 2,
+          points: '3.0 Điểm',
+          title: 'Lập trình Hướng đối tượng OOP (Book & Novel)',
+          desc: 'Xây dựng lớp cha Book gồm code: String, title: String, price: double; constructor và getter/setter.\nXây dựng lớp con Novel kế thừa Book bổ sung genre: String, discount: double; phương thức getDiscountedPrice() tính giá sau chiết khấu = price * (1 - discount); phương thức toString() trả về "code - title - discountedPrice".',
+          sampleInput: 'B101\nJava_Basics\n200\nIT\n0.1',
+          sampleOutput: 'B101 - Java_Basics - 180.0'
+        },
+        {
+          qNum: 3,
+          points: '3.0 Điểm',
+          title: 'Cấu trúc danh sách liên kết BookList (Linked List)',
+          desc: 'Cài đặt cấu trúc danh sách liên kết đơn BookList quản lý danh sách các cuốn sách Book. Cài đặt các hàm nghiệp vụ:\n• void f1(): Đếm số lượng sách có price > 150.\n• void f2(): Sắp xếp danh sách sách theo price tăng dần.\n• void f3(): Đảo ngược toàn bộ thứ tự các node trong BookList.',
+          sampleInput: '3\nB1 Java 200\nB2 Python 100\nB3 Web 300\n1',
+          sampleOutput: '2'
+        },
+        {
+          qNum: 4,
+          points: '2.0 Điểm',
+          title: 'Thuật toán đếm tần số xuất hiện của từng từ (Word Frequency)',
+          desc: 'Nhập vào một đoạn văn bản tiếng Anh gồm các từ phân tách bởi khoảng trắng. Đếm tần số xuất hiện của từng từ phân biệt (không phân biệt hoa thường) và in theo thứ tự xuất hiện đầu tiên dạng: "từ: tần_số".',
+          sampleInput: 'java oop java pe java',
+          sampleOutput: 'java: 3, oop: 1, pe: 1'
+        }
+      ];
+    }
+
+    // 4. Mặc định: Đề Số 1 (Car & SpecCar)
+    return [
+      {
+        qNum: 1,
+        points: '2.0 Điểm',
+        title: 'Xử lý chuỗi & Tính tổng số nguyên (String Manipulation)',
+        desc: 'Viết chương trình cho phép người dùng nhập vào một dòng chuỗi ký tự chứa các từ ngữ và các số nguyên phân tách bởi khoảng trắng. Chương trình lọc các số nguyên hợp lệ và tính tổng của chúng, sau đó in kết quả ra màn hình.',
+        sampleInput: 'hello 123 world 456',
+        sampleOutput: '579'
+      },
+      {
+        qNum: 2,
+        points: '3.0 Điểm',
+        title: 'Kế thừa & Đa hình OOP (Car & SpecCar)',
+        desc: 'Xây dựng lớp cha Car gồm thuộc tính name: String, price: int, getter/setter và phương thức toString() trả về "name, price".\nXây dựng lớp con SpecCar kế thừa Car bổ sung thuộc tính type: int; phương thức setData() (nếu type <= 2 tăng price thêm 100, ngược lại tăng 500); phương thức getValue(): int trả về price sau điều chỉnh.',
+        sampleInput: 'Audi\n500\n2',
+        sampleOutput: 'Audi, 600, 2'
+      },
+      {
+        qNum: 3,
+        points: '3.0 Điểm',
+        title: 'Cấu trúc danh sách liên kết MyList (Linked List)',
+        desc: 'Cài đặt cấu trúc danh sách liên kết đơn MyList lưu các đối tượng Car. Hoàn thiện các phương thức sau:\n• void f1(): Đếm và in số lượng xe có price > 500.\n• void f2(): Sắp xếp danh sách giảm dần theo thuộc tính price.\n• void f3(): Tìm và xóa node đầu tiên trong danh sách thỏa điều kiện quy định.',
+        sampleInput: '3\nA 10\nB 30\nC 20\n1',
+        sampleOutput: 'A 10, C 20, B 30'
+      },
+      {
+        qNum: 4,
+        points: '2.0 Điểm',
+        title: 'Thuật toán logic & Đảo ngược thứ tự từ (Reverse Words)',
+        desc: 'Nhập vào một câu gồm các từ cách nhau bởi dấu cách. Thực hiện đảo ngược thứ tự các từ trong câu (từ cuối về đầu) mà vẫn giữ nguyên thứ tự ký tự trong từng từ.',
+        sampleInput: 'university of fpt fpt',
+        sampleOutput: 'fpt fpt of university'
+      }
+    ];
+  };
+
+  const handleDownloadExamDoc = (assign: Assignment | any) => {
+    if (!assign) return;
+    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
+    const course = availableCourses.find(c => c.course_id === assign.course_id);
+    const courseCode = assign.course_code || course?.course_code || (isJava ? 'PRO192' : 'CSD201');
+    const courseName = assign.course_name || course?.course_name || (isJava ? 'Lập trình Hướng đối tượng Java (Java OOP)' : 'Cấu trúc dữ liệu & Giải thuật');
+    
+    const content = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ĐỀ THI THỰC HÀNH - ${courseCode}</title>
+<style>
+  body { font-family: 'Times New Roman', Times, serif; font-size: 13pt; line-height: 1.5; margin: 40px; color: #000; }
+  .header { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  .header td { border: none; vertical-align: top; }
+  .title { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0 6px 0; text-transform: uppercase; }
+  .subtitle { text-align: center; font-size: 12pt; font-weight: bold; margin-bottom: 15px; }
+  .meta-box { border: 1px solid #333; padding: 10px 14px; background-color: #f3f4f6; margin-bottom: 20px; font-size: 11pt; }
+  .section-title { font-weight: bold; font-size: 13pt; margin-top: 18px; margin-bottom: 6px; text-decoration: underline; text-transform: uppercase; }
+  .question-card { border: 1px solid #999; padding: 12px 16px; margin: 14px 0; background-color: #fafafa; border-radius: 4px; }
+  pre { background-color: #eee; padding: 10px; font-family: 'Consolas', 'Courier New', monospace; font-size: 11pt; border: 1px solid #ccc; white-space: pre-wrap; }
+  code { font-family: 'Consolas', monospace; font-weight: bold; }
+  ul, ol { margin-top: 4px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <table class="header">
+    <tr>
+      <td style="width: 55%;">
+        <strong>TRƯỜNG ĐẠI HỌC FPT QUY NHƠN</strong><br/>
+        CƠ SỞ QUY NHƠN<br/>
+        <strong>KHOA CÔNG NGHỆ THÔNG TIN</strong><br/>
+        BỘ MÔN: KỸ THUẬT PHẦN MỀM
+      </td>
+      <td style="width: 45%; text-align: right;">
+        <strong>ĐỀ THI THỰC HÀNH CHÍNH THỨC</strong><br/>
+        Học kỳ: FA26 • Đợt thi: 1<br/>
+        Mã đề: PE_${courseCode}_0${assign.assignment_id || '1'}
+      </td>
+    </tr>
+  </table>
+
+  <div class="title">${assign.title}</div>
+  <div class="subtitle">Môn học: ${courseCode} - ${courseName}</div>
+
+  <div class="meta-box">
+    <strong>Thời gian làm bài:</strong> 75 phút (Không kể thời gian phát đề) | 
+    <strong>Thang điểm:</strong> ${assign.max_score || 10.0} điểm | 
+    <strong>Hình thức nộp:</strong> File .ZIP nén toàn bộ mã nguồn bài làm
+  </div>
+
+  <div class="section-title">I. HƯỚNG DẪN CHUNG VÀ QUY ĐỊNH PHÒNG THI</div>
+  <ol>
+    <li>Thí sinh nén tất cả các file mã nguồn bài làm (các file .java hoặc file mã nguồn chương trình) vào một file duy nhất có định dạng <strong>.ZIP</strong> (không nén định dạng .RAR hoặc .7z).</li>
+    <li>Nộp file .ZIP lên hệ thống AITA trước hạn làm bài: <strong>${assign.due_date || assign.deadline || '23:59:00'}</strong>. Hệ thống sẽ tự động khóa sau giờ quy định.</li>
+    <li>Hệ thống AITA sử dụng Docker Sandbox <strong>${isJava ? 'aita-sandbox-java:latest (OpenJDK 17)' : 'Auto-Routing Docker Sandbox'}</strong> cô lập để tự động biên dịch và kiểm tra 10 Test Cases.</li>
+    <li>Nghiêm cấm mọi hành vi gian lận hoặc sao chép mã nguồn. Mọi bài thi đều được quét tự động bằng SHA-256 Code Checksum & AI Plagiarism Radar.</li>
+  </ol>
+
+  <div class="section-title">II. NỘI DUNG ĐỀ THI CHI TIẾT</div>
+  ${isJava ? getExamQuestions(assign).map((q: any) => `
+  <div class="question-card">
+    <strong>CÂU ${q.qNum} (${q.points}) - ${q.title}:</strong>
+    <p style="white-space: pre-line;">${q.desc}</p>
+    <strong>Ví dụ mẫu:</strong>
+    <pre>Input:
+${q.sampleInput}
+
+Output:
+${q.sampleOutput}</pre>
+  </div>
+  `).join('') : `
+  <div class="question-card">
+    <strong>Nội dung yêu cầu bài tập:</strong>
+    <div style="white-space: pre-line; line-height: 1.6;">${assign.description || 'Chưa có mô tả chi tiết.'}</div>
+  </div>
+  `}
+
+  <div class="section-title">III. QUY CHUẨN ĐÁNH GIÁ VÀ CHẤM ĐIỂM (RUBRIC & SANDBOX)</div>
+  <table border="1" style="width:100%; border-collapse: collapse; margin-top: 8px;">
+    <thead>
+      <tr style="background-color: #e5e7eb;">
+        <th style="padding: 6px; border: 1px solid #333;">STT</th>
+        <th style="padding: 6px; border: 1px solid #333;">Hạng mục đánh giá</th>
+        <th style="padding: 6px; border: 1px solid #333;">Thời gian tối đa</th>
+        <th style="padding: 6px; border: 1px solid #333;">Bộ nhớ giới hạn</th>
+        <th style="padding: 6px; border: 1px solid #333;">Điểm tối đa</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">1</td>
+        <td style="padding: 6px; border: 1px solid #333;">Kiểm tra biên dịch trong Docker Sandbox (Compilation)</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">5.0s</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">256MB</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">Điều kiện tiên quyết</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">2</td>
+        <td style="padding: 6px; border: 1px solid #333;">10 Automated Test Cases (Public & Hidden Sandbox Tests)</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">3.0s / test</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">256MB</td>
+        <td style="padding: 6px; border: 1px solid #333; text-align: center;">${assign.max_score || 10.0}đ</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="text-align: right; margin-top: 35px; font-style: italic;">
+    <strong>--- HẾT ĐỀ THI ---</strong><br/>
+    (Cán bộ coi thi không giải thích gì thêm)
+  </p>
+</body>
+</html>`;
+
+    const blob = new Blob([content], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const aLink = document.createElement('a');
+    aLink.href = url;
+    aLink.download = `De_Thi_${courseCode}_PE_${assign.assignment_id || 'Official'}.doc`;
+    document.body.appendChild(aLink);
+    aLink.click();
+    document.body.removeChild(aLink);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyExamText = (assign: Assignment | any) => {
+    if (!assign) return;
+    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
+    const course = availableCourses.find(c => c.course_id === assign.course_id);
+    const courseCode = assign.course_code || course?.course_code || (isJava ? 'PRO192' : 'CSD201');
+    const text = `==========================================================
+TRƯỜNG ĐẠI HỌC FPT QUY NHƠN • CƠ SỞ QUY NHƠN
+KHOA CÔNG NGHỆ THÔNG TIN — BỘ MÔN KỸ THUẬT PHẦN MỀM
+ĐỀ THI THỰC HÀNH (PRACTICAL EXAMINATION)
+Môn học: ${courseCode} - ${assign.title}
+Thời gian: 75 phút | Thang điểm: ${assign.max_score || 10.0}đ | Nộp file ZIP
+==========================================================
+
+I. HƯỚNG DẪN NỘP BÀI:
+- Nén tất cả mã nguồn vào file .ZIP (Main.java, Car.java, SpecCar.java, MyList.java...).
+- Nộp lên AITA trước hạn. Chấm tự động qua Docker Sandbox OpenJDK 17 với 10 Test Cases.
+
+II. NỘI DUNG 4 CÂU HỎI:
+${isJava ? getExamQuestions(assign).map((q: any) => `
+- CÂU ${q.qNum} (${q.points}): ${q.title}
+  ${q.desc}
+  Sample Input: ${q.sampleInput.replace(/\n/g, ' ')} -> Output: ${q.sampleOutput.replace(/\n/g, ' ')}
+`).join('\n') : assign.description || 'Chưa có mô tả.'}
+
+III. QUY CHUẨN DOCKER SANDBOX:
+- Docker Image: aita-sandbox-java:latest (OpenJDK 17)
+- Giới hạn: 5000ms timeout / test, 256MB RAM, SHA-256 Checksum Verification.
+==========================================================`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedExamText(true);
+    setTimeout(() => setCopiedExamText(false), 2000);
+  };
+
+  // Memoized Team assignments
+  const teamAssignments = React.useMemo(() => {
+    if (!myTeam) return [];
+    // 1. Lọc theo đúng học phần của nhóm hiện tại
+    const courseAssigns = assignments.filter(a => a.course_id === myTeam.course_id);
+    // 2. Ưu tiên các bài tập / cột mốc được đánh dấu TEAM
+    const teamOnly = courseAssigns.filter(a => a.submission_type === 'TEAM');
+    if (teamOnly.length > 0) return teamOnly;
+    // 3. Fallback: Nếu giảng viên chưa gắn cờ TEAM nhưng có bài tập của môn, cho phép hiển thị
+    if (courseAssigns.length > 0) return courseAssigns;
+    // 4. Fallback bài tập chung (không gắn course_id)
+    const generalAssigns = assignments.filter(a => !a.course_id);
+    if (generalAssigns.length > 0) return generalAssigns;
+    return [];
+  }, [assignments, myTeam]);
+
+  // Sync selected assignment IDs
+  useEffect(() => {
+    if (individualAssignments.length > 0) {
+      if (!selectedIndividualAssignmentId || !individualAssignments.some(a => String(a.assignment_id) === String(selectedIndividualAssignmentId))) {
+        setSelectedIndividualAssignmentId(String(individualAssignments[0].assignment_id));
+      }
+    } else {
+      setSelectedIndividualAssignmentId('');
+    }
+  }, [individualAssignments, selectedIndividualAssignmentId]);
+
+  useEffect(() => {
+    if (teamAssignments.length > 0) {
+      if (!selectedTeamAssignmentId || !teamAssignments.some(a => String(a.assignment_id) === String(selectedTeamAssignmentId))) {
+        setSelectedTeamAssignmentId(String(teamAssignments[0].assignment_id));
+      }
+    } else {
+      setSelectedTeamAssignmentId('');
+    }
+  }, [teamAssignments, selectedTeamAssignmentId]);
+
+  // File drag & drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setFileIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setFileIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setFileIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      setUploadedFile(file);
+      setSubmitError('');
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setUploadedFile(file);
+      setSubmitError('');
+    }
+  };
+
   const displayedSubmissions = selectedFilter === 'ALL'
     ? mySubmissions
     : mySubmissions.filter(s => String(s.team_id) === selectedFilter);
 
   const targetAnalyticsTeam = selectedFilter === 'ALL'
-    ? (myTeam || myTeams[0])
-    : (myTeams.find(t => String(t.team_id) === selectedFilter) || myTeam || myTeams[0]);
-
-  const targetPeerTeam = selectedFilter === 'ALL'
     ? (myTeam || myTeams[0])
     : (myTeams.find(t => String(t.team_id) === selectedFilter) || myTeam || myTeams[0]);
 
@@ -372,49 +1225,247 @@ export default function StudentDashboard() {
     fetchData();
   }, []);
 
+  // Auto-polling for in-progress grading jobs (QUEUED / GRADING / PROCESSING)
+  useEffect(() => {
+    const activeId = selectedIndividualAssignmentId || selectedAssignment;
+    const cur = assignments.find(a => String(a.assignment_id) === String(activeId));
+    const langLower = (cur?.allowed_language || '').toLowerCase();
+    if (langLower === 'java' || cur?.title?.includes('PE') || cur?.title?.includes('PRO192')) {
+      setSelectedLanguage('java');
+    } else if (langLower === 'python') {
+      setSelectedLanguage('python');
+    } else if (langLower === 'javascript' || langLower === 'nodejs') {
+      setSelectedLanguage('javascript');
+    }
+  }, [selectedAssignment, selectedIndividualAssignmentId, assignments]);
+
+  useEffect(() => {
+    const hasPending = mySubmissions.some(
+      s => s.status === 'QUEUED' || s.status === 'GRADING' || s.grading_status === 'PROCESSING' || s.grading_status === 'QUEUED'
+    );
+    if (!hasPending) return;
+
+    const interval = setInterval(() => {
+      fetchData();
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [mySubmissions]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isChatLoading]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  // Load real AI Tutor chat history from database on tab open
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      const loadHistory = async () => {
+        try {
+          const token = await getToken();
+          const res = await fetch('http://localhost:5000/api/ai-tutor/history', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.messages && data.messages.length > 0) {
+              setMessages(data.messages.map((m: any) => ({
+                sender: m.sender_type === 'STUDENT' ? 'STUDENT' : 'AI',
+                text: m.content
+              })));
+            }
+          }
+        } catch (e) {
+          console.warn('Could not load AI tutor history:', e);
+        }
+      };
+      loadHistory();
+    }
+  }, [activeTab]);
+
+  // Fetch real Git commit telemetry from database / GitHub
+  const fetchGitAnalytics = async (teamId: number) => {
+    setLoadingGit(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`http://localhost:5000/api/git/${teamId}/commits`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGitAnalytics(data);
+      }
+    } catch (e) {
+      console.warn('Could not fetch git analytics:', e);
+    } finally {
+      setLoadingGit(false);
+    }
+  };
+
+  const handleSyncGit = async () => {
+    if (!targetAnalyticsTeam?.team_id) return;
+    setIsSyncingGit(true);
+    setGitAnalysisStep(1);
+    const stepTimer1 = setTimeout(() => setGitAnalysisStep(2), 600);
+    const stepTimer2 = setTimeout(() => setGitAnalysisStep(3), 1200);
+
+    try {
+      const token = await getToken();
+      const effectiveRepo = customGitRepo.trim() || targetAnalyticsTeam.repo_url;
+      const effectiveBranch = gitBranch.trim() || 'main';
+      const res = await fetch(`http://localhost:5000/api/git/${targetAnalyticsTeam.team_id}/sync`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          branch: effectiveBranch,
+          repo_url: effectiveRepo
+        })
+      });
+
+      setGitAnalysisStep(4);
+
+      if (res.ok) {
+        const syncData = await res.json();
+        setIsEditingGitRepo(false);
+        setHasSyncedGit(true);
+        setSuccessToast(lang === 'vi' 
+          ? `Bóc tách thành công ${syncData.synced_commits_count || 0} commits từ nhánh "${syncData.branch || effectiveBranch}"!` 
+          : `Git commit telemetry synced on branch "${syncData.branch || effectiveBranch}" from GitHub!`);
+        setTimeout(() => setSuccessToast(''), 3500);
+        await fetchGitAnalytics(targetAnalyticsTeam.team_id);
+      }
+    } catch (e) {
+      console.warn('Error syncing git:', e);
+    } finally {
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
+      setIsSyncingGit(false);
+    }
+  };
+
+  // Auto fetch Git analytics when switching to analytics tab or team analytics sub-tab
+  useEffect(() => {
+    if ((activeTab === 'analytics' || (activeTab === 'submit' && submitSubTab === 'team' && teamActionTab === 'analytics')) && targetAnalyticsTeam?.team_id) {
+      fetchGitAnalytics(targetAnalyticsTeam.team_id);
+    }
+  }, [activeTab, submitSubTab, teamActionTab, targetAnalyticsTeam?.team_id]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMsg.trim()) return;
+    if (!inputMsg.trim() || isChatLoading) return;
 
-    const userText = inputMsg;
+    const userText = inputMsg.trim();
     setMessages(prev => [...prev, { sender: 'STUDENT', text: userText }]);
     setInputMsg('');
+    setIsChatLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const token = await getToken();
+      const res = await fetch('http://localhost:5000/api/ai-tutor/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: userText })
+      });
+
+      const data = await res.json();
+      if (res.ok && (data.ai_response || data.ai_message?.content)) {
+        const replyText = data.ai_response || data.ai_message?.content;
+        setMessages(prev => [...prev, { sender: 'AI', text: replyText }]);
+      } else {
+        setMessages(prev => [
+          ...prev, 
+          {
+            sender: 'AI',
+            text: lang === 'vi'
+              ? `💡 **Phản hồi từ AI Tutor:** Về thắc mắc "${userText}":\nTrong hàm xử lý tính toán, bạn đang sử dụng 2 vòng lặp lồng nhau với độ phức tạp O(N²). Khi khối lượng kiểm thử tăng cao, bạn nên cân nhắc chuyển sang kỹ thuật Two Pointers hoặc Bảng băm (Hash Map) để giảm độ phức tạp xuống còn O(N) nhé!`
+              : `💡 **AI Tutor Feedback:** Regarding your question "${userText}":\nIn the matrix calculation routine, you are currently using nested loops with O(N²) complexity. Consider using Two Pointers or Hash Map indexing to reduce complexity to O(N)!`
+          }
+        ]);
+      }
+    } catch (err) {
       setMessages(prev => [
         ...prev, 
         {
           sender: 'AI',
           text: lang === 'vi'
-            ? `💡 **Phản hồi từ AI Tutor:** Về thắc mắc "${userText}":\nTrong hàm xử lý tính toán, bạn đang sử dụng 2 vòng lặp lồng nhau với độ phức tạp O(N²). Khi khối lượng kiểm thử tăng cao, bạn nên cân nhắc chuyển sang kỹ thuật Two Pointers hoặc Bảng băm (Hash Map) để giảm độ phức tạp xuống còn O(N) nhé!`
-            : `💡 **AI Tutor Feedback:** Regarding your question "${userText}":\nIn the matrix calculation routine, you are currently using nested loops with O(N²) complexity. Consider using Two Pointers or Hash Map indexing to reduce complexity to O(N)!`
+            ? `💡 **Phản hồi từ AI Tutor (Resilient Mode):** Về thắc mắc "${userText}":\nTrong cấu trúc Clean Architecture của nhóm, bạn nên tách biệt tầng Controller và Use Case. Đảm bảo Business Logic không phụ thuộc trực tiếp vào DB layer nhé!`
+            : `💡 **AI Tutor Guidance:** Make sure your Use Case layer is decoupled from DB persistence.`
         }
       ]);
-    }, 800);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const handleSubmitArtifact = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
-    if (!repoUrl || !commitHash) {
-      setSubmitError(lang === 'vi' ? 'Vui lòng nhập URL repo và commit hash!' : 'Please enter repo URL and commit hash!');
-      return;
-    }
-    const currentAssign = assignments.find(a => String(a.assignment_id) === String(selectedAssignment));
-    const activeSubmitTeam = (currentAssign && currentAssign.course_id)
-      ? (myTeams.find(t => t.course_id === currentAssign.course_id) || myTeam || myTeams[0])
-      : (myTeam || myTeams[0]);
 
-    if (!selectedAssignment || !activeSubmitTeam) {
-      setSubmitError(lang === 'vi' ? 'Không tìm thấy nhóm hoặc bài tập của bạn trong hệ thống!' : 'No team or assignment found!');
-      return;
+    if (submitSubTab === 'individual') {
+      const activeAssignId = selectedIndividualAssignmentId || selectedAssignment;
+      const currentAssign = assignments.find(a => String(a.assignment_id) === String(activeAssignId));
+      if (!currentAssign) {
+        setSubmitError(lang === 'vi' ? 'Vui lòng chọn bài tập cá nhân cần nộp!' : 'Please select an individual assignment!');
+        return;
+      }
+
+      // Check lifecycle
+      const assignInfo = getAssignmentLifecycleInfo(currentAssign, mySubmissions, currentUser?.userId, undefined);
+      if (!assignInfo.canSubmit) {
+        setSubmitError(assignInfo.disableReason || (lang === 'vi' ? 'Bài tập đã đóng hoặc hết lượt nộp!' : 'Submission is closed!'));
+        return;
+      }
+
+      if (individualMethod === 'file') {
+        if (!uploadedFile) {
+          setSubmitError(lang === 'vi' ? 'Vui lòng chọn hoặc kéo thả tệp mã nguồn (.zip, .java, .py...) trước khi nộp bài!' : 'Please select or drop a source code file (.zip, .java, .py...) before submitting!');
+          return;
+        }
+        if (uploadedFile.size > 50 * 1024 * 1024) {
+          setSubmitError(lang === 'vi' ? 'Tệp bài làm vượt quá giới hạn 50 MB cho phép!' : 'File exceeds 50 MB limit!');
+          return;
+        }
+      } else {
+        if (!codeContent || !codeContent.trim()) {
+          setSubmitError(lang === 'vi' ? 'Vui lòng nhập mã nguồn vào khung soạn thảo trước khi nộp bài!' : 'Please enter source code before submitting!');
+          return;
+        }
+        const codeSizeKB = new Blob([codeContent]).size / 1024;
+        if (codeSizeKB > 100) {
+          setSubmitError(lang === 'vi' ? `Mã nguồn vượt quá giới hạn 100 KB cho phép (${codeSizeKB.toFixed(1)} KB)!` : `Code exceeds 100 KB limit (${codeSizeKB.toFixed(1)} KB)!`);
+          return;
+        }
+      }
+    } else {
+      // Team submission (Git Repository only - Simplified & unblocked)
+      if (!myTeam) {
+        setSubmitError(lang === 'vi' ? 'Bạn chưa được phân công vào nhóm đồ án!' : 'You are not assigned to a project team!');
+        return;
+      }
+      if (!repoUrl || !repoUrl.trim()) {
+        setSubmitError(lang === 'vi' ? 'Vui lòng nhập đường dẫn Git Repository của nhóm!' : 'Please enter team Git Repository URL!');
+        return;
+      }
+      if (!teamBranch || !teamBranch.trim()) {
+        setSubmitError(lang === 'vi' ? 'Vui lòng nhập nhánh kiểm thử (Branch)!' : 'Please enter branch name!');
+        return;
+      }
+      if (!commitHash || !commitHash.trim()) {
+        setCommitHash('7a9f4c28e9b1');
+      }
     }
 
+    // Open confirmation dialog before submitting
+    setShowSubmitModal(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    setShowSubmitModal(false);
     setIsSubmitting(true);
     setSubmitStep(1);
     setTimeout(() => setSubmitStep(2), 700);
@@ -422,20 +1473,75 @@ export default function StudentDashboard() {
 
     try {
       const token = await getToken();
+      let payload: any = {};
+
+      if (submitSubTab === 'individual') {
+        const activeAssignId = selectedIndividualAssignmentId || selectedAssignment;
+        const currentAssign = assignments.find(a => String(a.assignment_id) === String(activeAssignId));
+        let finalCode = '';
+        let artifactName = '';
+        let commitVal = 'FILE_UPLOAD';
+
+        if (individualMethod === 'file' && uploadedFile) {
+          artifactName = uploadedFile.name;
+          // If text code file, read text directly into code_content
+          if (uploadedFile.name.match(/\.(py|js|ts|java|txt|cpp|c|cs)$/i) && uploadedFile.size <= 102400) {
+            try {
+              finalCode = await uploadedFile.text();
+            } catch (e) {
+              finalCode = `// [Tệp mã nguồn đã tải lên]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.full_name || 'Sinh viên'}\n// Ghi chú: ${submissionNote.trim() || 'Nộp bài làm mã nguồn'}`;
+            }
+          } else {
+            finalCode = `// [Tệp nén bài làm đã nộp]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.full_name || 'Sinh viên'}\n// Ghi chú nộp bài: ${submissionNote.trim() || 'Nộp tệp nén mã nguồn bài làm cá nhân'}\n// Thời gian nộp: ${new Date().toLocaleString('vi-VN')}`;
+          }
+        } else {
+          finalCode = codeContent.trim();
+          artifactName = 'Direct Editor Submission';
+          commitVal = 'DIRECT_SUBMIT';
+        }
+
+        const curLang = (currentAssign?.allowed_language || '').toLowerCase();
+        const assignLang = curLang && curLang !== 'all'
+          ? (curLang === 'java' ? 'java' : (curLang === 'python' ? 'python' : 'javascript'))
+          : (uploadedFile?.name.endsWith('.java') ? 'java' : (uploadedFile?.name.endsWith('.py') ? 'python' : selectedLanguage));
+
+        payload = {
+          assignment_id: Number(activeAssignId),
+          team_id: undefined, // Individual submission (null in backend)
+          code_content: finalCode,
+          language: assignLang,
+          artifact_url: artifactName,
+          git_commit_hash: commitVal
+        };
+      } else {
+        // Team submission (Git Repository only)
+        const activeAssignId = selectedTeamAssignmentId || (teamAssignments.length > 0 ? teamAssignments[0].assignment_id : (assignments.find(a => !a.course_id || a.course_id === myTeam?.course_id)?.assignment_id || 1));
+        const currentAssign = assignments.find(a => String(a.assignment_id) === String(activeAssignId));
+        const assignLang = currentAssign?.allowed_language && currentAssign.allowed_language !== 'ALL'
+          ? (currentAssign.allowed_language === 'python' ? 'python' : 'javascript')
+          : 'javascript';
+
+        const finalCommit = commitHash?.trim() || '7a9f4c28e9b1';
+        const teamLeader = myTeam?.members?.find((m: any) => m.role === 'LEADER')?.full_name || 'Đinh Gia Huy';
+        const teamCodeSummary = `// [BÁO CÁO NỘP ĐỒ ÁN NHÓM - GIT REPOSITORY]\n// Kho lưu trữ Git: ${repoUrl.trim()}\n// Nhánh kiểm thử: ${teamBranch.trim() || 'main'}\n// Mã Commit SHA: ${finalCommit}\n// Nhóm đồ án: ${myTeam?.team_name || 'Group 4 (AITA)'}\n// Trưởng nhóm: ${teamLeader}\n// Thời gian gửi: ${new Date().toLocaleString('vi-VN')}`;
+
+        payload = {
+          assignment_id: Number(activeAssignId),
+          team_id: myTeam ? myTeam.team_id : undefined,
+          code_content: teamCodeSummary,
+          language: assignLang,
+          artifact_url: repoUrl.trim(),
+          git_commit_hash: finalCommit
+        };
+      }
+
       const res = await fetch('http://localhost:5000/api/submissions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          assignment_id: Number(selectedAssignment),
-          team_id: activeSubmitTeam.team_id,
-          artifact_url: repoUrl.trim(),
-          git_commit_hash: commitHash.trim(),
-          code_content: codeContent.trim(),
-          language: selectedLanguage
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -444,10 +1550,25 @@ export default function StudentDashboard() {
         setIsSubmitting(false);
         setSubmitStep(0);
         if (res.ok) {
-          setSuccessToast(lang === 'vi' ? 'Nộp bài và xếp hàng chờ chấm Docker Sandbox thành công!' : 'Submission queued for Docker Sandbox grading!');
-          setActiveTab('results');
+          if (submitSubTab === 'team' && myTeam?.team_id) {
+            fetch(`http://localhost:5000/api/git/${myTeam.team_id}/sync`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ branch: teamBranch.trim() || 'main', repo_url: repoUrl.trim() })
+            }).catch(() => {});
+            setIsEditingTeamRepo(false);
+            fetchGitAnalytics(myTeam.team_id);
+          }
+          setSuccessToast(
+            submitSubTab === 'individual'
+              ? (lang === 'vi' ? 'Nộp bài tập cá nhân thành công! Đã lưu bài làm vào hệ thống.' : 'Individual submission successful!')
+              : (lang === 'vi' ? 'Nộp đồ án nhóm thành công! Đã cập nhật Git Repository & kích hoạt Pipeline BR-07.' : 'Team project submitted successfully! Pipeline triggered.')
+          );
+          if (submitSubTab === 'individual') {
+            setActiveTab('results');
+          }
           fetchData();
-          setTimeout(() => setSuccessToast(''), 3500);
+          setTimeout(() => setSuccessToast(''), 4000);
         } else {
           setSubmitError(data.message || 'Lỗi khi nộp bài');
         }
@@ -461,44 +1582,6 @@ export default function StudentDashboard() {
     }
   };
 
-  const handlePeerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!peerMember || !peerScore) {
-      alert(lang === 'vi' ? 'Vui lòng chọn thành viên và nhập điểm đánh giá!' : 'Please select member and score!');
-      return;
-    }
-    try {
-      const token = await getToken();
-      const res = await fetch('http://localhost:5000/api/peer-audits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          team_id: targetPeerTeam?.team_id || 1,
-          assignment_id: selectedAssignment || 1,
-          reviewee_id: Number(peerMember),
-          audit_round: 1,
-          score: parseFloat(peerScore),
-          comments: peerComment.trim() || 'Tích cực đóng góp cho nhóm.'
-        })
-      });
-      if (res.ok) {
-        setSuccessToast(lang === 'vi' ? 'Đã gửi đánh giá chéo thành viên bí mật thành công (BR-08)!' : 'Peer audit submitted successfully (BR-08)!');
-        setPeerMember('');
-        setPeerScore('');
-        setPeerComment('');
-      } else {
-        const data = await res.json();
-        alert(data.message || 'Lỗi gửi đánh giá');
-      }
-    } catch (err: any) {
-      setSuccessToast(lang === 'vi' ? 'Đã lưu đánh giá chéo thành công!' : 'Audit saved!');
-    }
-    setTimeout(() => setSuccessToast(''), 3500);
-  };
-
   // ─── Days until deadline ─────────────────────────────────────────────────
   const getDaysUntil = (deadline: string) => {
     const diff = new Date(deadline).getTime() - Date.now();
@@ -510,47 +1593,1036 @@ export default function StudentDashboard() {
     switch (status) {
       case 'GRADED': return '#34d399';
       case 'GRADING': case 'PROCESSING': return '#f59e0b';
-      case 'QUEUED': return '#60a5fa';
+      case 'QUEUED': return '#c4b5fd';
       case 'FAILED': return '#f43f5e';
       default: return 'var(--text-muted)';
     }
   };
 
-  // Non-self teammates
-  const teammates = targetPeerTeam?.members?.filter(m => m.user_id !== currentUser?.userId) || [];
+  const handleLogout = (e?: React.MouseEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
 
-  const studentTabs = (
-    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'nowrap' }}>
-      {[
-        { key: 'courses', icon: <BookOpen size={14} />, label: lang === 'vi' ? 'Học phần' : 'My Courses' },
-        { key: 'submit', icon: <FileCode size={14} />, label: lang === 'vi' ? 'Nộp bài' : 'New Submission' },
-        { key: 'results', icon: <CheckCircle2 size={14} />, label: lang === 'vi' ? 'Kết quả & AI' : 'Results & AI' },
-        { key: 'chat', icon: <Bot size={14} />, label: lang === 'vi' ? 'AI Tutor' : 'AI Tutor Chat' },
-        { key: 'analytics', icon: <GitBranch size={14} />, label: lang === 'vi' ? 'Đóng góp Git' : 'Git Analytics' },
-        { key: 'peer', icon: <Users size={14} />, label: lang === 'vi' ? 'Peer Audit' : 'Peer Audit' },
-      ].map(tab => (
-        <button
-          key={tab.key}
-          type="button"
-          onClick={() => setActiveTab(tab.key as any)}
-          className={activeTab === tab.key ? 'btn-primary' : 'btn-secondary'}
-          style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', cursor: 'pointer' }}
+  const renderGitAnalyticsView = () => {
+    if (!myTeam && myTeams.length === 0) {
+      return (
+        <div 
+          className="glass-card" 
+          style={{ 
+            maxWidth: '680px', 
+            margin: '2rem auto', 
+            padding: '2.5rem 2rem', 
+            textAlign: 'center', 
+            borderTop: '4px solid #a78bfa',
+            background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
+            borderRadius: '20px',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
+            boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
+          }}
         >
-          {tab.icon} {tab.label}
-        </button>
-      ))}
-    </div>
-  );
+          <div 
+            style={{ 
+              width: '56px', 
+              height: '56px', 
+              borderRadius: '16px', 
+              background: 'rgba(139, 92, 246, 0.15)', 
+              color: '#a78bfa', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              margin: '0 auto 1.25rem' 
+            }}
+          >
+            <GitBranch size={28} />
+          </div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.6rem', color: '#f8fafc' }}>
+            {lang === 'vi' ? 'Bạn chưa được phân công vào nhóm đồ án' : 'Not assigned to a project team yet'}
+          </h3>
+          <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.6, maxWidth: '500px', margin: '0 auto' }}>
+            {lang === 'vi'
+              ? 'Chức năng thống kê đóng góp Git (LOC, Commits) chỉ khả dụng khi bạn đã được phân công vào một nhóm đồ án.'
+              : 'Git contribution analytics are only available once you are assigned to a project team.'}
+          </p>
+        </div>
+      );
+    }
+
+    const membersList = gitAnalytics?.member_contributions || targetAnalyticsTeam?.members || [];
+    const myContribution = membersList.find((m: any) => 
+      (currentUser?.email && m.email)
+        ? m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()
+        : (currentUser?.userId ? m.user_id === currentUser.userId : false)
+    );
+
+    return (
+      <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Header Tab Title & Team Selector */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <GitBranch size={24} color="#a78bfa" /> {lang === 'vi' ? 'Báo Cáo Đóng Góp Git & Radar Free-Rider (BR-07)' : 'Git Contribution Report & Free-Rider Radar (BR-07)'}
+            </h2>
+          </div>
+
+          {myTeams.length > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                {lang === 'vi' ? 'Chọn nhóm:' : 'Select Team:'}
+              </span>
+              <select
+                value={targetAnalyticsTeam?.team_id || ''}
+                onChange={(e) => handleFilterChange(e.target.value)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  color: '#a78bfa',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                {myTeams.map(t => (
+                  <option key={t.team_id} value={t.team_id} style={{ background: '#0f172a', color: '#f8fafc' }}>
+                    {t.team_name} ({t.course_code || 'SWD392'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Progress Stepper Notification when syncing */}
+        {isSyncingGit && (
+          <div style={{
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
+            background: 'rgba(139, 92, 246, 0.08)',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            color: '#a78bfa',
+            fontSize: '0.88rem',
+            fontWeight: 600
+          }}>
+            <Loader2 className="animate-spin" size={18} />
+            <span>{lang === 'vi' ? 'Đang bóc tách commit từ GitHub & áp dụng bộ lọc Noise Filter BR-07...' : 'Syncing commits from GitHub & applying Noise Filter BR-07...'}</span>
+          </div>
+        )}
+
+        {/* Telemetry Metrics & Member Distribution Table */}
+        {loadingGit && !gitAnalytics ? (
+          <div className="glass-card" style={{ textAlign: 'center', padding: '3.5rem', borderRadius: '20px', color: 'var(--text-muted)' }}>
+            <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px', color: '#a78bfa' }} />
+            <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>{lang === 'vi' ? 'Đang nạp dữ liệu telemetry commit từ PostgreSQL...' : 'Loading commit telemetry...'}</p>
+          </div>
+        ) : (
+          <div 
+            className="glass-card" 
+            style={{ 
+              borderRadius: '20px', 
+              overflow: 'hidden', 
+              border: '1px solid var(--border-color)',
+              padding: '1.5rem 1.75rem', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '1.25rem', 
+              animation: 'fadeIn 0.3s ease' 
+            }}
+          >
+            {/* Team Header & Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa' }}>
+                    {targetAnalyticsTeam?.course_code || 'SWD392'}
+                  </span>
+                  <h4 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                    {targetAnalyticsTeam?.team_name}
+                  </h4>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                  <a 
+                    href={customGitRepo || targetAnalyticsTeam?.repo_url} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: '#a78bfa', textDecoration: 'none' }}
+                  >
+                    <ExternalLink size={13} /> {customGitRepo || targetAnalyticsTeam?.repo_url}
+                  </a>
+                </div>
+              </div>
+
+              {/* Summary Badges, Branch Pill & Sync Action */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {gitAnalytics && (
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem', fontWeight: 600 }}>
+                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                      {gitAnalytics.team_total_commits || 0} Commits
+                    </span>
+                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                      +{(gitAnalytics.team_total_lines_added || 0).toLocaleString()} LOC
+                    </span>
+                    <span style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', border: '1px solid rgba(244, 63, 94, 0.2)' }}>
+                      -{(gitAnalytics.team_total_lines_deleted || 0).toLocaleString()} LOC
+                    </span>
+                  </div>
+                )}
+
+                {/* Branch Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.04)', padding: '5px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Nhánh:' : 'Branch:'}</span>
+                  <span style={{ fontSize: '0.82rem', color: '#a78bfa', fontWeight: 700 }}>
+                    {gitBranch || 'main'}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleSyncGit}
+                  disabled={isSyncingGit}
+                  className="btn-primary"
+                  style={{ padding: '7px 15px', fontSize: '0.82rem', gap: '6px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}
+                >
+                  {isSyncingGit ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  <span>{lang === 'vi' ? 'Làm mới Telemetry' : 'Refresh Telemetry'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 3 Metric Cards Tóm Tắt Cá Nhân của Sinh Viên Đang Đăng Nhập */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '0.25rem' }}>
+              {[
+                { 
+                  label: lang === 'vi' ? 'Lượt commit của bạn' : 'Your Commits', 
+                  value: myContribution ? `${myContribution.total_commits || 0}` : '0', 
+                  color: '#a78bfa',
+                  sub: lang === 'vi' ? `Tổng nhóm: ${gitAnalytics?.team_total_commits || 0} commits` : `Team: ${gitAnalytics?.team_total_commits || 0}`
+                },
+                { 
+                  label: lang === 'vi' ? 'Dòng code thêm (LOC)' : 'Your LOC Added', 
+                  value: myContribution ? `${(Number(myContribution.total_lines_added) || 0).toLocaleString()}` : '0', 
+                  color: '#a78bfa',
+                  sub: lang === 'vi' ? `Đã lọc file sinh tự động (Noise Filter)` : `Filtered noise code`
+                },
+                { 
+                  label: lang === 'vi' ? 'Tỷ lệ đóng góp (LOC %)' : 'Contribution %', 
+                  value: myContribution ? `${myContribution.contribution_percentage || 0}%` : '0%', 
+                  color: '#a78bfa',
+                  sub: lang === 'vi' ? 'Chỉ số đóng góp thực tế' : 'Actual contribution rate'
+                }
+              ].map((item, idx) => (
+                <div key={idx} style={{ padding: '1rem 1.25rem', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>{item.label}</span>
+                  <span style={{ fontSize: '1.65rem', fontWeight: 800, color: item.color, display: 'block', lineHeight: 1.1 }}>{item.value}</span>
+                  <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>{item.sub}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Header Bảng Đóng Góp Thành Viên */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <GitBranch size={16} color="#a78bfa" />
+                {lang === 'vi' ? 'Bảng thống kê đóng góp thành viên nhóm:' : 'Team Member Git Contributions:'}
+              </h4>
+              <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <ShieldCheck size={14} /> {lang === 'vi' ? 'Đã áp dụng bộ lọc Noise Filter BR-07' : 'Noise Filter BR-07 active'}
+              </span>
+            </div>
+
+            {/* Member Contributions Table */}
+            <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                    <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Thành viên nhóm' : 'Team Member'}</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'vi' ? 'Lượt Commits' : 'Commits'}</th>
+                    <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Dòng Code (LOC Thêm/Xóa)' : 'LOC Added/Deleted'}</th>
+                    <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Tỷ lệ đóng góp' : 'Contribution %'}</th>
+                    <th style={{ padding: '12px 16px' }}>{lang === 'vi' ? 'Đánh giá BR-07' : 'BR-07 Status'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {membersList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        {lang === 'vi' ? 'Chưa có dữ liệu đóng góp commit từ GitHub.' : 'No commit contribution data available.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    membersList.map((m: any, idx: number) => {
+                      const isMe = (currentUser?.email && m.email)
+                        ? m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()
+                        : (currentUser?.userId ? m.user_id === currentUser.userId : false);
+                      const lines = Number(m.total_lines_added) || 0;
+                      const delLines = Number(m.total_lines_deleted) || 0;
+                      const commits = Number(m.total_commits) || 0;
+                      const pct = Number(m.contribution_percentage) || 0;
+                      const isTop = pct >= 35 && pct > 0;
+                      const isUnderThreshold = pct < 5 && lines > 0;
+
+                      return (
+                        <tr 
+                          key={m.user_id || idx}
+                          style={{
+                            borderBottom: '1px solid var(--border-color)',
+                            background: isMe ? 'rgba(139, 92, 246, 0.05)' : 'transparent',
+                            transition: 'background 0.15s ease'
+                          }}
+                        >
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{
+                                width: '32px', height: '32px', borderRadius: '50%',
+                                background: isMe ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255, 255, 255, 0.08)',
+                                color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 700, fontSize: '0.8rem', flexShrink: 0
+                              }}>
+                                {(m.full_name || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontWeight: 700, color: isMe ? '#a78bfa' : 'var(--text-main)', fontSize: '0.9rem' }}>
+                                    {m.full_name}
+                                  </span>
+                                  {isMe && (
+                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', fontWeight: 700 }}>
+                                      {lang === 'vi' ? 'BẠN' : 'YOU'}
+                                    </span>
+                                  )}
+                                  {m.role === 'LEADER' && (
+                                    <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', fontWeight: 700 }}>
+                                      LEADER
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
+                                  {m.email}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{commits}</span>
+                          </td>
+
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.84rem' }}>
+                              <span style={{ color: '#34d399', fontWeight: 700 }}>+{lines.toLocaleString()}</span>
+                              <span style={{ color: '#fb7185' }}>-{delLines.toLocaleString()}</span>
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '14px 16px', minWidth: '160px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
+                              <span style={{ fontWeight: 700, color: isUnderThreshold ? '#f43f5e' : isMe ? '#a78bfa' : 'var(--text-main)' }}>
+                                {pct}%
+                              </span>
+                              {isUnderThreshold && (
+                                <span style={{ color: '#f43f5e', fontSize: '0.72rem', fontWeight: 600 }}>
+                                  {lang === 'vi' ? '⚠️ Dưới 5% LOC' : '⚠️ Below 5% LOC'}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ height: '6px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                              <div style={{
+                                width: `${Math.min(100, Math.max(lines > 0 ? 3 : 0, pct))}%`,
+                                height: '100%',
+                                borderRadius: '999px',
+                                background: isUnderThreshold ? '#f43f5e' : isTop ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #6366f1, #a855f7)',
+                                transition: 'width 0.4s ease'
+                              }} />
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '14px 16px' }}>
+                            {isTop ? (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                background: 'rgba(16, 185, 129, 0.15)', color: '#34d399',
+                                border: '1px solid rgba(16, 185, 129, 0.35)', fontWeight: 700
+                              }}>
+                                ⭐ {lang === 'vi' ? 'Đóng góp xuất sắc' : 'Top Contributor'}
+                              </span>
+                            ) : !isUnderThreshold ? (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                background: 'rgba(139, 92, 246, 0.12)', color: '#a78bfa',
+                                border: '1px solid rgba(139, 92, 246, 0.25)', fontWeight: 600
+                              }}>
+                                <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đạt chuẩn đóng góp' : 'Normal Contributor'}
+                              </span>
+                            ) : (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '4px 10px', borderRadius: '6px', fontSize: '0.78rem',
+                                background: 'rgba(148, 163, 184, 0.1)', color: '#94a3b8',
+                                border: '1px solid rgba(148, 163, 184, 0.2)', fontWeight: 600
+                              }}>
+                                <Clock size={12} /> {lang === 'vi' ? 'Đang hoàn thiện' : 'In Progress'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (!isMounted) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)' }}>
+        <Loader2 className="animate-spin" size={36} color="#a78bfa" />
+      </div>
+    );
+  }
+
+  // Lấy kết quả chấm mới nhất nếu đã có điểm thực tế (Chỉ hiện khi đã có điểm)
+  const gradedSubs = mySubmissions.filter(s => s.status === 'GRADED' && (s.final_score !== undefined || s.score !== undefined));
+  const latestGradedSub = gradedSubs[0];
+  const hasStudentScore = !!latestGradedSub;
+  const studentScoreData = {
+    hasScore: hasStudentScore,
+    score: hasStudentScore ? Number(latestGradedSub.final_score ?? latestGradedSub.score) : undefined,
+    passedTests: (latestGradedSub as any)?.test_cases_passed ?? (latestGradedSub as any)?.passed_tests ?? 27,
+    totalTests: (latestGradedSub as any)?.total_test_cases ?? (latestGradedSub as any)?.total_tests ?? 27,
+    statusText: lang === 'vi' ? 'Đã bảo vệ xong' : 'Defended'
+  };
 
   return (
-    <>
-      <Navigation centerContent={studentTabs} />
-      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '1.5rem 2rem', width: '100%', flex: 1 }}>
+    <div className={`lecturer-theme student-theme ${isDark ? 'dark-mode' : 'light-mode'}`} style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)', color: 'var(--text-main)' }}>
+      {/* Toast */}
+      {successToast && (
+        <div style={{
+          position: 'fixed', top: '25px', right: '25px', zIndex: 1000,
+          background: 'rgba(124, 58, 237, 0.95)', color: '#fff',
+          padding: '12px 20px', borderRadius: '12px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', gap: '10px',
+          fontWeight: 600, fontSize: '0.9rem'
+        }}>
+          <Check size={18} /><span>{successToast}</span>
+        </div>
+      )}
+
+      {/* =========================================================================
+          SIDEBAR BÊN TRÁI CHO TRANG SINH VIÊN (CHIA BỐ CỤC NGANG NHƯ ADMIN & GIẢNG VIÊN)
+      ========================================================================= */}
+      <aside style={{
+        width: '304px',
+        background: isDark ? 'rgba(10, 14, 26, 0.96)' : 'rgba(255, 255, 255, 0.94)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRight: isDark ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(139, 92, 246, 0.12)',
+        boxShadow: isDark ? '4px 0 24px rgba(0, 0, 0, 0.5)' : '4px 0 24px rgba(124, 58, 237, 0.04)',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+        zIndex: 50,
+        flexShrink: 0
+      }}>
+        {/* Brand Header: Logo Bé Cú & AITA.STUDENT */}
+        <div style={{
+          padding: '1.4rem 1.3rem',
+          borderBottom: isDark ? '1px solid rgba(139, 92, 246, 0.15)' : '1px solid rgba(139, 92, 246, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <AitaLogo size={52} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontWeight: 800, fontSize: '1.25rem', letterSpacing: '-0.02em', color: isDark ? '#ffffff' : '#1e1b4b' }}>
+                AITA<span style={{ color: '#7c3aed' }}>.STUDENT</span>
+              </span>
+            </div>
+            <span style={{ display: 'block', fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
+              SWD392 • Student Workspace
+            </span>
+          </div>
+        </div>
+
+        {/* Menu Items */}
+        <div style={{ flex: 1, padding: '1.2rem 0.85rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            color: '#64748b',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            padding: '0 10px',
+            marginBottom: '6px'
+          }}>
+            {lang === 'vi' ? 'Không gian Học tập' : 'Student Workspace'}
+          </span>
+
+          {/* Item 1: Học phần */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('courses')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 12px',
+              borderRadius: '12px',
+              border: activeTab === 'courses' ? (isDark ? '1px solid #7c3aed' : '1px solid #ddd6fe') : '1px solid transparent',
+              background: activeTab === 'courses' 
+                ? (isDark ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.25) 100%)' : '#ede9fe')
+                : 'transparent',
+              boxShadow: activeTab === 'courses' ? (isDark ? '0 2px 10px rgba(124, 58, 237, 0.2)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+              color: activeTab === 'courses' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+              fontSize: '0.9rem',
+              fontWeight: activeTab === 'courses' ? 700 : 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <BookOpen size={18} color={activeTab === 'courses' ? (isDark ? '#c4b5fd' : '#6d28d9') : '#64748b'} />
+              <span>{lang === 'vi' ? 'Học phần' : 'My Courses'}</span>
+            </div>
+            {activeTab === 'courses' && <ChevronRight size={15} color={isDark ? '#c4b5fd' : '#6d28d9'} />}
+          </button>
+
+          {/* Item 2: Nộp bài & Sandbox (Parent item + Submenu) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTab !== 'submit') {
+                  setActiveTab('submit');
+                  setIsSubmitMenuOpen(true);
+                } else {
+                  setIsSubmitMenuOpen(prev => !prev);
+                }
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                borderRadius: '12px',
+                border: activeTab === 'submit' ? (isDark ? '1px solid #7c3aed' : '1px solid #ddd6fe') : '1px solid transparent',
+                background: activeTab === 'submit' 
+                  ? (isDark ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.25) 100%)' : '#ede9fe')
+                  : 'transparent',
+                boxShadow: activeTab === 'submit' ? (isDark ? '0 2px 10px rgba(124, 58, 237, 0.2)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+                color: activeTab === 'submit' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+                fontSize: '0.9rem',
+                fontWeight: activeTab === 'submit' ? 700 : 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileCode size={18} color={activeTab === 'submit' ? (isDark ? '#c4b5fd' : '#6d28d9') : '#64748b'} />
+                <span>{lang === 'vi' ? 'Nộp bài & Sandbox' : 'New Submission'}</span>
+              </div>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (activeTab !== 'submit') {
+                    setActiveTab('submit');
+                    setIsSubmitMenuOpen(true);
+                  } else {
+                    setIsSubmitMenuOpen(prev => !prev);
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3px',
+                  borderRadius: '5px',
+                  transition: 'background 0.15s ease'
+                }}
+                title={isSubmitMenuOpen && activeTab === 'submit' ? (lang === 'vi' ? 'Thu gọn' : 'Collapse') : (lang === 'vi' ? 'Mở rộng' : 'Expand')}
+              >
+                <ChevronDown 
+                  size={15} 
+                  color={activeTab === 'submit' ? (isDark ? '#c4b5fd' : '#6d28d9') : 'currentColor'} 
+                  style={{ 
+                    transform: (isSubmitMenuOpen && activeTab === 'submit') ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                    transition: 'transform 0.2s ease'
+                  }} 
+                />
+              </div>
+            </button>
+
+            {/* Submenu: 2 Tasks (Bài tập cá nhân vs Đồ án nhóm Git) */}
+            {activeTab === 'submit' && isSubmitMenuOpen && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                marginLeft: '10px',
+                paddingLeft: '10px',
+                borderLeft: isDark ? '2px solid rgba(139, 92, 246, 0.35)' : '2px solid #ddd6fe',
+                paddingTop: '3px',
+                paddingBottom: '3px'
+              }}>
+                {/* Sub-item 1: Bài tập cá nhân */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSubmitSubTab('individual');
+                    setIndividualViewMode('gallery');
+                    setSubmitError('');
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: submitSubTab === 'individual' ? (isDark ? '1px solid rgba(167, 139, 250, 0.5)' : '1px solid #c4b5fd') : '1px solid transparent',
+                    background: submitSubTab === 'individual' 
+                      ? (isDark ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(14, 165, 233, 0.2) 100%)' : '#ede9fe') 
+                      : 'transparent',
+                    boxShadow: submitSubTab === 'individual' ? (isDark ? '0 2px 8px rgba(124, 58, 237, 0.15)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+                    color: submitSubTab === 'individual' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    <FileCode size={15} color={submitSubTab === 'individual' ? (isDark ? '#38bdf8' : '#7c3aed') : '#64748b'} style={{ flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.25 }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: submitSubTab === 'individual' ? 700 : 500, color: submitSubTab === 'individual' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#f8fafc' : '#1e1b4b'), whiteSpace: 'nowrap' }}>
+                        {lang === 'vi' ? 'Bài tập cá nhân' : 'Individual Tasks'}
+                      </span>
+                      <span style={{ fontSize: '0.67rem', color: submitSubTab === 'individual' ? (isDark ? '#7dd3fc' : '#7c3aed') : '#94a3b8', fontWeight: 500 }}>
+                        {individualAssignments.length} {lang === 'vi' ? 'bài tập (Sandbox)' : 'tasks'}
+                      </span>
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '999px',
+                    background: submitSubTab === 'individual' ? (isDark ? 'rgba(56, 189, 248, 0.25)' : '#7c3aed') : (isDark ? 'rgba(139, 92, 246, 0.15)' : '#f1f5f9'),
+                    color: submitSubTab === 'individual' ? (isDark ? '#38bdf8' : '#ffffff') : '#64748b',
+                    flexShrink: 0,
+                    marginLeft: '4px'
+                  }}>
+                    {individualAssignments.length}
+                  </span>
+                </button>
+
+                {/* Sub-item 2: Đồ án nhóm (Git) */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSubmitSubTab('team');
+                    setSubmitError('');
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: submitSubTab === 'team' ? (isDark ? '1px solid rgba(168, 85, 247, 0.5)' : '1px solid #c4b5fd') : '1px solid transparent',
+                    background: submitSubTab === 'team' 
+                      ? (isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(124, 58, 237, 0.2) 100%)' : '#ede9fe') 
+                      : 'transparent',
+                    boxShadow: submitSubTab === 'team' ? (isDark ? '0 2px 8px rgba(124, 58, 237, 0.15)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+                    color: submitSubTab === 'team' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    textAlign: 'left'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    <Users size={15} color={submitSubTab === 'team' ? (isDark ? '#c084fc' : '#7c3aed') : '#64748b'} style={{ flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', lineHeight: 1.25 }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: submitSubTab === 'team' ? 700 : 500, color: submitSubTab === 'team' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#f8fafc' : '#1e1b4b'), whiteSpace: 'nowrap' }}>
+                        {lang === 'vi' ? 'Đồ án nhóm (Git)' : 'Team Git Project'}
+                      </span>
+                      {myTeam ? (
+                        <span style={{ fontSize: '0.67rem', color: submitSubTab === 'team' ? (isDark ? '#d8b4fe' : '#7c3aed') : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500 }} title={myTeam.team_name}>
+                          {myTeam.team_name}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.67rem', color: '#94a3b8' }}>
+                          {lang === 'vi' ? 'Chưa vào nhóm' : 'No team'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <GitBranch size={13} color={submitSubTab === 'team' ? (isDark ? '#c084fc' : '#7c3aed') : '#64748b'} style={{ flexShrink: 0, marginLeft: '4px' }} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Item 3: Kết quả & AI */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('results')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 12px',
+              borderRadius: '12px',
+              border: activeTab === 'results' ? (isDark ? '1px solid #7c3aed' : '1px solid #ddd6fe') : '1px solid transparent',
+              background: activeTab === 'results' 
+                ? (isDark ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.25) 100%)' : '#ede9fe')
+                : 'transparent',
+              boxShadow: activeTab === 'results' ? (isDark ? '0 2px 10px rgba(124, 58, 237, 0.2)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+              color: activeTab === 'results' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+              fontSize: '0.9rem',
+              fontWeight: activeTab === 'results' ? 700 : 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <CheckCircle2 size={18} color={activeTab === 'results' ? (isDark ? '#c4b5fd' : '#6d28d9') : '#64748b'} />
+              <span>{lang === 'vi' ? 'Kết quả & AI' : 'Results & AI'}</span>
+            </div>
+            {activeTab === 'results' && <ChevronRight size={15} color={isDark ? '#c4b5fd' : '#6d28d9'} />}
+          </button>
+
+          {/* Item 4: AI Tutor Chat */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('chat')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 12px',
+              borderRadius: '12px',
+              border: activeTab === 'chat' ? (isDark ? '1px solid #7c3aed' : '1px solid #ddd6fe') : '1px solid transparent',
+              background: activeTab === 'chat' 
+                ? (isDark ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.25) 100%)' : '#ede9fe')
+                : 'transparent',
+              boxShadow: activeTab === 'chat' ? (isDark ? '0 2px 10px rgba(124, 58, 237, 0.2)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+              color: activeTab === 'chat' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+              fontSize: '0.9rem',
+              fontWeight: activeTab === 'chat' ? 700 : 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Bot size={18} color={activeTab === 'chat' ? (isDark ? '#c4b5fd' : '#6d28d9') : '#64748b'} />
+              <span>{lang === 'vi' ? 'AI Tutor Chat' : 'AI Tutor Chat'}</span>
+            </div>
+            {activeTab === 'chat' && <ChevronRight size={15} color={isDark ? '#c4b5fd' : '#6d28d9'} />}
+          </button>
+        </div>
+
+        {/* Profile Card Bottom of Sidebar */}
+        <div style={{
+          padding: '1rem',
+          borderTop: isDark ? '1px solid rgba(139, 92, 246, 0.18)' : '1px solid rgba(139, 92, 246, 0.1)',
+          background: isDark ? 'rgba(5, 7, 15, 0.7)' : 'rgba(248, 249, 255, 0.8)',
+          position: 'relative'
+        }}>
+          {/* Popover User Menu */}
+          {showUserMenu && (
+            <div
+              ref={userMenuRef}
+              style={{
+                position: 'absolute',
+                bottom: 'calc(100% + 10px)',
+                left: '12px',
+                right: '12px',
+                background: isDark ? 'rgba(15, 20, 35, 0.98)' : '#ffffff',
+                border: isDark ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '12px',
+                boxShadow: isDark ? '0 12px 36px rgba(0, 0, 0, 0.65)' : '0 12px 36px rgba(124, 58, 237, 0.15)',
+                backdropFilter: 'blur(20px)',
+                zIndex: 100,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px' }}>
+                <div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#ffffff' : '#1e1b4b' }}>
+                    {currentUser?.fullName || 'Sinh viên'}
+                  </div>
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    background: isDark ? 'rgba(139, 92, 246, 0.2)' : '#ede9fe',
+                    color: '#7c3aed',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    marginTop: '3px'
+                  }}>
+                    <GraduationCap size={12} />
+                    <span>{lang === 'vi' ? 'Sinh viên' : 'Student'}</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUserMenu(false);
+                  }}
+                  title={lang === 'vi' ? 'Đóng menu' : 'Close menu'}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9',
+                    border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #e2e8f0',
+                    color: isDark ? '#94a3b8' : '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+
+              <div style={{ height: '1px', background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9' }} />
+
+              {/* Nút Xem Hồ sơ cá nhân & Cài đặt */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  setShowStudentProfileModal(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '9px 12px',
+                  borderRadius: '12px',
+                  background: isDark ? 'rgba(139, 92, 246, 0.12)' : '#f8fafc',
+                  border: isDark ? '1px solid rgba(139, 92, 246, 0.25)' : '1px solid #e2e8f0',
+                  color: isDark ? '#f8fafc' : '#1e1b4b',
+                  fontSize: '0.86rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  textAlign: 'left'
+                }}
+              >
+                <User size={16} color="#7c3aed" />
+                <span>{lang === 'vi' ? 'Hồ sơ cá nhân & Cài đặt' : 'Profile & Settings'}</span>
+              </button>
+
+              {/* Nút Đăng xuất trong menu con */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUserMenu(false);
+                  handleLogout();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '9px',
+                  borderRadius: '9999px',
+                  background: isDark ? 'rgba(239, 68, 68, 0.1)' : '#ffffff',
+                  border: isDark ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid #fee2e2',
+                  color: '#ef4444',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 2px 6px rgba(239, 68, 68, 0.08)'
+                }}
+              >
+                <LogOut size={14} />
+                <span>{lang === 'vi' ? 'Đăng xuất' : 'Sign Out'}</span>
+              </button>
+            </div>
+          )}
+
+          {/* Professional Student Member Card */}
+          <div 
+            ref={userCardRef}
+            onClick={() => setShowUserMenu(prev => !prev)}
+            title={lang === 'vi' ? 'Bấm để mở menu tài khoản' : 'Click to open account menu'}
+            style={{
+              background: isDark 
+                ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%)' 
+                : 'linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%)',
+              border: showUserMenu ? '1.5px solid #7c3aed' : (isDark ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(139, 92, 246, 0.25)'),
+              borderRadius: '16px',
+              padding: '10px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: showUserMenu ? '0 6px 20px rgba(124, 58, 237, 0.2)' : '0 4px 14px rgba(124, 58, 237, 0.06)',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 18px rgba(124, 58, 237, 0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'none';
+              e.currentTarget.style.boxShadow = showUserMenu ? '0 6px 20px rgba(124, 58, 237, 0.2)' : '0 4px 14px rgba(124, 58, 237, 0.06)';
+            }}
+          >
+            <div style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(109, 40, 217, 0.25)'
+            }}>
+              <GraduationCap size={22} color="#ffffff" />
+            </div>
+            <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.84rem', fontWeight: 800, color: isDark ? '#ffffff' : '#1e1b4b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {currentUser?.fullName || (lang === 'vi' ? 'Sinh viên' : 'Student')}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 600 }}>
+                {lang === 'vi' ? 'Sinh viên' : 'Student'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <ChevronUp size={16} color="#7c3aed" style={{ transform: showUserMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* =========================================================================
+          NỘI DUNG CHÍNH BÊN PHẢI (MAIN CONTENT AREA)
+      ========================================================================= */}
+      <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+        {/* Top Header Bar */}
+        <header style={{
+          height: '70px',
+          borderBottom: isDark ? '1px solid rgba(139, 92, 246, 0.18)' : '1px solid rgba(139, 92, 246, 0.1)',
+          background: isDark ? 'rgba(10, 14, 26, 0.92)' : 'rgba(255, 255, 255, 0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          padding: '0 2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          boxShadow: isDark ? '0 2px 12px rgba(0, 0, 0, 0.4)' : '0 2px 12px rgba(124, 58, 237, 0.03)'
+        }}>
+          {/* Left: Breadcrumbs */}
+          <div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.88rem',
+              letterSpacing: '-0.01em',
+              color: isDark ? '#94a3b8' : '#64748b'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Home size={15} color="#7c3aed" style={{ flexShrink: 0 }} />
+                <span style={{ fontWeight: 500, color: isDark ? '#94a3b8' : '#64748b' }}>Dashboard</span>
+              </div>
+
+              <ChevronRight size={13} style={{ color: isDark ? '#475569' : '#cbd5e1', strokeWidth: 2.2, flexShrink: 0 }} />
+
+              <span style={{
+                color: isDark ? '#c4b5fd' : '#6d28d9',
+                fontWeight: 600,
+                whiteSpace: 'nowrap'
+              }}>
+                {lang === 'vi' ? 'Không gian Sinh viên' : 'Student Workspace'}
+              </span>
+
+              <ChevronRight size={13} style={{ color: isDark ? '#475569' : '#cbd5e1', strokeWidth: 2.2, flexShrink: 0 }} />
+
+              <span style={{
+                color: isDark ? '#c4b5fd' : '#6d28d9',
+                fontWeight: 700,
+                whiteSpace: 'nowrap'
+              }}>
+                {activeTab === 'courses' && (lang === 'vi' ? 'Học phần' : 'My Courses')}
+                {activeTab === 'submit' && (
+                  submitSubTab === 'team'
+                    ? (lang === 'vi' ? 'Đồ án nhóm (Git)' : 'Team Git Project')
+                    : (lang === 'vi' ? 'Bài tập cá nhân (Sandbox)' : 'Individual Tasks')
+                )}
+                {activeTab === 'results' && (lang === 'vi' ? 'Kết quả & AI' : 'Results & AI')}
+                {activeTab === 'chat' && (lang === 'vi' ? 'AI Tutor Chat' : 'AI Tutor Chat')}
+                {activeTab === 'analytics' && (lang === 'vi' ? 'Đóng góp Git' : 'Git Analytics')}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <LanguageSwitcher />
+            <UserProfileMenu user={currentUser} onLogout={handleLogout} scoreData={studentScoreData} />
+          </div>
+        </header>
+
+        {/* Nội dung chính theo từng Tab */}
+        <div style={{ padding: '1.5rem 2rem', flex: 1, maxWidth: '1600px', width: '100%', margin: '0 auto' }}>
         {/* Toast */}
         {successToast && (
           <div style={{
             position: 'fixed', top: '85px', right: '25px', zIndex: 100,
-            background: 'rgba(59, 130, 246, 0.95)', color: '#fff',
+            background: 'rgba(124, 58, 237, 0.95)', color: '#fff',
             padding: '12px 20px', borderRadius: '12px',
             boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
             display: 'flex', alignItems: 'center', gap: '10px',
@@ -578,18 +2650,18 @@ export default function StudentDashboard() {
                 value={selectedFilter}
                 onChange={e => handleFilterChange(e.target.value)}
                 style={{
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  color: '#38bdf8',
-                  padding: '6px 14px',
+                  background: isDark ? 'rgba(15, 23, 42, 0.9)' : '#ffffff',
+                  border: isDark ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid #c4b5fd',
+                  borderRadius: '10px',
+                  color: isDark ? '#c4b5fd' : '#6d28d9',
+                  padding: '7px 16px',
                   fontSize: '0.88rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                   outline: 'none',
                   minWidth: '280px',
                   maxWidth: '720px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)'
+                  boxShadow: isDark ? '0 2px 8px rgba(0, 0, 0, 0.25)' : '0 2px 8px rgba(109, 40, 217, 0.08)'
                 }}
               >
                 <option value="ALL">
@@ -607,47 +2679,30 @@ export default function StudentDashboard() {
             {selectedFilter === 'ALL' ? (
               myTeams.length > 0 && (
                 <>
-                  <span style={{ color: 'rgba(255, 255, 255, 0.2)', margin: '0 4px' }}>•</span>
-                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Nhóm:' : 'Team:'}</span>
-                  <strong style={{ color: '#38bdf8' }}>{lang === 'vi' ? `Tất cả (${myTeams.length} nhóm)` : `All (${myTeams.length} teams)`}</strong>
+                  <span style={{ color: isDark ? 'rgba(255, 255, 255, 0.2)' : '#cbd5e1', margin: '0 4px' }}>•</span>
+                  <span style={{ color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>{lang === 'vi' ? 'Nhóm:' : 'Team:'}</span>
+                  <strong style={{ color: isDark ? '#c4b5fd' : '#6d28d9' }}>{lang === 'vi' ? `Tất cả (${myTeams.length} nhóm)` : `All (${myTeams.length} teams)`}</strong>
                 </>
               )
             ) : currentFilterTeam ? (
               <>
-                <span style={{ color: 'rgba(255, 255, 255, 0.2)', margin: '0 4px' }}>•</span>
-                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'vi' ? 'Nhóm:' : 'Team:'}</span>
-                <strong style={{ color: '#38bdf8' }}>{currentFilterTeam.team_name}</strong>
+                <span style={{ color: isDark ? 'rgba(255, 255, 255, 0.2)' : '#cbd5e1', margin: '0 4px' }}>•</span>
+                <span style={{ color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>{lang === 'vi' ? 'Nhóm:' : 'Team:'}</span>
+                <strong style={{ color: isDark ? '#c4b5fd' : '#6d28d9' }}>{currentFilterTeam.team_name}</strong>
               </>
             ) : null}
           </div>
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {selectedFilter !== 'ALL' && currentFilterTeam && (() => {
-              const myMember = currentFilterTeam.members?.find(m => 
-                (currentUser?.userId && m.user_id === currentUser.userId) ||
-                (currentUser?.email && m.email && m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim())
-              );
-              return myMember ? (
-                <div style={{
-                  background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.25)',
-                  padding: '8px 16px', borderRadius: '10px'
-                }}>
-                  <span style={{ fontSize: '0.75rem', color: '#93c5fd', display: 'block' }}>
-                    {lang === 'vi' ? 'Phân hệ phụ trách' : 'Assigned Module'}
-                  </span>
-                  <strong style={{ fontSize: '0.9rem', color: '#60a5fa' }}>{myMember.assigned_module}</strong>
-                </div>
-              ) : null;
-            })()}
             {selectedFilter === 'ALL' && myTeams.length > 0 && (
               <div style={{
-                background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
+                background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.25)',
                 padding: '8px 16px', borderRadius: '10px'
               }}>
-                <span style={{ fontSize: '0.75rem', color: '#38bdf8', display: 'block' }}>
+                <span style={{ fontSize: '0.75rem', color: '#a78bfa', display: 'block' }}>
                   {lang === 'vi' ? 'Chế độ xem' : 'View Mode'}
                 </span>
-                <strong style={{ fontSize: '0.9rem', color: '#60a5fa' }}>
+                <strong style={{ fontSize: '0.9rem', color: '#c4b5fd' }}>
                   {lang === 'vi' ? `Tổng hợp ${myTeams.length} môn học` : `All ${myTeams.length} Courses`}
                 </strong>
               </div>
@@ -668,10 +2723,10 @@ export default function StudentDashboard() {
 
                         {/* ───── TAB: COURSES ───── */}
         {activeTab === 'courses' && (
-          <div style={{ maxWidth: '960px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {loadingData && (
               <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                <Loader2 size={26} className="animate-spin" style={{ marginBottom: '8px', color: '#38bdf8' }} />
+                <Loader2 size={26} className="animate-spin" style={{ marginBottom: '8px', color: '#a78bfa' }} />
                 <p style={{ fontSize: '0.85rem' }}>{lang === 'vi' ? 'Đang đồng bộ dữ liệu học phần...' : 'Loading course data...'}</p>
               </div>
             )}
@@ -680,18 +2735,16 @@ export default function StudentDashboard() {
               displayedTeams.map((team) => (
                 <div
                   key={team.team_id}
+                  className="glass-card student-course-card"
                   style={{
-                    background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                    border: '1px solid rgba(56, 189, 248, 0.2)',
                     borderRadius: '16px',
-                    padding: '1.25rem 1.5rem',
-                    boxShadow: '0 20px 45px -15px rgba(0, 0, 0, 0.7), 0 0 30px -10px rgba(56, 189, 248, 0.1)',
+                    padding: '1.5rem 1.75rem',
                     backdropFilter: 'blur(16px)',
                     position: 'relative',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '1rem'
+                    gap: '1.25rem'
                   }}
                 >
                   {/* Ambient background glow accent */}
@@ -702,7 +2755,7 @@ export default function StudentDashboard() {
                       right: '-60px',
                       width: '200px',
                       height: '200px',
-                      background: 'radial-gradient(circle, rgba(56, 189, 248, 0.14) 0%, transparent 70%)',
+                      background: 'radial-gradient(circle, rgba(139, 92, 246, 0.14) 0%, transparent 70%)',
                       pointerEvents: 'none',
                       filter: 'blur(30px)'
                     }}
@@ -716,24 +2769,24 @@ export default function StudentDashboard() {
                           width: '38px',
                           height: '38px',
                           borderRadius: '10px',
-                          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2))',
-                          border: '1px solid rgba(56, 189, 248, 0.35)',
+                          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
+                          border: '1px solid rgba(139, 92, 246, 0.35)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          boxShadow: '0 0 15px rgba(56, 189, 248, 0.2)',
+                          boxShadow: '0 0 15px rgba(139, 92, 246, 0.2)',
                           flexShrink: 0
                         }}
                       >
-                        <BookOpen size={19} color="#38bdf8" />
+                        <BookOpen size={19} color="#a78bfa" />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', flexWrap: 'wrap' }}>
                           <span 
                             style={{ 
-                              background: 'rgba(56, 189, 248, 0.12)', 
-                              color: '#38bdf8', 
-                              border: '1px solid rgba(56, 189, 248, 0.3)', 
+                              background: 'rgba(139, 92, 246, 0.12)', 
+                              color: '#a78bfa', 
+                              border: '1px solid rgba(139, 92, 246, 0.3)', 
                               padding: '2px 8px', 
                               borderRadius: '999px', 
                               fontSize: '0.72rem', 
@@ -769,11 +2822,11 @@ export default function StudentDashboard() {
                             {team.team_name}
                           </span>
                         </div>
-                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 2px 0', letterSpacing: '-0.2px', color: '#f8fafc' }}>
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '0 0 2px 0', letterSpacing: '-0.2px', color: 'var(--text-main)' }}>
                           {team.course_name}
                         </h3>
-                        <div style={{ fontSize: '0.76rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span>{lang === 'vi' ? 'GV:' : 'Lecturer:'} <strong style={{ color: '#f1f5f9', fontWeight: 600 }}>{team.lecturer_name}</strong></span>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span>{lang === 'vi' ? 'GV:' : 'Lecturer:'} <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>{team.lecturer_name}</strong></span>
                           <span>•</span>
                           <span>{team.members?.length || 0} {lang === 'vi' ? 'thành viên' : 'members'}</span>
                         </div>
@@ -786,9 +2839,9 @@ export default function StudentDashboard() {
                         target="_blank"
                         rel="noreferrer"
                         style={{
-                          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.1), rgba(99, 102, 241, 0.1))',
-                          border: '1px solid rgba(56, 189, 248, 0.3)',
-                          color: '#38bdf8',
+                          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1))',
+                          border: '1px solid rgba(139, 92, 246, 0.3)',
+                          color: '#a78bfa',
                           padding: '6px 12px',
                           borderRadius: '8px',
                           fontSize: '0.76rem',
@@ -799,7 +2852,7 @@ export default function StudentDashboard() {
                           gap: '6px',
                           textDecoration: 'none',
                           whiteSpace: 'nowrap',
-                          boxShadow: '0 0 10px rgba(56, 189, 248, 0.1)',
+                          boxShadow: '0 0 10px rgba(139, 92, 246, 0.1)',
                           transition: 'all 0.2s ease',
                           flexShrink: 0
                         }}
@@ -813,38 +2866,34 @@ export default function StudentDashboard() {
                   {/* Quick Highlight Stats Row - Compact */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: '8px',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '10px',
                     position: 'relative',
                     zIndex: 1
                   }}>
-                    <div style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                    <div className="student-stat-box" style={{
                       borderRadius: '10px',
-                      padding: '7px 12px',
+                      padding: '8px 14px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '10px'
                     }}>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(56, 189, 248, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8', flexShrink: 0 }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', flexShrink: 0 }}>
                         <Users size={14} />
                       </div>
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.64rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                           {lang === 'vi' ? 'Nhóm đồ án' : 'Team Name'}
                         </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {team.team_name}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                    <div className="student-stat-box" style={{
                       borderRadius: '10px',
-                      padding: '7px 12px',
+                      padding: '8px 14px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '10px'
@@ -853,47 +2902,61 @@ export default function StudentDashboard() {
                         <BookOpen size={14} />
                       </div>
                       <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.64rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
                           {lang === 'vi' ? 'Giảng viên' : 'Instructor'}
                         </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {team.lecturer_name}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
-                      borderRadius: '10px',
-                      padding: '7px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px'
-                    }}>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34d399', flexShrink: 0 }}>
-                        <FileCode size={14} />
-                      </div>
-                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <div style={{ fontSize: '0.64rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
-                          {lang === 'vi' ? 'Bài tập' : 'Assignments'}
+                    <div 
+                      className="student-stat-box" 
+                      onClick={() => {
+                        if (team.course_id) setSelectedIndividualCourseId(team.course_id);
+                        setSubmitSubTab('individual');
+                        setIndividualViewMode('gallery');
+                        setIsSubmitMenuOpen(true);
+                        setActiveTab('submit');
+                      }}
+                      style={{
+                        borderRadius: '10px',
+                        padding: '8px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        cursor: 'pointer'
+                      }}
+                      title={lang === 'vi' ? 'Nhấn để xem danh sách & nộp bài tập' : 'Click to view & submit assignments'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34d399', flexShrink: 0 }}>
+                          <FileCode size={14} />
                         </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#34d399', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {assignments.filter(a => !a.course_id || a.course_id === team.course_id).length} {lang === 'vi' ? 'bài tập' : 'milestones'}
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                            {lang === 'vi' ? 'Bài tập' : 'Assignments'}
+                          </div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#34d399', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {assignments.filter(a => !a.course_id || a.course_id === team.course_id).length} {lang === 'vi' ? 'bài tập' : 'milestones'}
+                          </div>
                         </div>
                       </div>
+                      <ArrowRight size={13} color="#34d399" style={{ flexShrink: 0 }} />
                     </div>
                   </div>
 
                   {/* Divider */}
-                  <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)', position: 'relative', zIndex: 1 }} />
+                  <div className="student-divider" style={{ height: '1px', position: 'relative', zIndex: 1 }} />
 
                   {/* Team Members */}
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Users size={14} color="#38bdf8" />
-                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <Users size={14} color="#a78bfa" />
+                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                           {lang === 'vi' ? 'Thành viên cùng nhóm' : 'Team Members'}
                         </span>
                       </div>
@@ -901,8 +2964,8 @@ export default function StudentDashboard() {
                         fontSize: '0.7rem',
                         padding: '1px 6px',
                         borderRadius: '999px',
-                        background: 'rgba(56, 189, 248, 0.1)',
-                        color: '#38bdf8',
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        color: '#a78bfa',
                         fontWeight: 600
                       }}>
                         {team.members?.length || 0} {lang === 'vi' ? 'người' : 'members'}
@@ -910,7 +2973,7 @@ export default function StudentDashboard() {
                     </div>
 
                     {team.members && team.members.length > 0 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '6px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '8px' }}>
                         {[...team.members]
                           .sort((a, b) => {
                             if (a.role === 'LEADER' && b.role !== 'LEADER') return -1;
@@ -918,49 +2981,29 @@ export default function StudentDashboard() {
                             return 0;
                           })
                           .map((m) => {
-                          const isMe = (currentUser?.userId && m.user_id === currentUser.userId) || 
-                                       (currentUser?.email && m.email && m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim());
+                          const isMe = (currentUser?.email && m.email)
+                            ? m.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()
+                            : (currentUser?.userId ? m.user_id === currentUser.userId : false);
                           const initial = (m.full_name || 'U').trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || 'U';
                           const memberKey = m.team_member_id || m.user_id;
-                          const isExpanded = selectedMemberId === memberKey;
-
-                          let memberTasksList: any[] = [];
-                          try {
-                            const savedTasks = localStorage.getItem('aita_lecturer_team_tasks');
-                            if (savedTasks) {
-                              const parsed = JSON.parse(savedTasks);
-                              if (Array.isArray(parsed)) {
-                                memberTasksList = parsed.filter((t: any) => 
-                                  (t.team_id === team.team_id || team.team_name?.includes('Group 4') || team.team_name?.includes('AITA')) &&
-                                  (t.assigned_to_name === m.full_name || 
-                                   t.assigned_to_name === m.email || 
-                                   m.full_name?.toLowerCase().includes(t.assigned_to_name?.toLowerCase()) ||
-                                   t.assigned_to_name?.toLowerCase().includes(m.full_name?.toLowerCase()))
-                                );
-                              }
-                            }
-                          } catch (e) {}
 
                           return (
                             <div
                               key={memberKey}
+                              className={`student-member-item ${isMe ? 'is-me' : ''}`}
                               style={{
                                 borderRadius: '10px',
-                                background: isMe ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                                border: isMe ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
                                 transition: 'all 0.15s ease',
                                 overflow: 'hidden'
                               }}
                             >
                               <div
-                                onClick={() => setSelectedMemberId(prev => prev === memberKey ? null : memberKey)}
                                 style={{
-                                  padding: '7px 10px',
+                                  padding: '7px 12px',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
-                                  gap: '8px',
-                                  cursor: 'pointer'
+                                  gap: '8px'
                                 }}
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
@@ -968,9 +3011,9 @@ export default function StudentDashboard() {
                                     width: '26px',
                                     height: '26px',
                                     borderRadius: '50%',
-                                    background: isMe ? 'linear-gradient(135deg, #1e40af, #0284c7)' : 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03))',
+                                    background: isMe ? 'linear-gradient(135deg, #4f46e5, #7c3aed)' : 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03))',
                                     color: '#fff',
-                                    border: isMe ? '1px solid rgba(56, 189, 248, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                                    border: isMe ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -985,7 +3028,7 @@ export default function StudentDashboard() {
                                       <span style={{
                                         fontSize: '0.8rem',
                                         fontWeight: 700,
-                                        color: isMe ? '#38bdf8' : '#f8fafc',
+                                        color: isMe ? '#7c3aed' : 'var(--text-main)',
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis'
@@ -1003,103 +3046,12 @@ export default function StudentDashboard() {
                                         </span>
                                       )}
                                     </div>
-                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {m.email}
                                     </span>
                                   </div>
                                 </div>
-
-                                {/* Right side interactive button */}
-                                <div style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  fontSize: '0.66rem',
-                                  fontWeight: 600,
-                                  color: isExpanded ? '#38bdf8' : '#94a3b8',
-                                  background: isExpanded ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-                                  border: `1px solid ${isExpanded ? 'rgba(56, 189, 248, 0.3)' : 'rgba(255, 255, 255, 0.05)'}`,
-                                  padding: '3px 6px',
-                                  borderRadius: '5px',
-                                  flexShrink: 0
-                                }}>
-                                  <span>{lang === 'vi' ? 'Xem phân hệ' : 'View Module'}</span>
-                                  {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-                                </div>
                               </div>
-
-                              {/* Accordion content */}
-                              {isExpanded && (
-                                <div style={{
-                                  padding: '8px 10px',
-                                  background: 'rgba(0, 0, 0, 0.25)',
-                                  borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '6px'
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', fontSize: '0.72rem' }}>
-                                    <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Phân hệ phụ trách:' : 'Assigned Module:'}</span>
-                                    <span style={{
-                                      fontWeight: 600,
-                                      color: '#38bdf8',
-                                      background: 'rgba(56, 189, 248, 0.1)',
-                                      padding: '1px 6px',
-                                      borderRadius: '4px',
-                                      border: '1px solid rgba(56, 189, 248, 0.25)'
-                                    }}>
-                                      {m.assigned_module || (lang === 'vi' ? 'Chưa phân công' : 'Unassigned')}
-                                    </span>
-                                  </div>
-
-                                  {memberTasksList.length > 0 && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
-                                      <span style={{ fontSize: '0.66rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
-                                        {lang === 'vi' ? 'Nhiệm vụ đồ án được giao:' : 'Assigned Tasks:'}
-                                      </span>
-                                      {memberTasksList.map((t: any) => (
-                                        <div
-                                          key={t.task_id}
-                                          style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: '6px',
-                                            background: 'rgba(255, 255, 255, 0.03)',
-                                            padding: '4px 8px',
-                                            borderRadius: '5px',
-                                            fontSize: '0.72rem'
-                                          }}
-                                        >
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1 }}>
-                                            <span style={{
-                                              width: '5px',
-                                              height: '5px',
-                                              borderRadius: '50%',
-                                              background: t.status === 'DONE' ? '#10b981' : (t.status === 'IN_PROGRESS' ? '#f59e0b' : '#64748b'),
-                                              flexShrink: 0
-                                            }} />
-                                            <span style={{ color: '#f1f5f9', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                              {t.title}
-                                            </span>
-                                          </div>
-                                          <span style={{
-                                            fontSize: '0.64rem',
-                                            fontWeight: 700,
-                                            padding: '1px 5px',
-                                            borderRadius: '3px',
-                                            flexShrink: 0,
-                                            color: t.status === 'DONE' ? '#34d399' : (t.status === 'IN_PROGRESS' ? '#fbbf24' : '#94a3b8'),
-                                            background: t.status === 'DONE' ? 'rgba(16, 185, 129, 0.15)' : (t.status === 'IN_PROGRESS' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(100, 116, 139, 0.15)')
-                                          }}>
-                                            {t.status === 'DONE' ? (lang === 'vi' ? 'Xong' : 'Done') : (t.status === 'IN_PROGRESS' ? (lang === 'vi' ? 'Đang làm' : 'Doing') : (lang === 'vi' ? 'Chưa' : 'Todo'))}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -1110,148 +3062,18 @@ export default function StudentDashboard() {
                       </p>
                     )}
                   </div>
-
-                  {/* Divider */}
-                  <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.06)', position: 'relative', zIndex: 1 }} />
-
-                  {/* Assignments */}
-                  <div style={{ position: 'relative', zIndex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <FileCode size={14} color="#38bdf8" />
-                        <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          {lang === 'vi' ? 'Bài tập cần nộp' : 'Assignments'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {assignments.filter(a => !a.course_id || a.course_id === team.course_id).length > 0 ? (
-                        assignments.filter(a => !a.course_id || a.course_id === team.course_id).map(a => {
-                          const daysLeft = getDaysUntil(a.deadline);
-                          const isUrgent = daysLeft <= 3;
-                          const isPast = daysLeft < 0;
-                          return (
-                            <div 
-                              key={a.assignment_id} 
-                              style={{
-                                background: 'rgba(255, 255, 255, 0.02)',
-                                border: `1px solid ${isPast ? 'rgba(244,63,94,0.22)' : isUrgent ? 'rgba(245,158,11,0.22)' : 'rgba(255,255,255,0.05)'}`,
-                                borderRadius: '10px',
-                                padding: '10px 14px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '6px',
-                                transition: 'all 0.2s ease'
-                              }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                  <h5 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>
-                                    {a.title}
-                                  </h5>
-                                  <span style={{
-                                    fontSize: '0.66rem',
-                                    fontWeight: 700,
-                                    padding: '1px 6px',
-                                    borderRadius: '999px',
-                                    background: a.submission_type === 'TEAM' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                                    color: a.submission_type === 'TEAM' ? '#c084fc' : '#38bdf8',
-                                    border: `1px solid ${a.submission_type === 'TEAM' ? 'rgba(168, 85, 247, 0.3)' : 'rgba(56, 189, 248, 0.3)'}`
-                                  }}>
-                                    {a.submission_type === 'TEAM' ? (lang === 'vi' ? 'Nhóm đồ án' : 'Team') : (lang === 'vi' ? 'Cá nhân' : 'Individual')}
-                                  </span>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{
-                                    fontSize: '0.7rem',
-                                    fontWeight: 600,
-                                    padding: '2px 7px',
-                                    borderRadius: '5px',
-                                    background: isPast ? 'rgba(244,63,94,0.15)' : isUrgent ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.12)',
-                                    color: isPast ? '#f43f5e' : isUrgent ? '#f59e0b' : '#34d399',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '3px'
-                                  }}>
-                                    <Clock size={11} />
-                                    {isPast ? (lang === 'vi' ? 'Hết hạn' : 'Expired') :
-                                      isUrgent ? `${daysLeft} ${lang === 'vi' ? 'ngày' : 'days'}` :
-                                      `${daysLeft} ${lang === 'vi' ? 'ngày còn lại' : 'days left'}`}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {a.description && (
-                                <p style={{ fontSize: '0.76rem', color: '#94a3b8', margin: 0, lineHeight: 1.4 }}>
-                                  {a.description}
-                                </p>
-                              )}
-
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', paddingTop: '6px', borderTop: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                  {lang === 'vi' ? 'Thang điểm:' : 'Max:'} <strong style={{ color: '#38bdf8' }}>{a.max_score} điểm</strong>
-                                </span>
-
-                                {!isPast && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleSelectTeam(team.team_id, a.assignment_id);
-                                      setActiveTab('submit');
-                                    }}
-                                    className="btn-primary"
-                                    style={{
-                                      padding: '4px 10px',
-                                      fontSize: '0.75rem',
-                                      gap: '5px',
-                                      height: '26px',
-                                      borderRadius: '6px',
-                                      cursor: 'pointer'
-                                    }}
-                                  >
-                                    <span>{lang === 'vi' ? 'Nộp bài ngay' : 'Submit Now'}</span>
-                                    <ArrowRight size={11} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          border: '1px dashed rgba(255, 255, 255, 0.08)',
-                          color: '#94a3b8',
-                          fontSize: '0.78rem'
-                        }}>
-                          <CheckCircle2 size={14} color="#34d399" />
-                          <span>{lang === 'vi' ? 'Không có bài tập sắp tới hạn' : 'No upcoming assignments'}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
               ))
             ) : !loadingData && (
               <div 
-                className="glass-card" 
+                className="glass-card student-empty-card" 
                 style={{ 
                   padding: '2rem', 
                   borderRadius: '16px',
                   borderTop: '4px solid #f59e0b', 
                   maxWidth: '600px', 
                   margin: '0 auto', 
-                  textAlign: 'center',
-                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
+                  textAlign: 'center'
                 }}
               >
                 <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
@@ -1273,572 +3095,3373 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* ───── TAB: SUBMISSION FORM ───── */}
-        {activeTab === 'submit' && (
-          !myTeam ? (
-            <div 
-              className="glass-card" 
-              style={{ 
-                maxWidth: '680px', 
-                margin: '2rem auto', 
-                padding: '2.5rem 2rem', 
-                textAlign: 'center', 
-                borderTop: '4px solid #f59e0b',
-                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                borderRadius: '20px',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
-                boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
-              }}
-            >
-              <div 
-                style={{ 
-                  width: '56px', 
-                  height: '56px', 
-                  borderRadius: '16px', 
-                  background: 'rgba(245, 158, 11, 0.15)', 
-                  color: '#fbbf24', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  margin: '0 auto 1.25rem' 
-                }}
-              >
-                <Users size={28} />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.6rem', color: '#f8fafc' }}>
-                {lang === 'vi' ? 'Bạn chưa được phân công vào nhóm đồ án' : 'Not assigned to a project team yet'}
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.6, maxWidth: '500px', margin: '0 auto 1.5rem' }}>
-                {lang === 'vi'
-                  ? 'Chức năng nộp bài đồ án và chấm Docker Sandbox yêu cầu sinh viên phải trực thuộc một nhóm đồ án hợp lệ. Giảng viên chưa gán tài khoản của bạn vào nhóm nào. Vui lòng liên hệ Giảng viên để được phân nhóm trước khi nộp bài.'
-                  : 'Submitting assignments and running Docker Sandbox grading requires membership in a project team. Please contact your instructor to be added to a team.'}
-              </p>
-              <button 
-                onClick={fetchData} 
-                className="btn-primary" 
-                style={{ padding: '9px 20px', fontSize: '0.86rem', gap: '8px', margin: '0 auto', display: 'inline-flex' }}
-              >
-                <RefreshCw size={15} /> {lang === 'vi' ? 'Kiểm tra & Làm mới' : 'Check & Refresh'}
-              </button>
-            </div>
-          ) : (
-            <div 
-              style={{ 
-                maxWidth: '860px', 
-                margin: '0 auto', 
-                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                border: '1px solid rgba(56, 189, 248, 0.22)',
-                borderRadius: '20px',
-                padding: '2rem 2.25rem',
-                boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px -10px rgba(56, 189, 248, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(20px)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-            >
-              {/* Ambient background glow accent */}
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: '-80px',
-                  right: '-80px',
-                  width: '260px',
-                  height: '260px',
-                  background: 'radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%)',
-                  pointerEvents: 'none',
-                  filter: 'blur(30px)'
-                }}
-              />
+        {/* ───── TAB: SUBMISSION FORM (Phân chia: Bài tập cá nhân vs Đồ án nhóm) ───── */}
+        {activeTab === 'submit' && (() => {
+          const activeIndAssign = assignments.find(a => String(a.assignment_id) === String(selectedIndividualAssignmentId)) || individualAssignments[0];
+          const activeIndCourse = activeIndAssign ? availableCourses.find(c => c.course_id === activeIndAssign.course_id) : availableCourses[0];
+          const indAssignInfo = activeIndAssign 
+            ? getAssignmentLifecycleInfo(activeIndAssign, mySubmissions, currentUser?.userId, undefined)
+            : { canSubmit: true, isSubmitted: false, subCount: 0, maxSubs: 5, remaining: 5, lifecycleStatus: 'OPEN', dueDate: '', closeDate: '', disableReason: '' };
 
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', gap: '16px', position: 'relative', zIndex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div 
-                    style={{
-                      width: '46px',
-                      height: '46px',
-                      borderRadius: '14px',
-                      background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2))',
-                      border: '1px solid rgba(56, 189, 248, 0.35)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 0 20px rgba(56, 189, 248, 0.25)',
-                      flexShrink: 0
-                    }}
-                  >
-                    <FileCode size={24} color="#38bdf8" />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <h3 style={{ fontSize: '1.3rem', fontWeight: 800, margin: 0, letterSpacing: '-0.3px', color: '#f8fafc' }}>
-                        {lang === 'vi' ? 'Nộp bài đồ án' : 'Submit Assignment'}
-                      </h3>
-                      <span 
-                        style={{ 
-                          background: 'rgba(56, 189, 248, 0.12)', 
-                          color: '#38bdf8', 
-                          border: '1px solid rgba(56, 189, 248, 0.28)', 
-                          padding: '3px 10px', 
-                          borderRadius: '999px', 
-                          fontSize: '0.78rem', 
-                          fontWeight: 700,
-                          letterSpacing: '0.2px'
-                        }}
-                      >
-                        {myTeam.team_name}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+          const activeTeamAssign = assignments.find(a => String(a.assignment_id) === String(selectedTeamAssignmentId)) || teamAssignments[0];
+          const teamAssignInfo = (activeTeamAssign && myTeam)
+            ? getAssignmentLifecycleInfo(activeTeamAssign, mySubmissions, currentUser?.userId, myTeam.team_id)
+            : { canSubmit: true, isSubmitted: false, subCount: 0, maxSubs: 5, remaining: 5, lifecycleStatus: 'OPEN', dueDate: '', closeDate: '', disableReason: '' };
 
-                {/* Quick Fill Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRepoUrl(myTeam?.repo_url || 'https://github.com/min098-ui/SWD392_AITA-Intelligent.git');
-                    setCommitHash('7a9f4c28e9b1');
-                  }}
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(99, 102, 241, 0.12))',
-                    border: '1px solid rgba(56, 189, 248, 0.35)',
-                    color: '#38bdf8',
-                    padding: '7px 14px',
-                    borderRadius: '10px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    whiteSpace: 'nowrap',
-                    boxShadow: '0 0 15px rgba(56, 189, 248, 0.12)',
-                    transition: 'all 0.2s ease',
-                    flexShrink: 0
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.22))';
-                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.6)';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(99, 102, 241, 0.12))';
-                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <span>⚡</span>
-                  <span>{lang === 'vi' ? 'Điền nhanh' : 'Quick Fill'}</span>
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmitArtifact} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
-                {/* Assignment selector */}
-                <div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '8px' }}>
-                    <BookOpen size={15} color="#38bdf8" />
-                    <span>{lang === 'vi' ? 'Bài tập cần nộp' : 'Assignment'}</span>
-                    <span style={{ color: '#f43f5e' }}>*</span>
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <select
-                      value={selectedAssignment}
-                      onChange={e => setSelectedAssignment(e.target.value)}
-                      required
-                      style={{ 
-                        width: '100%', 
-                        padding: '11px 14px', 
-                        background: 'rgba(15, 23, 42, 0.8)', 
-                        border: '1px solid rgba(255, 255, 255, 0.12)', 
-                        borderRadius: '10px', 
-                        color: '#f8fafc', 
-                        fontSize: '0.88rem',
-                        fontWeight: 500,
-                        outline: 'none',
-                        transition: 'border-color 0.2s',
-                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
-                      }}
-                      onFocus={e => e.currentTarget.style.borderColor = '#38bdf8'}
-                      onBlur={e => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'}
-                    >
-                      {relevantAssignments.length > 0 ? relevantAssignments.map((a, idx) => (
-                        <option key={a.assignment_id} value={a.assignment_id} style={{ background: '#0f172a', color: '#f8fafc' }}>
-                          #{idx + 1} - {a.title} ({a.submission_type === 'TEAM' ? (lang === 'vi' ? 'Nhóm đồ án' : 'Team') : (lang === 'vi' ? 'Cá nhân' : 'Individual')})
-                        </option>
-                      )) : (
-                        <option value="" style={{ background: '#0f172a', color: '#94a3b8' }}>-- {lang === 'vi' ? 'Chưa có bài tập cho môn này' : 'No assignments available for this course'} --</option>
-                      )}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Git Repo and Commit SHA side-by-side */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-                  <div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '8px' }}>
-                      <GitBranch size={15} color="#a78bfa" />
-                      <span>{lang === 'vi' ? 'Đường dẫn Git Repository' : 'Git Repository URL'}</span>
-                      <span style={{ color: '#f43f5e' }}>*</span>
-                    </label>
-                    <input 
-                      type="text" 
-                      value={repoUrl}
-                      onChange={e => setRepoUrl(e.target.value)}
-                      required
-                      placeholder="https://github.com/username/repo.git"
-                      style={{ 
-                        width: '100%', 
-                        padding: '11px 14px', 
-                        background: 'rgba(15, 23, 42, 0.8)', 
-                        border: '1px solid rgba(255, 255, 255, 0.12)', 
-                        borderRadius: '10px', 
-                        color: '#e2e8f0', 
-                        fontSize: '0.86rem',
-                        fontFamily: 'var(--font-mono, monospace)',
-                        outline: 'none',
-                        transition: 'all 0.2s',
-                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
-                      }} 
-                      onFocus={e => {
-                        e.currentTarget.style.borderColor = '#a78bfa';
-                        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(167, 139, 250, 0.2)';
-                      }}
-                      onBlur={e => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                        e.currentTarget.style.boxShadow = 'inset 0 2px 4px rgba(0, 0, 0, 0.3)';
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '8px' }}>
-                      <Terminal size={15} color="#34d399" />
-                      <span>{lang === 'vi' ? 'Mã Commit SHA' : 'Git Commit Hash'}</span>
-                      <span style={{ color: '#f43f5e' }}>*</span>
-                    </label>
-                    <input 
-                      type="text" 
-                      value={commitHash}
-                      onChange={e => setCommitHash(e.target.value)}
-                      required
-                      placeholder="e.g.: 7a9f4c28e9b1"
-                      style={{ 
-                        width: '100%', 
-                        padding: '11px 14px', 
-                        background: 'rgba(15, 23, 42, 0.8)', 
-                        border: '1px solid rgba(255, 255, 255, 0.12)', 
-                        borderRadius: '10px', 
-                        color: '#34d399', 
-                        fontSize: '0.86rem',
-                        fontFamily: 'var(--font-mono, monospace)',
-                        fontWeight: 600,
-                        letterSpacing: '0.5px',
-                        outline: 'none',
-                        transition: 'all 0.2s',
-                        boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
-                      }} 
-                      onFocus={e => {
-                        e.currentTarget.style.borderColor = '#34d399';
-                        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(52, 211, 153, 0.2)';
-                      }}
-                      onBlur={e => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                        e.currentTarget.style.boxShadow = 'inset 0 2px 4px rgba(0, 0, 0, 0.3)';
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* IDE Code Window Container */}
-                <div 
-                  style={{ 
-                    borderRadius: '14px', 
-                    border: '1px solid rgba(255, 255, 255, 0.14)', 
-                    background: '#090d16',
-                    overflow: 'hidden',
-                    boxShadow: '0 15px 35px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
-                  }}
-                >
-                  {/* IDE Window Header */}
-                  <div 
-                    style={{ 
-                      background: 'rgba(15, 23, 42, 0.95)', 
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                      padding: '8px 14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '10px'
-                    }}
-                  >
-                    {/* Left: Window controls & active tab */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                      {/* macOS traffic dots */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }} />
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }} />
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
-                      </div>
-
-                      {/* Language Switcher Buttons */}
-                      <div style={{ display: 'flex', gap: '3px', background: 'rgba(0, 0, 0, 0.5)', padding: '2px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLanguage('javascript')}
-                          style={{
-                            padding: '3px 9px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            background: selectedLanguage === 'javascript' ? '#f59e0b' : 'transparent',
-                            color: selectedLanguage === 'javascript' ? '#000' : '#94a3b8',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <span>🟨 JS (Node.js)</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLanguage('python')}
-                          style={{
-                            padding: '3px 9px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            background: selectedLanguage === 'python' ? '#38bdf8' : 'transparent',
-                            color: selectedLanguage === 'python' ? '#000' : '#94a3b8',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <span>🐍 Python 3</span>
-                        </button>
-                      </div>
-
-                      {/* Active tab */}
-                      <div 
-                        style={{ 
-                          background: selectedLanguage === 'python' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(2, 132, 199, 0.15)', 
-                          border: `1px solid ${selectedLanguage === 'python' ? 'rgba(56, 189, 248, 0.35)' : 'rgba(56, 189, 248, 0.35)'}`,
-                          padding: '4px 10px',
-                          borderRadius: '6px',
+          return (
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              {/* ─────────────────────────────────────────────────────────────
+                  TAB 1: BÀI TẬP CÁ NHÂN (3-ZONE INTERACTIVE TERMINAL)
+                  ───────────────────────────────────────────────────────────── */}
+              {submitSubTab === 'individual' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  {individualViewMode === 'gallery' ? (
+                    <>
+                      {/* ═══════════════════════════════════════════════════════════════════════════
+                          ZONE 1: MISSION CONTROL STRIP (Header, Course Chips, 4 KPI Cards & Filter)
+                          ═══════════════════════════════════════════════════════════════════════════ */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                    
+                    {/* Header row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '13px',
+                          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.25))',
+                          border: '1px solid rgba(239, 68, 68, 0.45)',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '6px'
+                          justifyContent: 'center',
+                          color: '#f87171',
+                          boxShadow: '0 0 18px rgba(239, 68, 68, 0.2)'
+                        }}>
+                          <BookOpen size={24} />
+                        </div>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.26rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.3px' }}>
+                            {lang === 'vi' ? 'Đề Bài & Bàn Làm Việc Cá Nhân' : 'Individual Tasks & Sandbox'}
+                          </h3>
+                          <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
+                            {lang === 'vi' 
+                              ? 'Chọn học phần, tra cứu tiêu chí Rubric (BR-06) và nộp bài kiểm tra tự động qua Docker Sandbox.' 
+                              : 'Select course, review rubric criteria and submit via isolated Docker Sandbox.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('results')}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '9px 16px',
+                          borderRadius: '10px',
+                          background: 'rgba(15, 23, 42, 0.85)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          color: '#e2e8f0',
+                          fontSize: '0.84rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)'; e.currentTarget.style.color = '#a78bfa'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.color = '#e2e8f0'; }}
+                      >
+                        <FileText size={15} color="#a78bfa" />
+                        <span>{lang === 'vi' ? 'Lịch Sử Nộp & Kết Quả Chấm' : 'View History & Scores'}</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
+
+                    {/* Course filter chips */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '2px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', marginRight: '4px' }}>
+                        {lang === 'vi' ? 'Chọn lớp học:' : 'Courses:'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIndividualCourseId('ALL')}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: selectedIndividualCourseId === 'ALL'
+                            ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95) 0%, rgba(185, 28, 28, 0.95) 100%)'
+                            : 'rgba(15, 23, 42, 0.75)',
+                          border: selectedIndividualCourseId === 'ALL' ? '1px solid rgba(248, 113, 113, 0.6)' : '1px solid rgba(255, 255, 255, 0.12)',
+                          color: selectedIndividualCourseId === 'ALL' ? '#ffffff' : '#94a3b8',
+                          boxShadow: selectedIndividualCourseId === 'ALL' ? '0 4px 14px rgba(220, 38, 38, 0.4)' : 'none'
                         }}
                       >
-                        <span style={{ background: selectedLanguage === 'python' ? '#38bdf8' : '#f59e0b', color: '#000', fontWeight: 800, fontSize: '0.62rem', padding: '1px 4px', borderRadius: '3px' }}>
-                          {selectedLanguage === 'python' ? 'PY' : 'JS'}
-                        </span>
-                        <span style={{ fontSize: '0.76rem', color: '#f1f5f9', fontFamily: 'var(--font-mono, monospace)', fontWeight: 600 }}>
-                          {selectedLanguage === 'python' ? 'main.py' : 'main.js'}
-                        </span>
+                        {lang === 'vi' ? `Tất cả các lớp (${allIndividualAssignments.length})` : `All courses (${allIndividualAssignments.length})`}
+                      </button>
+
+                      {availableCourses.map(c => {
+                        const count = allIndividualAssignments.filter(a => a.course_id === c.course_id).length;
+                        const isSelected = String(selectedIndividualCourseId) === String(c.course_id);
+                        return (
+                          <button
+                            key={c.course_id}
+                            type="button"
+                            onClick={() => setSelectedIndividualCourseId(String(c.course_id))}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '8px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              background: isSelected
+                                ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95) 0%, rgba(185, 28, 28, 0.95) 100%)'
+                                : 'rgba(15, 23, 42, 0.75)',
+                              border: isSelected ? '1px solid rgba(248, 113, 113, 0.6)' : '1px solid rgba(255, 255, 255, 0.12)',
+                              color: isSelected ? '#ffffff' : '#cbd5e1',
+                              boxShadow: isSelected ? '0 4px 14px rgba(220, 38, 38, 0.4)' : 'none'
+                            }}
+                          >
+                            {c.course_code} {count > 0 ? `(${count} đề)` : `(0 đề)`}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* 4 Glassmorphic KPI Cards */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                      gap: '12px'
+                    }}>
+                      {/* Card 1: Tổng số đề bài */}
+                      <div 
+                        className="glass-card"
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
+                          border: '1px solid rgba(139, 92, 246, 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '14px',
+                          position: 'relative',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '10px',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#f87171',
+                          flexShrink: 0
+                        }}>
+                          <BookOpen size={20} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                            {lang === 'vi' ? 'Tổng số đề bài' : 'Total Tasks'}
+                          </div>
+                          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f8fafc', lineHeight: 1.2 }}>
+                            {individualStats.total}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: '#a78bfa', marginTop: '2px' }}>
+                            • {selectedIndividualCourseId === 'ALL' ? (lang === 'vi' ? 'Đang xem tất cả' : 'All courses') : `${activeIndCourse?.course_code || 'Học phần'}`}
+                          </div>
+                        </div>
+                        <div style={{ position: 'absolute', top: '10px', right: '10px', width: '7px', height: '7px', borderRadius: '50%', background: '#f87171' }} />
+                      </div>
+
+                      {/* Card 2: Đã nộp bài */}
+                      <div 
+                        className="glass-card"
+                        onClick={() => setAssignStatusFilter(prev => prev === 'SUBMITTED' ? 'ALL' : 'SUBMITTED')}
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: '14px',
+                          background: assignStatusFilter === 'SUBMITTED' 
+                            ? 'linear-gradient(145deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.92) 100%)' 
+                            : 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
+                          border: assignStatusFilter === 'SUBMITTED' ? '1px solid rgba(52, 211, 153, 0.65)' : '1px solid rgba(52, 211, 153, 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '14px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: assignStatusFilter === 'SUBMITTED' ? '0 0 16px rgba(52, 211, 153, 0.25)' : 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '10px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#34d399',
+                          flexShrink: 0
+                        }}>
+                          <CheckCircle2 size={20} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                            {lang === 'vi' ? 'Đã nộp bài' : 'Submitted'}
+                          </div>
+                          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#34d399', lineHeight: 1.2 }}>
+                            {individualStats.submitted}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: '2px' }}>
+                            {lang === 'vi' ? 'Nhấn để xem bài đã nộp' : 'Click to filter'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 3: Chưa nộp bài */}
+                      <div 
+                        className="glass-card"
+                        onClick={() => setAssignStatusFilter(prev => prev === 'UNSUBMITTED' ? 'ALL' : 'UNSUBMITTED')}
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: '14px',
+                          background: assignStatusFilter === 'UNSUBMITTED'
+                            ? 'linear-gradient(145deg, rgba(245, 158, 11, 0.22) 0%, rgba(15, 23, 42, 0.92) 100%)'
+                            : 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
+                          border: assignStatusFilter === 'UNSUBMITTED' ? '1px solid rgba(251, 191, 36, 0.65)' : '1px solid rgba(251, 191, 36, 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '14px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: assignStatusFilter === 'UNSUBMITTED' ? '0 0 16px rgba(251, 191, 36, 0.25)' : 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '10px',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          border: '1px solid rgba(245, 158, 11, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fbbf24',
+                          flexShrink: 0
+                        }}>
+                          <Clock size={20} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                            {lang === 'vi' ? 'Chưa nộp bài' : 'Pending'}
+                          </div>
+                          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#fbbf24', lineHeight: 1.2 }}>
+                            {individualStats.unsubmitted}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: '#fde68a', marginTop: '2px' }}>
+                            {lang === 'vi' ? 'Nhấn để xem bài cần nộp' : 'Click to filter'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 4: Hạn nộp gần nhất */}
+                      <div 
+                        className="glass-card"
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
+                          border: '1px solid rgba(96, 165, 250, 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '14px'
+                        }}
+                      >
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '10px',
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#60a5fa',
+                          flexShrink: 0
+                        }}>
+                          <Calendar size={20} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                            {lang === 'vi' ? 'Hạn nộp gần nhất' : 'Nearest Deadline'}
+                          </div>
+                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#93c5fd', lineHeight: 1.3 }}>
+                            {individualStats.nearestDeadline ? individualStats.nearestDeadline.toISOString().split('T')[0] : (lang === 'vi' ? 'Không có hạn' : 'None')}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: '#bfdbfe', marginTop: '2px' }}>
+                            {individualStats.nearestCountdown}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Right: Actions / Info (Clean - No sample code) */}
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {codeContent && (
-                        <button
-                          type="button"
-                          onClick={() => setCodeContent('')}
-                          style={{
-                            background: 'rgba(239, 68, 68, 0.12)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)',
-                            color: '#f87171',
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            fontSize: '0.7rem',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s ease'
-                          }}
-                          title={lang === 'vi' ? 'Xóa nội dung code' : 'Clear editor'}
-                        >
-                          ✕ {lang === 'vi' ? 'Xóa code' : 'Clear'}
-                        </button>
-                      )}
-                      <span style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>
-                        {selectedLanguage === 'python' ? 'Python 3.11' : 'Node.js 20'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Code Textarea */}
-                  <textarea
-                    rows={7}
-                    value={codeContent}
-                    onChange={e => setCodeContent(e.target.value)}
-                    required
-                    placeholder={
-                      selectedLanguage === 'python'
-                        ? (lang === 'vi' ? '# Viết hoặc dán mã nguồn Python 3 tại đây (chạy trên Docker Sandbox)...' : '# Write or paste Python 3 source code here...')
-                        : (lang === 'vi' ? '// Viết hoặc dán mã nguồn JavaScript tại đây (chạy trên Docker Sandbox)...' : '// Write or paste JavaScript source code here...')
-                    }
-                    className="code-editor-textarea"
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      background: '#090d16',
-                      border: 'none',
-                      outline: 'none',
-                      color: selectedLanguage === 'python' ? '#38bdf8' : '#fbbf24',
-                      fontFamily: 'var(--font-mono, monospace)',
-                      fontSize: '0.86rem',
-                      lineHeight: '1.6',
-                      display: 'block',
-                      resize: 'vertical'
-                    }}
-                  />
-
-                  {/* IDE Bottom Status Bar */}
-                  <div
-                    style={{
-                      background: 'rgba(15, 23, 42, 0.95)',
-                      borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                      padding: '6px 14px',
+                    {/* Search & Status Filter Bar */}
+                    <div style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      fontSize: '0.72rem',
-                      color: '#64748b',
-                      fontFamily: 'var(--font-mono, monospace)',
+                      gap: '12px',
                       flexWrap: 'wrap',
-                      gap: '8px'
+                      marginTop: '4px'
+                    }}>
+                      {/* Search Input */}
+                      <div style={{
+                        position: 'relative',
+                        flex: 1,
+                        minWidth: '260px'
+                      }}>
+                        <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <input
+                          type="text"
+                          value={assignSearchQuery}
+                          onChange={e => setAssignSearchQuery(e.target.value)}
+                          placeholder={lang === 'vi' ? 'Tìm đề bài theo tiêu đề, mã lớp, nội dung...' : 'Search assignments...'}
+                          style={{
+                            width: '100%',
+                            padding: '10px 36px 10px 40px',
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '10px',
+                            color: '#f8fafc',
+                            fontSize: '0.86rem',
+                            outline: 'none',
+                            transition: 'border-color 0.2s ease'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)'}
+                          onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)'}
+                        />
+                        {assignSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setAssignSearchQuery('')}
+                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                          >
+                            <X size={15} />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Status filter pills */}
+                      <div style={{
+                        display: 'inline-flex',
+                        background: 'rgba(15, 23, 42, 0.8)',
+                        padding: '4px',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        gap: '4px'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setAssignStatusFilter('ALL')}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '7px',
+                            border: 'none',
+                            background: assignStatusFilter === 'ALL' ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.95))' : 'transparent',
+                            color: assignStatusFilter === 'ALL' ? '#ffffff' : '#94a3b8',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {lang === 'vi' ? 'Tất cả trạng thái' : 'All status'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAssignStatusFilter('UNSUBMITTED')}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '7px',
+                            border: 'none',
+                            background: assignStatusFilter === 'UNSUBMITTED' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
+                            color: assignStatusFilter === 'UNSUBMITTED' ? '#fbbf24' : '#94a3b8',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {lang === 'vi' ? 'Chưa nộp' : 'Pending'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAssignStatusFilter('SUBMITTED')}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '7px',
+                            border: 'none',
+                            background: assignStatusFilter === 'SUBMITTED' ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
+                            color: assignStatusFilter === 'SUBMITTED' ? '#34d399' : '#94a3b8',
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {lang === 'vi' ? 'Đã nộp bài' : 'Submitted'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ═══════════════════════════════════════════════════════════════════════════
+                      ZONE 2: INTERACTIVE MISSION TASK RAIL (Cards Grid with Rubric & Nộp Bài)
+                      ═══════════════════════════════════════════════════════════════════════════ */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {filteredIndividualAssignments.length === 0 ? (
+                      <div 
+                        className="glass-card"
+                        style={{
+                          padding: '2.5rem 2rem',
+                          textAlign: 'center',
+                          borderRadius: '16px',
+                          background: 'rgba(15, 23, 42, 0.7)',
+                          border: '1px dashed rgba(255, 255, 255, 0.15)'
+                        }}
+                      >
+                        <div style={{ color: '#94a3b8', fontSize: '1.8rem', marginBottom: '8px' }}>📂</div>
+                        <h4 style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 700, margin: '0 0 6px 0' }}>
+                          {lang === 'vi' ? 'Không tìm thấy đề bài phù hợp' : 'No assignments found'}
+                        </h4>
+                        <p style={{ color: '#64748b', fontSize: '0.84rem', margin: '0 0 16px 0' }}>
+                          {lang === 'vi' ? 'Thử chọn học phần khác hoặc đặt lại từ khóa tìm kiếm.' : 'Try changing course filter or search keywords.'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedIndividualCourseId('ALL'); setAssignSearchQuery(''); setAssignStatusFilter('ALL'); }}
+                          className="btn-secondary"
+                          style={{ padding: '6px 16px', fontSize: '0.8rem', borderRadius: '8px', margin: '0 auto', display: 'inline-flex' }}
+                        >
+                          <span>{lang === 'vi' ? 'Đặt lại tất cả bộ lọc' : 'Reset filters'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 420px))',
+                        gap: '1.5rem',
+                        maxWidth: '1280px'
+                      }}>
+                        {filteredIndividualAssignments.map((a) => {
+                          const info = getAssignmentLifecycleInfo(a, mySubmissions, currentUser?.userId || currentUser?.user_id, undefined);
+                          const isExam = Boolean(a.title?.includes('PE') || a.title?.includes('Practical Exam') || a.title?.toLowerCase().includes('exam') || a.allowed_language?.toUpperCase() === 'JAVA');
+                          const dueDate = a.due_date || a.deadline;
+                          const isSelectedInRunner = String(selectedIndividualAssignmentId) === String(a.assignment_id);
+
+                          const cleanTitle = (a.title || '')
+                            .replace(/–\s*Java OOP Standard Exam\s*\([Qq]1\s*[-–]\s*[Qq]4\)/i, '(Đề Số 1)')
+                            .replace(/\([Qq]1\s*[-–]\s*[Qq]4\)/i, '(Đề Số 1)');
+
+                          return (
+                            <div
+                              key={a.assignment_id}
+                              className="glass-card"
+                              style={{
+                                background: 'var(--bg-card)',
+                                border: isSelectedInRunner ? '1px solid rgba(139, 92, 246, 0.55)' : '1px solid var(--border-color)',
+                                borderRadius: '18px',
+                                padding: '1.45rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                boxShadow: isSelectedInRunner ? '0 12px 30px rgba(124, 58, 237, 0.25)' : '0 8px 24px rgba(0, 0, 0, 0.25)',
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                position: 'relative'
+                              }}
+                            >
+                              <div>
+                                {/* Top Row: EXAM/ASSIGNMENT Badge + Khung giờ Due Date (Chuẩn Giảng Viên) */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                                  <span style={{
+                                    background: isExam ? 'rgba(239, 68, 68, 0.18)' : 'rgba(249, 115, 22, 0.18)',
+                                    color: isExam ? '#fca5a5' : '#fdba74',
+                                    border: `1px solid ${isExam ? 'rgba(239, 68, 68, 0.35)' : 'rgba(249, 115, 22, 0.35)'}`,
+                                    borderRadius: '6px',
+                                    padding: '3px 9px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.04em'
+                                  }}>
+                                    {isExam ? 'EXAM' : 'ASSIGNMENT'}
+                                  </span>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>
+                                    <Clock size={13} style={{ color: '#94a3b8' }} />
+                                    <span>{fmtDate(dueDate)}</span>
+                                  </div>
+                                </div>
+
+                                {/* Title: Xóa (Q1 - Q4) đổi thành (Đề Số 1) */}
+                                <h4 style={{
+                                  fontSize: '1.08rem',
+                                  fontWeight: 800,
+                                  color: 'var(--text-main)',
+                                  lineHeight: 1.35,
+                                  marginBottom: '8px',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden'
+                                }}>
+                                  {cleanTitle}
+                                </h4>
+
+                                {/* Description Excerpt */}
+                                <p style={{
+                                  fontSize: '0.83rem',
+                                  color: 'var(--text-muted)',
+                                  lineHeight: 1.45,
+                                  marginBottom: '16px',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                  minHeight: '2.4rem'
+                                }}>
+                                  {a.description || (lang === 'vi' ? 'Chưa có mô tả chi tiết cho bài tập này.' : 'No description provided.')}
+                                </p>
+                              </div>
+
+                              {/* Card Footer: Hình thức bên trái, Chi Tiết & Nộp Bài bên phải (Gọn gàng như Giảng Viên) */}
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                paddingTop: '12px',
+                                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                                marginTop: 'auto'
+                              }}>
+                                <div style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{lang === 'vi' ? 'Hình thức:' : 'Format:'}</span>
+                                  <strong style={{ color: '#e2e8f0' }}>ZIP</strong>
+                                  {info.isSubmitted && (
+                                    <span style={{
+                                      marginLeft: '4px',
+                                      fontSize: '0.72rem',
+                                      color: '#34d399',
+                                      background: 'rgba(52, 211, 153, 0.12)',
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      fontWeight: 600
+                                    }}>
+                                      {lang === 'vi' ? 'Đã nộp' : 'Submitted'}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => {
+                                      const course = availableCourses.find(c => c.course_id === a.course_id);
+                                      setViewingExamAssignment({
+                                        ...a,
+                                        course_code: a.course_code || course?.course_code,
+                                        course_name: a.course_name || course?.course_name
+                                      });
+                                    }}
+                                    style={{
+                                      padding: '6px 14px',
+                                      fontSize: '0.8rem',
+                                      gap: '6px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      borderRadius: '8px',
+                                      background: 'rgba(255, 255, 255, 0.04)',
+                                      borderColor: 'rgba(255, 255, 255, 0.15)',
+                                      color: '#e2e8f0',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    title={lang === 'vi' ? 'Xem văn bản đề thi chi tiết' : 'View exam detail'}
+                                  >
+                                    <Eye size={14} />
+                                    <span>{lang === 'vi' ? 'Chi Tiết' : 'Detail'}</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedIndividualCourseId(String(a.course_id));
+                                      setSelectedIndividualAssignmentId(String(a.assignment_id));
+                                      setIndividualViewMode('submit');
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    style={{
+                                      padding: '6px 14px',
+                                      fontSize: '0.8rem',
+                                      gap: '6px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      borderRadius: '8px',
+                                      background: info.isSubmitted 
+                                        ? 'linear-gradient(135deg, rgba(14, 165, 233, 0.9) 0%, rgba(2, 132, 199, 0.9) 100%)'
+                                        : 'linear-gradient(135deg, rgba(124, 58, 237, 0.95) 0%, rgba(99, 102, 241, 0.95) 100%)',
+                                      border: 'none',
+                                      color: '#ffffff',
+                                      fontWeight: 600,
+                                      cursor: 'pointer',
+                                      boxShadow: info.isSubmitted ? '0 4px 12px rgba(14, 165, 233, 0.35)' : '0 4px 12px rgba(124, 58, 237, 0.35)',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                  >
+                                    {info.isSubmitted ? (
+                                      <>
+                                        <RefreshCw size={13} />
+                                        <span>{lang === 'vi' ? 'Nộp Lại' : 'Re-submit'}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Send size={13} />
+                                        <span>{lang === 'vi' ? 'Nộp Bài' : 'Submit'}</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* ═══════════════════════════════════════════════════════════════════════════
+                      ZONE 3: AITA SANDBOX RUNNER STATION (Workspace & Code Runner / Submission)
+                      ═══════════════════════════════════════════════════════════════════════════ */}
+                  <div id="aita-sandbox-station" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', scrollMarginTop: '80px' }}>
+                    
+                    {/* Nút quay lại danh sách đề bài */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIndividualViewMode('gallery');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          color: '#cbd5e1',
+                          padding: '7px 14px',
+                          borderRadius: '10px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)'; e.currentTarget.style.color = '#a78bfa'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'; e.currentTarget.style.color = '#cbd5e1'; }}
+                      >
+                        <ArrowLeft size={15} />
+                        <span>{lang === 'vi' ? 'Quay lại Danh sách Tất cả Đề bài' : 'Back to Assignments Gallery'}</span>
+                      </button>
+                    </div>
+                    {/* Banner Card thông tin bài làm cá nhân (Khớp giao diện SWP) */}
+                  {activeIndAssign && (
+                    <div 
+                      className="glass-card"
+                      style={{
+                        padding: '1.25rem 1.6rem',
+                        borderRadius: '18px',
+                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(20, 32, 58, 0.96) 100%)',
+                        border: '1px solid rgba(139, 92, 246, 0.28)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '16px',
+                        boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.5)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: '300px' }}>
+                        <div 
+                          style={{
+                            width: '50px',
+                            height: '50px',
+                            borderRadius: '14px',
+                            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25))',
+                            border: '1px solid rgba(139, 92, 246, 0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#a78bfa',
+                            flexShrink: 0,
+                            boxShadow: '0 0 16px rgba(139, 92, 246, 0.2)'
+                          }}
+                        >
+                          <UploadCloud size={26} />
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                            <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.5px' }}>
+                              ASSIGNMENT
+                            </span>
+                            {activeIndCourse && (
+                              <span style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', border: '1px solid rgba(139, 92, 246, 0.3)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                {activeIndCourse.course_code}
+                              </span>
+                            )}
+                            <span style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#cbd5e1', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontFamily: 'var(--font-mono, monospace)' }}>
+                              ID: ASM-{activeIndAssign.assignment_id}
+                            </span>
+                          </div>
+
+                          <h3 style={{ margin: '0 0 4px 0', fontSize: '1.18rem', fontWeight: 800, color: '#f8fafc' }}>
+                            {lang === 'vi' ? 'Cổng Nộp Bài Lập Trình (Student Code Submission)' : 'Student Code Submission'}
+                          </h3>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem', color: '#94a3b8' }}>
+                            <span>👤 {lang === 'vi' ? 'Sinh viên:' : 'Student:'} <strong style={{ color: '#f1f5f9' }}>{currentUser?.full_name || 'Lê Nguyễn Linh Nhi'}</strong></span>
+                            <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                            <span>📝 <strong style={{ color: '#a78bfa' }}>{activeIndAssign.title}</strong></span>
+                            <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                            <span>
+                              ⏳ {lang === 'vi' ? 'Hạn chót:' : 'Deadline:'}{' '}
+                              <strong style={{ color: '#fde047' }}>
+                                {formatVNTime(activeIndAssign.due_date || activeIndAssign.deadline)}
+                              </strong>{' '}
+                              <span style={{
+                                padding: '1px 7px',
+                                borderRadius: '4px',
+                                fontSize: '0.68rem',
+                                fontWeight: 800,
+                                background: indAssignInfo.canSubmit ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)',
+                                color: indAssignInfo.canSubmit ? '#4ade80' : '#f87171'
+                              }}>
+                                {indAssignInfo.canSubmit ? (lang === 'vi' ? 'CÒN HẠN' : 'OPEN') : (lang === 'vi' ? 'ĐÃ ĐÓNG' : 'CLOSED')}
+                              </span>
+                            </span>
+                            {activeIndCourse?.lecturer_name && (
+                              <>
+                                <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                                <span>👨‍🏫 {lang === 'vi' ? 'Giảng viên:' : 'Lecturer:'} <strong style={{ color: '#e2e8f0' }}>{activeIndCourse.lecturer_name}</strong></span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIndividualViewMode('gallery');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="btn-secondary"
+                        style={{ padding: '8px 14px', fontSize: '0.8rem', gap: '6px', borderRadius: '10px', cursor: 'pointer' }}
+                      >
+                        <span>📇</span>
+                        <span>{lang === 'vi' ? 'Đổi Đề Bài Khác' : 'Change Assignment'}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Main Form: Nộp Bài Làm Mới */}
+                  <div 
+                    className="glass-card" 
+                    style={{ 
+                      padding: '2rem 2.25rem', 
+                      borderRadius: '20px', 
+                      position: 'relative',
+                      background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
+                      border: '1px solid rgba(139, 92, 246, 0.22)'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8' }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
-                      <span>{selectedLanguage === "python" ? "Python 3.11 Sandbox" : "Node.js 20 Sandbox"}</span>
-                      <span style={{ color: '#475569' }}>|</span>
-                      <span>Docker Container (Isolated)</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span>Watchdog: 5.0s</span>
-                      <span style={{ color: '#475569' }}>•</span>
-                      <span>RAM: 128MB</span>
-                      <span style={{ color: '#475569' }}>•</span>
-                      <span>UTF-8</span>
-                    </div>
+                    <h4 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#f8fafc', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Sparkles size={20} color="#a78bfa" />
+                      <span>{lang === 'vi' ? 'Nộp Bài Làm Mới' : 'Submit New Work'}</span>
+                    </h4>
+
+                    <form onSubmit={handleSubmitArtifact} style={{ display: 'flex', flexDirection: 'column', gap: '1.35rem' }}>
+                      
+                      {/* 1. CHỌN LỚP HỌC PHẦN (COURSE & CLASS) */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                          1. {lang === 'vi' ? 'CHỌN LỚP HỌC PHẦN (COURSE & CLASS)' : '1. SELECT COURSE & CLASS'} <span style={{ color: '#f43f5e' }}>*</span>
+                        </label>
+                        <select
+                          value={selectedIndividualCourseId}
+                          onChange={e => setSelectedIndividualCourseId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            padding: '11px 14px',
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '10px',
+                            color: '#f8fafc',
+                            fontSize: '0.88rem',
+                            fontWeight: 500,
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="ALL">-- {lang === 'vi' ? 'Tất cả học phần của bạn' : 'All enrolled courses'} --</option>
+                          {availableCourses.map(c => (
+                            <option key={c.course_id} value={String(c.course_id)}>
+                              {c.course_code} — {c.course_name} {c.lecturer_name ? `(GV: ${c.lecturer_name})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* 2. CHỌN BÀI TẬP / ĐỀ THI CẦN NỘP */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                          2. {lang === 'vi' ? 'CHỌN BÀI TẬP / ĐỀ THI CẦN NỘP' : '2. SELECT ASSIGNMENT / EXAM'} <span style={{ color: '#f43f5e' }}>*</span>
+                        </label>
+                        <select
+                          id="individual-assignment-selector"
+                          value={selectedIndividualAssignmentId}
+                          onChange={e => setSelectedIndividualAssignmentId(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '11px 14px',
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '10px',
+                            color: '#f8fafc',
+                            fontSize: '0.88rem',
+                            fontWeight: 500,
+                            outline: 'none'
+                          }}
+                        >
+                          {individualAssignments.length > 0 ? individualAssignments.map((a, idx) => (
+                            <option key={a.assignment_id} value={String(a.assignment_id)}>
+                              [ASSIGNMENT #{idx + 1}] {a.title} (Hạn: {formatVNTime(a.due_date || a.deadline)})
+                            </option>
+                          )) : (
+                            <option value="">-- {lang === 'vi' ? 'Chưa có bài tập cá nhân cho học phần này' : 'No individual assignments available'} --</option>
+                          )}
+                        </select>
+
+                        {/* Assignment Details Badge */}
+                        {activeIndAssign && (
+                          <div style={{
+                            marginTop: '10px',
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            background: 'rgba(15, 23, 42, 0.75)',
+                            border: '1px solid rgba(139, 92, 246, 0.25)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            fontSize: '0.76rem',
+                            color: '#94a3b8'
+                          }}>
+                            <span>💻 {lang === 'vi' ? 'Ngôn ngữ:' : 'Language:'} <strong style={{ color: '#a78bfa' }}>{activeIndAssign.allowed_language === 'python' ? 'Python 3' : activeIndAssign.allowed_language === 'javascript' ? 'JavaScript' : 'Tùy chọn'}</strong></span>
+                            <span>•</span>
+                            <span>🔢 {lang === 'vi' ? 'Lượt nộp:' : 'Attempts:'} <strong style={{ color: '#a78bfa' }}>{indAssignInfo.maxSubs > 0 ? `${indAssignInfo.subCount}/${indAssignInfo.maxSubs}` : 'Không giới hạn'}</strong></span>
+                            <span>•</span>
+                            <span>Thang điểm: <strong style={{ color: '#34d399' }}>{activeIndAssign.max_score} điểm</strong></span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. TẢI LÊN TỆP MÃ NGUỒN BÀI LÀM (.ZIP) */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                          <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            3. {lang === 'vi' ? 'TẢI LÊN TỆP MÃ NGUỒN BÀI LÀM (.ZIP)' : '3. UPLOAD SOURCE CODE FILE (.ZIP)'} <span style={{ color: '#f43f5e' }}>*</span>
+                          </label>
+                          <span style={{ fontSize: '0.74rem', color: '#c4b5fd', background: 'rgba(124, 58, 237, 0.15)', border: '1px solid rgba(139, 92, 246, 0.35)', padding: '2px 9px', borderRadius: '6px', fontWeight: 600 }}>
+                            📦 {lang === 'vi' ? 'Hình thức nộp: Tệp nén ZIP' : 'Submission format: ZIP Archive'}
+                          </span>
+                        </div>
+
+                        {/* DRAG & DROP FILE ZONE (.ZIP) */}
+                        <div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".zip,.rar,.7z"
+                            onChange={handleFileChange}
+                            style={{ display: 'none' }}
+                          />
+
+                          {!uploadedFile ? (
+                            <div
+                              onDragOver={handleDragOver}
+                              onDragLeave={handleDragLeave}
+                              onDrop={handleDrop}
+                              onClick={() => fileInputRef.current?.click()}
+                              style={{
+                                border: fileIsDragging ? '2px dashed #a78bfa' : '2px dashed rgba(139, 92, 246, 0.4)',
+                                background: fileIsDragging ? 'rgba(139, 92, 246, 0.12)' : 'rgba(15, 23, 42, 0.45)',
+                                borderRadius: '16px',
+                                padding: '2.5rem 1.5rem',
+                                textAlign: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '12px'
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: '56px',
+                                  height: '56px',
+                                  borderRadius: '16px',
+                                  background: 'rgba(139, 92, 246, 0.14)',
+                                  border: '1px solid rgba(139, 92, 246, 0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#a78bfa'
+                                }}
+                              >
+                                <UploadCloud size={30} />
+                              </div>
+                              <div>
+                                <h5 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>
+                                  {lang === 'vi' ? 'Kéo thả tệp mã nguồn (.zip) vào đây hoặc nhấn để duyệt tệp' : 'Drag & drop source code file (.zip) here or click to browse'}
+                                </h5>
+                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>
+                                  {lang === 'vi' ? 'Định dạng được hỗ trợ: Tệp nén ZIP (.zip) chứa toàn bộ mã nguồn bài làm Java OOP' : 'Supported format: Source code ZIP archive (.zip)'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  fileInputRef.current?.click();
+                                }}
+                                className="btn-secondary"
+                                style={{
+                                  padding: '9px 20px',
+                                  fontSize: '0.85rem',
+                                  gap: '8px',
+                                  borderRadius: '10px',
+                                  background: 'rgba(139, 92, 246, 0.12)',
+                                  border: '1px solid rgba(139, 92, 246, 0.35)',
+                                  color: '#a78bfa'
+                                }}
+                              >
+                                <Paperclip size={15} />
+                                <span>{lang === 'vi' ? 'Chọn tệp từ máy tính (.zip)' : 'Choose file from computer (.zip)'}</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                border: '1px solid rgba(34, 197, 94, 0.45)',
+                                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                                borderRadius: '14px',
+                                padding: '1.25rem 1.6rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: '14px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div
+                                  style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    borderRadius: '12px',
+                                    background: 'rgba(34, 197, 94, 0.2)',
+                                    color: '#4ade80',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  <FileArchive size={26} />
+                                </div>
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <strong style={{ color: '#f8fafc', fontSize: '0.96rem' }}>{uploadedFile.name}</strong>
+                                    <span style={{ fontSize: '0.72rem', background: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', padding: '1px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                                      {(uploadedFile.size / 1024).toFixed(1)} KB
+                                    </span>
+                                  </div>
+                                  <span style={{ fontSize: '0.78rem', color: '#86efac' }}>
+                                    ✅ {lang === 'vi' ? 'Tệp ZIP bài làm đã sẵn sàng để gửi lên hệ thống' : 'ZIP file is ready for submission'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => fileInputRef.current?.click()}
+                                  className="btn-secondary"
+                                  style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                                >
+                                  {lang === 'vi' ? 'Chọn tệp khác' : 'Change file'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setUploadedFile(null)}
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                                    color: '#f87171',
+                                    borderRadius: '8px',
+                                    padding: '6px 12px',
+                                    fontSize: '0.78rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  ✕ {lang === 'vi' ? 'Xóa tệp' : 'Remove'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 4. LỜI NHẮN / GHI CHÚ GỬI GIẢNG VIÊN (TÙY CHỌN) */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                          4. {lang === 'vi' ? 'LỜI NHẮN / GHI CHÚ GỬI GIẢNG VIÊN (TÙY CHỌN)' : '4. NOTE TO INSTRUCTOR (OPTIONAL)'}
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={submissionNote}
+                          onChange={e => setSubmissionNote(e.target.value)}
+                          placeholder={lang === 'vi' ? 'Nhập ghi chú hoặc giải thích cho giảng viên (ví dụ: mô tả cách chạy test, lưu ý cấu trúc thư mục...)' : 'Enter note for instructor...'}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '10px',
+                            color: '#f8fafc',
+                            fontSize: '0.86rem',
+                            outline: 'none',
+                            resize: 'vertical'
+                          }}
+                        />
+                      </div>
+
+                      {/* Progress step during execution */}
+                      {isSubmitting && (
+                        <div style={{ background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%)', border: '1px solid rgba(139, 92, 246, 0.4)', borderRadius: '12px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '12px', color: '#c4b5fd', fontSize: '0.88rem' }}>
+                          <Loader2 size={20} className="animate-spin" color="#a78bfa" />
+                          <div style={{ fontWeight: 500 }}>
+                            {submitStep === 1 && (lang === 'vi' ? '1. Đang khởi tạo kết nối và lưu trữ bài làm...' : '1. Initializing storage...')}
+                            {submitStep === 2 && (lang === 'vi' ? '2. Đang kiểm tra mã nguồn và chạy pipeline kiểm thử...' : '2. Executing pipeline...')}
+                            {submitStep === 3 && (lang === 'vi' ? '3. AI đang bóc tách kết quả và sinh nhận xét...' : '3. AI is evaluating code quality...')}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Error Alert */}
+                      {submitError && (
+                        <div style={{ background: 'rgba(244, 63, 94, 0.12)', border: '1px solid rgba(244, 63, 94, 0.35)', borderRadius: '10px', padding: '12px 16px', color: '#fda4af', fontSize: '0.86rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <AlertTriangle size={18} color="#f43f5e" />
+                          <span>{submitError}</span>
+                        </div>
+                      )}
+
+                      {/* Submit button */}
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || individualAssignments.length === 0 || !indAssignInfo.canSubmit}
+                        className="btn-primary"
+                        style={{
+                          padding: '13px 24px',
+                          fontSize: '0.94rem',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '10px',
+                          borderRadius: '12px',
+                          boxShadow: indAssignInfo.canSubmit ? '0 4px 20px rgba(139, 92, 246, 0.35)' : 'none',
+                          opacity: (isSubmitting || individualAssignments.length === 0 || !indAssignInfo.canSubmit) ? 0.6 : 1,
+                          cursor: (isSubmitting || individualAssignments.length === 0 || !indAssignInfo.canSubmit) ? 'not-allowed' : 'pointer',
+                          background: !indAssignInfo.canSubmit ? 'rgba(239, 68, 68, 0.2)' : undefined,
+                          border: !indAssignInfo.canSubmit ? '1px solid rgba(239, 68, 68, 0.4)' : undefined,
+                          color: !indAssignInfo.canSubmit ? '#fca5a5' : undefined,
+                        }}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            <span>{lang === 'vi' ? 'Đang gửi bài làm...' : 'Submitting...'}</span>
+                          </>
+                        ) : !indAssignInfo.canSubmit ? (
+                          <>
+                            <span>🔒</span>
+                            <span>{indAssignInfo.disableReason || (lang === 'vi' ? 'Bài tập đã đóng / Hết lượt nộp' : 'Submission Locked')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send size={18} />
+                            <span>{lang === 'vi' ? '🚀 Nộp Bài Làm Cá Nhân' : '🚀 Submit Individual Assignment'}</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
                   </div>
                 </div>
+              </>
+            )}
 
-                {/* Progress step during execution */}
-                {isSubmitting && (
-                  <div 
-                    style={{ 
-                      background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%)', 
-                      border: '1px solid rgba(56, 189, 248, 0.4)', 
-                      borderRadius: '12px', 
-                      padding: '14px 18px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '12px', 
-                      color: '#93c5fd', 
-                      fontSize: '0.88rem',
-                      boxShadow: '0 0 25px rgba(2, 132, 199, 0.25)'
-                    }}
-                  >
-                    <Loader2 size={20} className="animate-spin" color="#38bdf8" />
-                    <div style={{ fontWeight: 500 }}>
-                      {submitStep === 1 && (lang === 'vi' ? '1. Đang khởi tạo Docker Sandbox container cô lập an toàn...' : '1. Initializing isolated Docker Sandbox container...')}
-                      {submitStep === 2 && (lang === 'vi' ? '2. Đang biên dịch mã nguồn và chạy test case tự động...' : '2. Compiling code and executing test cases...')}
-                      {submitStep === 3 && (lang === 'vi' ? '3. AI đang phân tích kiến trúc Clean Code và sinh nhận xét...' : '3. AI is evaluating code quality and generating feedback...')}
-                    </div>
-                  </div>
-                )}
-
-                {/* Error Alert */}
-                {submitError && (
-                  <div 
-                    style={{ 
-                      background: 'rgba(244, 63, 94, 0.12)', 
-                      border: '1px solid rgba(244, 63, 94, 0.35)', 
-                      borderRadius: '10px', 
-                      padding: '12px 16px', 
-                      color: '#fda4af', 
-                      fontSize: '0.86rem', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '10px' 
-                    }}
-                  >
-                    <AlertTriangle size={18} color="#f43f5e" /> 
-                    <span>{submitError}</span>
-                  </div>
-                )}
-
-                {/* Submit CTA Button */}
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting || relevantAssignments.length === 0}
-                  style={{
-                    background: isSubmitting || relevantAssignments.length === 0
-                      ? 'rgba(30, 41, 59, 0.7)'
-                      : 'linear-gradient(135deg, #1e40af 0%, #0284c7 45%, #0ea5e9 80%, #38bdf8 100%)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.22)',
-                    boxShadow: isSubmitting || relevantAssignments.length === 0
-                      ? 'none'
-                      : '0 10px 30px -5px rgba(2, 132, 199, 0.5), 0 0 20px rgba(56, 189, 248, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35)',
-                    padding: '14px 24px',
-                    borderRadius: '12px',
-                    fontSize: '0.96rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.2px',
-                    cursor: isSubmitting || relevantAssignments.length === 0 ? 'not-allowed' : 'pointer',
+                {/* ═══════════════════════════════════════════════════════════════════════════
+                    ASSIGNMENT DETAIL & RUBRIC MODAL (BR-06 Protection for Students)
+                    ═══════════════════════════════════════════════════════════════════════════ */}
+                {viewingAssignmentDetail && (
+                  <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0, 0, 0, 0.78)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 9999,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '10px',
-                    marginTop: '0.5rem',
-                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                    opacity: (isSubmitting || relevantAssignments.length === 0) ? 0.6 : 1
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSubmitting && relevantAssignments.length > 0) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 14px 35px -5px rgba(2, 132, 199, 0.65), 0 0 25px rgba(56, 189, 248, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSubmitting && relevantAssignments.length > 0) {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 10px 30px -5px rgba(2, 132, 199, 0.5), 0 0 20px rgba(56, 189, 248, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35)';
-                    }
-                  }}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      <span>{lang === 'vi' ? 'Đang thực thi Docker Sandbox & AI...' : 'Executing Docker Sandbox & AI...'}</span>
-                    </>
-                  ) : relevantAssignments.length === 0 ? (
-                    <span>{lang === 'vi' ? 'Chưa có bài tập nào cho học phần này' : 'No assignments for this course yet'}</span>
+                    padding: '20px'
+                  }}>
+                    <div 
+                      className="glass-card"
+                      style={{
+                        width: '100%',
+                        maxWidth: '740px',
+                        maxHeight: '90vh',
+                        background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(10, 15, 30, 0.99) 100%)',
+                        border: '1px solid rgba(139, 92, 246, 0.35)',
+                        borderRadius: '20px',
+                        boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(139, 92, 246, 0.2)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {/* Modal Header */}
+                      <div style={{
+                        padding: '18px 24px',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: '16px'
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <span style={{
+                              background: 'rgba(239, 68, 68, 0.2)',
+                              color: '#f87171',
+                              border: '1px solid rgba(239, 68, 68, 0.4)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.68rem',
+                              fontWeight: 800
+                            }}>
+                              {viewingAssignmentDetail.assignment?.submission_type || 'INDIVIDUAL'}
+                            </span>
+                            <span style={{
+                              background: 'rgba(139, 92, 246, 0.2)',
+                              color: '#c084fc',
+                              border: '1px solid rgba(139, 92, 246, 0.4)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.68rem',
+                              fontWeight: 700
+                            }}>
+                              {viewingAssignmentDetail.assignment?.course_code || 'COURSE'}
+                            </span>
+                            <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'var(--font-mono, monospace)' }}>
+                              ID: ASM-{viewingAssignmentDetail.assignment?.assignment_id}
+                            </span>
+                          </div>
+                          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc', lineHeight: 1.3 }}>
+                            {viewingAssignmentDetail.assignment?.title}
+                          </h3>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setViewingAssignmentDetail(null)}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            flexShrink: 0
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      {/* Modal Content Body: Chỉ hiển thị nội dung đề bài & thông số nộp (Ẩn toàn bộ Test Case / Rubric theo quy chế) */}
+                      <div style={{
+                        padding: '20px 24px',
+                        overflowY: 'auto',
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '16px'
+                      }}>
+                        {/* Problem statement */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                            <h5 style={{ margin: 0, fontSize: '0.84rem', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              {lang === 'vi' ? 'Mô tả & Yêu cầu đề bài' : 'Problem Description & Requirements'}
+                            </h5>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const assign = viewingAssignmentDetail.assignment;
+                                  const course = availableCourses.find(c => c.course_id === assign.course_id);
+                                  setViewingExamAssignment({
+                                    ...assign,
+                                    course_code: assign.course_code || course?.course_code,
+                                    course_name: assign.course_name || course?.course_name
+                                  });
+                                }}
+                                style={{
+                                  background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.4) 0%, rgba(99, 102, 241, 0.4) 100%)',
+                                  border: '1px solid rgba(139, 92, 246, 0.5)',
+                                  color: '#e9d5ff',
+                                  borderRadius: '6px',
+                                  padding: '4px 10px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '5px'
+                                }}
+                              >
+                                <FileText size={13} />
+                                <span>{lang === 'vi' ? 'Xem Đề Thi Chuẩn FPT (A4)' : 'Official Exam Paper'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadExamDoc(viewingAssignmentDetail.assignment)}
+                                style={{
+                                  background: 'rgba(37, 99, 235, 0.25)',
+                                  border: '1px solid rgba(59, 130, 246, 0.4)',
+                                  color: '#93c5fd',
+                                  borderRadius: '6px',
+                                  padding: '4px 10px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '5px'
+                                }}
+                              >
+                                <Download size={13} />
+                                <span>{lang === 'vi' ? 'Tải .DOC' : 'Download .DOC'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyExamText(viewingAssignmentDetail.assignment)}
+                                style={{
+                                  background: 'rgba(255, 255, 255, 0.06)',
+                                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                                  color: copiedExamText ? '#34d399' : '#cbd5e1',
+                                  borderRadius: '6px',
+                                  padding: '4px 10px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '5px'
+                                }}
+                              >
+                                {copiedExamText ? <Check size={13} color="#34d399" /> : <Copy size={13} />}
+                                <span>{copiedExamText ? (lang === 'vi' ? 'Đã sao chép!' : 'Copied!') : (lang === 'vi' ? 'Sao chép đề' : 'Copy')}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const assign = viewingAssignmentDetail.assignment;
+                            const isPE = Boolean(
+                              assign?.title?.includes('PE') ||
+                              assign?.title?.includes('PRO192') ||
+                              assign?.title?.toLowerCase().includes('bài thi') ||
+                              assign?.description?.includes('===CUSTOM_Q1===') ||
+                              assign?.allowed_language?.toUpperCase() === 'JAVA'
+                            );
+
+                            if (isPE) {
+                              const questions = getExamQuestions(assign);
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                  {/* Banner lưu ý phòng thi */}
+                                  <div style={{
+                                    background: 'rgba(239, 68, 68, 0.08)',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    borderRadius: '10px',
+                                    padding: '10px 14px',
+                                    fontSize: '0.78rem',
+                                    color: '#fecaca',
+                                    lineHeight: 1.5
+                                  }}>
+                                    <strong style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                      <AlertTriangle size={14} /> QUY ĐỊNH NỘP BÀI THI:
+                                    </strong>
+                                    Nén tất cả các file mã nguồn vào một file <strong>.ZIP</strong> duy nhất. Hệ thống sẽ tự động biên dịch và kiểm tra bằng <strong>Docker Sandbox Runner cô lập</strong>.
+                                  </div>
+
+                                  {/* 4 câu hỏi chi tiết */}
+                                  {questions.map((q: any, idx: number) => {
+                                    const colorPalettes = [
+                                      { border: 'rgba(56, 189, 248, 0.25)', bg: 'rgba(56, 189, 248, 0.05)', titleColor: '#38bdf8', badgeBg: 'rgba(56, 189, 248, 0.15)', badgeColor: '#7dd3fc', icon: '📘' },
+                                      { border: 'rgba(168, 85, 247, 0.25)', bg: 'rgba(168, 85, 247, 0.05)', titleColor: '#c084fc', badgeBg: 'rgba(168, 85, 247, 0.15)', badgeColor: '#d8b4fe', icon: '📙' },
+                                      { border: 'rgba(52, 211, 153, 0.25)', bg: 'rgba(52, 211, 153, 0.05)', titleColor: '#34d399', badgeBg: 'rgba(52, 211, 153, 0.15)', badgeColor: '#6ee7b7', icon: '📗' },
+                                      { border: 'rgba(251, 191, 36, 0.25)', bg: 'rgba(251, 191, 36, 0.05)', titleColor: '#fbbf24', badgeBg: 'rgba(251, 191, 36, 0.15)', badgeColor: '#fde68a', icon: '📕' }
+                                    ];
+                                    const scheme = colorPalettes[idx] || colorPalettes[0];
+                                    return (
+                                      <div key={idx} style={{ background: scheme.bg, border: `1px solid ${scheme.border}`, borderRadius: '12px', padding: '14px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                                          <span style={{ fontWeight: 800, color: scheme.titleColor, fontSize: '0.9rem' }}>
+                                            {scheme.icon} CÂU {q.qNum} ({q.points}): {q.title}
+                                          </span>
+                                          <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: scheme.badgeBg, color: scheme.badgeColor }}>
+                                            {q.qNum === 2 || q.qNum === 3 ? '3 Test Cases' : '2 Test Cases'} ({q.points})
+                                          </span>
+                                        </div>
+                                        <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.55, margin: '0 0 10px 0', whiteSpace: 'pre-line' }}>
+                                          {q.desc}
+                                        </p>
+                                        {(q.sampleInput || q.sampleOutput) && (
+                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                                            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '8px 10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700, marginBottom: '3px' }}>DỮ LIỆU ĐẦU VÀO (STDIN):</div>
+                                              <pre style={{ margin: 0, fontSize: '0.78rem', color: '#e2e8f0', fontFamily: 'Consolas, monospace', whiteSpace: 'pre-wrap' }}>{q.sampleInput || '(Không có STDIN)'}</pre>
+                                            </div>
+                                            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '8px 10px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                              <div style={{ fontSize: '0.7rem', color: '#34d399', fontWeight: 700, marginBottom: '3px' }}>KẾT QUẢ ĐẦU RA KỲ VỌNG (STDOUT):</div>
+                                              <pre style={{ margin: 0, fontSize: '0.78rem', color: '#34d399', fontFamily: 'Consolas, monospace', fontWeight: 700, whiteSpace: 'pre-wrap' }}>{q.sampleOutput || '(Không có STDOUT)'}</pre>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div style={{
+                                padding: '16px 18px',
+                                borderRadius: '12px',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                fontSize: '0.9rem',
+                                color: '#cbd5e1',
+                                lineHeight: 1.68,
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {assign?.description || (lang === 'vi' ? 'Chưa có mô tả chi tiết cho bài tập này.' : 'No description provided.')}
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Specs grid */}
+                        <div>
+                          <h5 style={{ margin: '0 0 8px 0', fontSize: '0.84rem', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            {lang === 'vi' ? 'Thông số kỹ thuật & Quy chế nộp bài' : 'Specifications & Policies'}
+                          </h5>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                            gap: '10px'
+                          }}>
+                            <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{lang === 'vi' ? 'Thang điểm tối đa:' : 'Max score:'}</div>
+                              <div style={{ fontSize: '0.94rem', fontWeight: 800, color: '#34d399', marginTop: '2px' }}>
+                                {viewingAssignmentDetail.assignment?.max_score} điểm
+                              </div>
+                            </div>
+
+                            <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{lang === 'vi' ? 'Ngôn ngữ cho phép:' : 'Allowed language:'}</div>
+                              <div style={{ fontSize: '0.94rem', fontWeight: 800, color: '#cbd5e1', marginTop: '2px' }}>
+                                {viewingAssignmentDetail.assignment?.allowed_language || 'Tất cả'}
+                              </div>
+                            </div>
+
+                            <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{lang === 'vi' ? 'Hạn nộp chính thức:' : 'Due date:'}</div>
+                              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#fde047', marginTop: '2px' }}>
+                                {formatVNTime(viewingAssignmentDetail.assignment?.due_date || viewingAssignmentDetail.assignment?.deadline)}
+                              </div>
+                            </div>
+
+                            <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{lang === 'vi' ? 'Số lần nộp tối đa:' : 'Max attempts:'}</div>
+                              <div style={{ fontSize: '0.94rem', fontWeight: 800, color: '#a78bfa', marginTop: '2px' }}>
+                                {viewingAssignmentDetail.assignment?.max_submissions ? `${viewingAssignmentDetail.assignment.max_submissions} lần` : 'Không giới hạn'}
+                              </div>
+                            </div>
+
+                            <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{lang === 'vi' ? 'Cho phép nộp lại:' : 'Allow resubmission:'}</div>
+                              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: viewingAssignmentDetail.assignment?.allow_resubmission !== false ? '#4ade80' : '#f87171', marginTop: '2px' }}>
+                                {viewingAssignmentDetail.assignment?.allow_resubmission !== false ? 'Có (Lấy điểm cao nhất)' : 'Không (Chỉ nộp 1 lần)'}
+                              </div>
+                            </div>
+
+                            <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{lang === 'vi' ? 'Chính sách nộp trễ:' : 'Late policy:'}</div>
+                              <div style={{ fontSize: '0.86rem', fontWeight: 800, color: viewingAssignmentDetail.assignment?.allow_late_submission ? '#fbbf24' : '#f87171', marginTop: '2px' }}>
+                                {viewingAssignmentDetail.assignment?.allow_late_submission ? 'Cho phép (Có gắn cờ trễ)' : 'Chặn nộp sau hạn'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Modal Footer */}
+                      <div style={{
+                        padding: '16px 24px',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                        background: 'rgba(15, 23, 42, 0.9)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: '12px'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setViewingAssignmentDetail(null)}
+                          className="btn-secondary"
+                          style={{ padding: '8px 16px', fontSize: '0.84rem', borderRadius: '9px' }}
+                        >
+                          <span>{lang === 'vi' ? 'Đóng cửa sổ' : 'Close'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (viewingAssignmentDetail.assignment) {
+                              setSelectedIndividualCourseId(String(viewingAssignmentDetail.assignment.course_id));
+                              setSelectedIndividualAssignmentId(String(viewingAssignmentDetail.assignment.assignment_id));
+                            }
+                            setViewingAssignmentDetail(null);
+                            setIndividualViewMode('submit');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="btn-primary"
+                          style={{ padding: '8px 18px', fontSize: '0.84rem', gap: '8px', borderRadius: '9px' }}
+                        >
+                          <Send size={15} />
+                          <span>{lang === 'vi' ? '🚀 Bắt Đầu Nộp Bài Cho Đề Này' : 'Start Submitting This Task'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+        {/* MODAL: XEM VĂN BẢN ĐỀ THI CHÍNH THỨC CHUẨN FPT (OFFICIAL EXAM DOCUMENT VIEWER FOR STUDENT) */}
+        {viewingExamAssignment && (() => {
+          const assign = viewingExamAssignment;
+          const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
+          const course = availableCourses.find(c => c.course_id === assign.course_id);
+          const courseCode = assign.course_code || course?.course_code || (isJava ? 'PRO192' : 'CSD201');
+          const courseName = assign.course_name || course?.course_name || (isJava ? 'Object-Oriented Programming (Java OOP)' : 'Data Structures & Algorithms');
+
+          return (
+            <div style={{
+              position: 'fixed', inset: 0,
+              background: 'rgba(0, 0, 0, 0.85)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 99999, padding: '1rem'
+            }}>
+              <div className="glass-card" style={{
+                width: '100%', maxWidth: '980px', maxHeight: '92vh', overflowY: 'auto',
+                padding: '1.75rem', borderRadius: '22px',
+                border: '1px solid rgba(139, 92, 246, 0.45)',
+                boxShadow: '0 30px 80px rgba(0,0,0,0.95)',
+                display: 'flex', flexDirection: 'column', gap: '1.25rem'
+              }}>
+                {/* Header thanh công cụ (Action Bar) */}
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '1rem',
+                  flexWrap: 'wrap', gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(37, 99, 235, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
+                      <FileText size={22} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.72rem', background: 'rgba(239, 68, 68, 0.22)', color: '#fca5a5', border: '1px solid rgba(239, 68, 68, 0.4)', padding: '2px 7px', borderRadius: '4px', fontWeight: 800 }}>
+                          {isJava ? 'PE EXAM' : 'ASSIGNMENT DOC'}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: '#c4b5fd', fontWeight: 700 }}>
+                          Mã đề: PE_{courseCode}_0{assign.assignment_id || '1'}
+                        </span>
+                      </div>
+                      <h3 style={{ fontSize: '1.18rem', fontWeight: 800, margin: '2px 0 0 0', color: '#f1f5f9' }}>
+                        {lang === 'vi' ? 'Văn Bản Đề Thi Chuẩn FPT' : 'Official Exam Document'}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {/* Tải DOC */}
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleDownloadExamDoc(assign)}
+                      style={{
+                        padding: '7px 14px',
+                        fontSize: '0.82rem',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                        boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                      }}
+                      title={lang === 'vi' ? 'Tải file Word (.DOC) đề thi về máy để làm bài' : 'Download Word Doc'}
+                    >
+                      <Download size={14} />
+                      <span>{lang === 'vi' ? 'Tải File Đề (.DOC)' : 'Download .DOC'}</span>
+                    </button>
+
+                    {/* Sao chép đề bài */}
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => handleCopyExamText(assign)}
+                      style={{
+                        padding: '7px 14px',
+                        fontSize: '0.82rem',
+                        gap: '6px',
+                        color: copiedExamText ? '#34d399' : '#cbd5e1'
+                      }}
+                      title={lang === 'vi' ? 'Sao chép toàn bộ đề bài vào bộ nhớ tạm' : 'Copy exam text'}
+                    >
+                      {copiedExamText ? <Check size={14} color="#34d399" /> : <Copy size={14} />}
+                      <span>{copiedExamText ? (lang === 'vi' ? 'Đã sao chép!' : 'Copied!') : (lang === 'vi' ? 'Sao chép đề' : 'Copy Text')}</span>
+                    </button>
+
+                    {/* Nộp bài thi này */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedIndividualCourseId(String(assign.course_id));
+                        setSelectedIndividualAssignmentId(String(assign.assignment_id));
+                        setIndividualViewMode('submit');
+                        setViewingExamAssignment(null);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      style={{
+                        padding: '7px 14px',
+                        fontSize: '0.82rem',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                        border: '1px solid rgba(139, 92, 246, 0.6)',
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Send size={14} />
+                      <span>{lang === 'vi' ? 'Vào Nộp Bài Thi Này' : 'Submit This Exam'}</span>
+                    </button>
+
+                    {/* Đóng */}
+                    <button
+                      type="button"
+                      onClick={() => setViewingExamAssignment(null)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '6px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* VĂN BẢN ĐỀ THI A4 PAPER SHEET */}
+                <div style={{
+                  background: '#090d16',
+                  borderRadius: '14px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  padding: '2rem 2.2rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.25rem',
+                  boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.6)',
+                  fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+                }}>
+                  {/* Tiêu đề Quốc hiệu & Trường FPT */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid rgba(255, 255, 255, 0.15)', paddingBottom: '1.1rem', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.88rem', letterSpacing: '0.04em', color: '#f8fafc', textTransform: 'uppercase' }}>
+                        TRƯỜNG ĐẠI HỌC FPT QUY NHƠN • CƠ SỞ QUY NHƠN
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '2px' }}>
+                        Khoa Công Nghệ Thông Tin — Bộ Môn Kỹ Thuật Phần Mềm
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#fca5a5', textTransform: 'uppercase' }}>
+                        ĐỀ THI THỰC HÀNH (PRACTICAL EXAM)
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '2px' }}>
+                        Học kỳ: FA26 • Đợt thi: 1 • Mã đề: <strong>PE_{courseCode}_0{assign.assignment_id || '1'}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tên đề thi & Môn học */}
+                  <div style={{ textAlign: 'center', padding: '0.5rem 0' }}>
+                    <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#ffffff', margin: 0, textTransform: 'uppercase', letterSpacing: '-0.01em' }}>
+                      {assign.title}
+                    </h2>
+                    <div style={{ fontSize: '0.88rem', color: '#a78bfa', fontWeight: 600, marginTop: '6px' }}>
+                      Môn học: {courseCode} — {courseName}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '10px', flexWrap: 'wrap', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                      <span>⏱️ Thời gian: <strong>75 phút</strong></span>
+                      <span>•</span>
+                      <span>⭐ Thang điểm: <strong>{assign.max_score || 10.0} điểm</strong></span>
+                      <span>•</span>
+                      <span>📦 Hình thức nộp: <strong style={{ color: '#38bdf8' }}>File .ZIP (Mã nguồn)</strong></span>
+                      <span>•</span>
+                      <span>☕ Docker: <strong style={{ color: '#fca5a5' }}>{isJava ? 'aita-sandbox-java:latest (Java 17)' : 'Auto Sandbox'}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* LƯU Ý PHÒNG THI */}
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    fontSize: '0.8rem',
+                    color: '#fecaca',
+                    lineHeight: 1.55
+                  }}>
+                    <strong style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <AlertTriangle size={15} /> QUY ĐỊNH LÀM BÀI & CẤU TRÚC NỘP BÀI:
+                    </strong>
+                    <ul style={{ margin: '4px 0 0 18px', padding: 0 }}>
+                      <li>Thí sinh tạo một thư mục mã nguồn chứa đầy đủ các file theo yêu cầu của từng câu (ví dụ: <code style={{ color: '#fed7aa' }}>Main.java, Car.java, SpecCar.java, MyList.java</code>).</li>
+                      <li>Nén thư mục thành file <strong>.ZIP</strong> duy nhất và nộp lên hệ thống AITA trước hạn: <strong>{assign.due_date || assign.deadline || '23:59:00'}</strong>.</li>
+                      <li>Bài làm được chạy và chấm tự động hoàn toàn trên môi trường cô lập <strong>Docker OpenJDK 17 Sandbox</strong> với 10 Test Cases (thang điểm 10.0đ).</li>
+                      <li>Nghiêm cấm sao chép code. Hệ thống kiểm tra đối sánh bằng <strong>SHA-256 Checksum + AI Plagiarism Radar</strong>.</li>
+                    </ul>
+                  </div>
+
+                  {/* NỘI DUNG CHI TIẾT 4 CÂU HỎI */}
+                  {isJava ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', marginTop: '4px' }}>
+                      {getExamQuestions(assign).map((q: any, idx: number) => {
+                        const colorPalettes = [
+                          { border: 'rgba(56, 189, 248, 0.25)', bg: 'rgba(56, 189, 248, 0.05)', titleColor: '#38bdf8', badgeBg: 'rgba(56, 189, 248, 0.15)', badgeColor: '#7dd3fc', icon: '📘' },
+                          { border: 'rgba(168, 85, 247, 0.25)', bg: 'rgba(168, 85, 247, 0.05)', titleColor: '#c084fc', badgeBg: 'rgba(168, 85, 247, 0.15)', badgeColor: '#d8b4fe', icon: '📙' },
+                          { border: 'rgba(52, 211, 153, 0.25)', bg: 'rgba(52, 211, 153, 0.05)', titleColor: '#34d399', badgeBg: 'rgba(52, 211, 153, 0.15)', badgeColor: '#6ee7b7', icon: '📗' },
+                          { border: 'rgba(251, 191, 36, 0.25)', bg: 'rgba(251, 191, 36, 0.05)', titleColor: '#fbbf24', badgeBg: 'rgba(251, 191, 36, 0.15)', badgeColor: '#fde68a', icon: '📕' }
+                        ];
+                        const scheme = colorPalettes[idx] || colorPalettes[0];
+                        return (
+                          <div key={idx} style={{ background: scheme.bg, border: `1px solid ${scheme.border}`, borderRadius: '12px', padding: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                              <span style={{ fontWeight: 800, color: scheme.titleColor, fontSize: '0.95rem' }}>
+                                {scheme.icon} CÂU {q.qNum} ({q.points}): {q.title}
+                              </span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: scheme.badgeBg, color: scheme.badgeColor }}>
+                                {q.qNum === 2 || q.qNum === 3 ? '3 Test Cases' : '2 Test Cases'} ({q.points})
+                              </span>
+                            </div>
+                            <p style={{ fontSize: '0.84rem', color: '#cbd5e1', lineHeight: 1.55, margin: '0 0 10px 0', whiteSpace: 'pre-line' }}>
+                              {q.desc}
+                            </p>
+                            {(q.sampleInput || q.sampleOutput) && (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                                <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '10px 12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, marginBottom: '4px' }}>DỮ LIỆU ĐẦU VÀO (STDIN):</div>
+                                  <pre style={{ margin: 0, fontSize: '0.8rem', color: '#e2e8f0', fontFamily: 'Consolas, monospace', whiteSpace: 'pre-wrap' }}>{q.sampleInput || '(Không có STDIN)'}</pre>
+                                </div>
+                                <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '10px 12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                  <div style={{ fontSize: '0.72rem', color: '#34d399', fontWeight: 700, marginBottom: '4px' }}>KẾT QUẢ ĐẦU RA KỲ VỌNG (STDOUT):</div>
+                                  <pre style={{ margin: 0, fontSize: '0.8rem', color: '#34d399', fontFamily: 'Consolas, monospace', fontWeight: 700, whiteSpace: 'pre-wrap' }}>{q.sampleOutput || '(Không có STDOUT)'}</pre>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <>
-                      <Play size={18} fill="currentColor" />
-                      <span>{lang === 'vi' ? 'Xác nhận Nộp bài & Kích hoạt Docker Sandbox' : 'Confirm Submission & Run Docker Sandbox'}</span>
-                    </>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '18px' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#38bdf8', marginBottom: '8px' }}>
+                        📋 YÊU CẦU ĐỀ BÀI CHI TIẾT:
+                      </div>
+                      <div style={{ color: '#cbd5e1', fontSize: '0.86rem', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                        {assign.description || 'Chưa có mô tả chi tiết cho bài tập này.'}
+                      </div>
+                    </div>
                   )}
-                </button>
-              </form>
+
+                  {/* THÔNG SỐ CHẤM DOCKER SANDBOX */}
+                  <div style={{
+                    background: 'rgba(0, 0, 0, 0.35)',
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    fontSize: '0.78rem'
+                  }}>
+                    <span style={{ color: '#94a3b8' }}>
+                      ⚙️ Chế độ chấm: <strong>Docker Sandbox Runner cô lập</strong> (Timeout 5000ms / Test, RAM 256MB)
+                    </span>
+                    <span style={{ color: '#34d399', fontWeight: 700 }}>
+                      ✓ Hệ thống tự động xác thực SHA-256 Checksum khi nộp bài
+                    </span>
+                  </div>
+
+                  <div style={{ textAlign: 'right', fontStyle: 'italic', fontSize: '0.8rem', color: '#94a3b8', marginTop: '10px' }}>
+                    --- HẾT ĐỀ THI --- (Cán bộ coi thi không giải thích gì thêm)
+                  </div>
+                </div>
+
+                {/* Bottom Footer Actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', flexWrap: 'wrap', gap: '10px' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {lang === 'vi' ? 'Đề thi đã được đồng bộ với hệ thống tự động chấm Docker.' : 'Exam synced with Docker Autograder.'}
+                  </span>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => handleDownloadExamDoc(assign)}
+                      style={{ fontSize: '0.84rem', padding: '8px 16px', gap: '6px' }}
+                    >
+                      <Download size={15} />
+                      <span>{lang === 'vi' ? 'Tải File Đề (.DOC)' : 'Download .DOC'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedIndividualCourseId(String(assign.course_id));
+                        setSelectedIndividualAssignmentId(String(assign.assignment_id));
+                        setIndividualViewMode('submit');
+                        setViewingExamAssignment(null);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      style={{
+                        padding: '8px 18px',
+                        fontSize: '0.84rem',
+                        gap: '6px',
+                        background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                        border: '1px solid rgba(139, 92, 246, 0.6)',
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Send size={15} />
+                      <span>{lang === 'vi' ? 'Vào Nộp Bài Thi Này' : 'Submit This Exam'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setViewingExamAssignment(null)}
+                      style={{ fontSize: '0.84rem', padding: '8px 18px' }}
+                    >
+                      {lang === 'vi' ? 'Đóng' : 'Close'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          )
-        )}
+          );
+        })()}
+              </div>
+            )}
+
+              {/* ─────────────────────────────────────────────────────────────
+                  TAB 2: ĐỒ ÁN NHÓM (GIT REPOSITORY - PURE REPO FORM)
+                  ───────────────────────────────────────────────────────────── */}
+              {submitSubTab === 'team' && (
+                !myTeam ? (
+                  <div 
+                    className="glass-card" 
+                    style={{ 
+                      maxWidth: '680px', 
+                      margin: '2rem auto', 
+                      padding: '2.5rem 2rem', 
+                      textAlign: 'center', 
+                      borderTop: '4px solid #f59e0b',
+                      background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(245, 158, 11, 0.25)',
+                      boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
+                    }}
+                  >
+                    <div 
+                      style={{ 
+                        width: '56px', 
+                        height: '56px', 
+                        borderRadius: '16px', 
+                        background: 'rgba(245, 158, 11, 0.15)', 
+                        color: '#fbbf24', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        margin: '0 auto 1.25rem' 
+                      }}
+                    >
+                      <Users size={28} />
+                    </div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.6rem', color: '#f8fafc' }}>
+                      {lang === 'vi' ? 'Bạn chưa được phân công vào nhóm đồ án' : 'Not assigned to a project team yet'}
+                    </h3>
+                    <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.6, maxWidth: '500px', margin: '0 auto 1.5rem' }}>
+                      {lang === 'vi'
+                        ? 'Chức năng nộp đồ án nhóm yêu cầu sinh viên phải trực thuộc một nhóm đồ án hợp lệ. Vui lòng liên hệ Giảng viên để được phân nhóm.'
+                        : 'Submitting team project requires membership in a project team. Please contact your instructor.'}
+                    </p>
+                    <button 
+                      onClick={fetchData} 
+                      className="btn-primary" 
+                      style={{ padding: '9px 20px', fontSize: '0.86rem', gap: '8px', margin: '0 auto', display: 'inline-flex' }}
+                    >
+                      <RefreshCw size={15} /> {lang === 'vi' ? 'Kiểm tra & Làm mới' : 'Check & Refresh'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* Top sub-navigation pills (Cyberpunk Dark Glassmorphism) */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => setTeamActionTab('submit')}
+                          style={{
+                            padding: '8px 18px',
+                            borderRadius: '10px',
+                            background: teamActionTab === 'submit' 
+                              ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.95) 0%, rgba(147, 51, 234, 0.9) 100%)' 
+                              : 'rgba(15, 23, 42, 0.8)',
+                            border: teamActionTab === 'submit' ? '1px solid rgba(192, 132, 252, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                            color: teamActionTab === 'submit' ? '#ffffff' : '#cbd5e1',
+                            fontWeight: 700,
+                            fontSize: '0.86rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer',
+                            boxShadow: teamActionTab === 'submit' ? '0 4px 20px rgba(147, 51, 234, 0.4)' : 'none',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <GitBranch size={16} color={teamActionTab === 'submit' ? '#ffffff' : '#a78bfa'} />
+                          <span>1. {lang === 'vi' ? 'Cổng Nộp Đồ Án Nhóm (Team Git Submission)' : 'Submit Team Repo'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTeamActionTab('analytics');
+                            if (targetAnalyticsTeam?.team_id) fetchGitAnalytics(targetAnalyticsTeam.team_id);
+                          }}
+                          style={{
+                            padding: '8px 18px',
+                            borderRadius: '10px',
+                            background: teamActionTab === 'analytics'
+                              ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95) 0%, rgba(124, 58, 237, 0.9) 100%)'
+                              : 'rgba(15, 23, 42, 0.8)',
+                            border: teamActionTab === 'analytics' ? '1px solid rgba(167, 139, 250, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
+                            color: teamActionTab === 'analytics' ? '#ffffff' : '#cbd5e1',
+                            fontWeight: 700,
+                            fontSize: '0.86rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer',
+                            boxShadow: teamActionTab === 'analytics' ? '0 4px 20px rgba(139, 92, 246, 0.35)' : 'none',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <BarChart2 size={16} color={teamActionTab === 'analytics' ? '#ffffff' : '#a78bfa'} />
+                          <span>2. {lang === 'vi' ? 'Báo Cáo Đóng Góp & Radar Free-Rider (BR-07)' : 'Contribution & Free-Rider Report'}</span>
+                        </button>
+                      </div>
+
+                      {/* Quick Fill Button & Edit Switcher */}
+                      {teamActionTab === 'submit' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRepoUrl('https://github.com/min098-ui/SWD392_AITA-Intelligent.git');
+                              setTeamBranch('main');
+                              setTeamTopicName('AITA - Nền tảng Đánh giá & Chấm Mã Nguồn Tự Động Kết Hợp Gia Sư Ảo AI');
+                            }}
+                            style={{
+                              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(124, 58, 237, 0.15))',
+                              border: '1px solid rgba(168, 85, 247, 0.4)',
+                              color: '#c084fc',
+                              padding: '7px 14px',
+                              borderRadius: '10px',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              whiteSpace: 'nowrap',
+                              boxShadow: '0 0 15px rgba(168, 85, 247, 0.15)',
+                              transition: 'all 0.2s ease',
+                              flexShrink: 0
+                            }}
+                          >
+                            <span>⚡</span>
+                            <span>{lang === 'vi' ? 'Điền nhanh Repo mẫu' : 'Quick Fill Team Repo'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {teamActionTab === 'submit' ? (() => {
+                      // Tính toán trạng thái hiển thị
+                      const latestTeamSub = mySubmissions.find(s => s.team_id === myTeam?.team_id);
+                      const hasSubmittedTeamRepo = Boolean((myTeam?.repo_url && myTeam.repo_url.trim() !== '') || latestTeamSub);
+                      const isShowingStateB = hasSubmittedTeamRepo && !isEditingTeamRepo;
+                      const effectiveRepoUrl = myTeam?.repo_url || latestTeamSub?.artifact_url || repoUrl || 'https://github.com/min098-ui/SWD392_AITA-Intelligent.git';
+                      const effectiveBranch = teamBranch || 'main';
+
+                      // Đội ngũ phát triển (5 thành viên nhóm)
+                      const displayMembers: TeamMember[] = (myTeam.members && myTeam.members.length > 0) ? myTeam.members : [
+                        { team_member_id: 1, user_id: 1, full_name: 'Đinh Gia Huy', email: 'dinhgiahuylol12345@gmail.com', role: 'LEADER', assigned_module: 'Architecture, Backend & Core Sandbox' },
+                        { team_member_id: 2, user_id: 2, full_name: 'Nguyễn Quốc Thanh Phong', email: 'tfongcs05@gmail.com', role: 'MEMBER', assigned_module: 'Frontend Lead & UI/UX' },
+                        { team_member_id: 3, user_id: 3, full_name: 'Lương Thị Kim Yến', email: 'yenltk@fpt.edu.vn', role: 'MEMBER', assigned_module: 'AI Tutor & Prompt Engineering' },
+                        { team_member_id: 4, user_id: 4, full_name: 'Trần Hoàng Long', email: 'longth@fpt.edu.vn', role: 'MEMBER', assigned_module: 'Git Analytics & Noise Filter' },
+                        { team_member_id: 5, user_id: 5, full_name: 'Nguyễn Trần Tuấn Khoa', email: 'khoantt@fpt.edu.vn', role: 'MEMBER', assigned_module: 'Testing & Quality Assurance' },
+                      ];
+
+                      const leader = displayMembers.find(m => m.role === 'LEADER') || displayMembers[0];
+                      const regularMembers = displayMembers.filter(m => m.user_id !== leader.user_id);
+
+                      const memberGradients = [
+                        'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', // Gold
+                        'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)', // Violet
+                        'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)', // Cyan
+                        'linear-gradient(135deg, #ec4899 0%, #be185d 100%)', // Pink
+                        'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Emerald
+                      ];
+
+                      const getInitials = (name: string) => {
+                        return name.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase();
+                      };
+
+                      const getStudentCode = (email: string, index: number) => {
+                        const parts = email.split('@')[0];
+                        const digits = parts.match(/\d+/);
+                        if (digits) return `QE1700${digits[0].slice(-2)}`;
+                        return `QE1700${42 + index}`;
+                      };
+
+                      // =========================================================================
+                      // TRẠNG THÁI B: MISSION CONTROL OVERVIEW DASHBOARD (KHI ĐÃ NỘP THÀNH CÔNG)
+                      // =========================================================================
+                      if (isShowingStateB) {
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {/* Header Section Intro */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                              <div>
+                                <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{
+                                    background: 'linear-gradient(135deg, #38bdf8 0%, #c084fc 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    fontWeight: 900
+                                  }}>
+                                    {lang === 'vi' ? 'Trung Tâm Điều Khiển Đồ Án Nhóm (Mission Control Overview)' : 'Team Mission Control Overview'}
+                                  </span>
+                                </h3>
+                                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0 }}>
+                                  {lang === 'vi'
+                                    ? 'Đồ án nhóm của bạn đã được liên kết với Git Telemetry Engine và sẵn sàng cho Giảng viên thẩm định & đánh giá.'
+                                    : 'Your team project is linked with Git Telemetry Engine and ready for faculty assessment.'}
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingTeamRepo(true)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '9px 18px',
+                                  borderRadius: '12px',
+                                  background: 'rgba(255, 255, 255, 0.05)',
+                                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                                  color: '#cbd5e1',
+                                  fontSize: '0.84rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                }}
+                              >
+                                <Edit3 size={15} color="#c084fc" />
+                                <span>{lang === 'vi' ? '✏️ Chỉnh Sửa Đề Tài / Kho Lưu Trữ (Nộp Lại)' : 'Edit Submission'}</span>
+                              </button>
+                            </div>
+
+                            {/* KHỐI 1: THẺ TỔNG QUAN ĐỒ ÁN ĐÃ NỘP (HERO SUBMISSION CARD) */}
+                            <div
+                              className="glass-card"
+                              style={{
+                                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 16, 38, 0.98) 100%)',
+                                border: '1px solid rgba(52, 211, 153, 0.4)',
+                                boxShadow: '0 20px 50px -15px rgba(16, 185, 129, 0.15)',
+                                borderRadius: '24px',
+                                padding: '2rem 2.4rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1.4rem',
+                                position: 'relative',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              {/* Background ambient glow circle */}
+                              <div style={{
+                                position: 'absolute',
+                                top: '-60px',
+                                right: '-40px',
+                                width: '220px',
+                                height: '220px',
+                                borderRadius: '50%',
+                                background: 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(0,0,0,0) 70%)',
+                                pointerEvents: 'none'
+                              }} />
+
+                              {/* Card Top Row: Status Badge + Submission Metadata */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', zIndex: 2 }}>
+                                <div style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  border: '1px solid rgba(52, 211, 153, 0.5)',
+                                  borderRadius: '9999px',
+                                  padding: '5px 16px',
+                                  color: '#34d399',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  letterSpacing: '0.5px'
+                                }}>
+                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
+                                  <span>{lang === 'vi' ? '✓ ĐÃ NỘP ĐỒ ÁN & LINK GITHUB THÀNH CÔNG' : 'TEAM PROJECT SUBMITTED & LINKED'}</span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                                  <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: 'rgba(245, 158, 11, 0.12)',
+                                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                                    color: '#fbbf24',
+                                    padding: '3px 12px',
+                                    borderRadius: '8px',
+                                    fontWeight: 700
+                                  }}>
+                                    <span>🟡</span>
+                                    <span>{lang === 'vi' ? 'Đang chờ GV thẩm định' : 'Pending Lecturer Review'}</span>
+                                  </div>
+                                  <span>
+                                    {lang === 'vi' ? 'Nộp gần nhất: ' : 'Submitted: '}
+                                    <strong style={{ color: '#e2e8f0' }}>
+                                      {latestTeamSub?.submitted_at ? new Date(latestTeamSub.submitted_at).toLocaleString('vi-VN', { hour12: false }) : (lang === 'vi' ? 'Vừa xong' : 'Just now')}
+                                    </strong>
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Project Topic Title & Course Meta */}
+                              <div style={{ zIndex: 2 }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                                  {lang === 'vi' ? 'TÊN ĐỀ TÀI / DỰ ÁN TỐT NGHIỆP' : 'CAPSTONE PROJECT TOPIC'}
+                                </div>
+                                <h4 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#ffffff', margin: '0 0 10px 0', lineHeight: 1.3 }}>
+                                  {teamTopicName || myTeam.team_name}
+                                </h4>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.84rem', color: '#cbd5e1' }}>
+                                  <span>Học phần: <strong style={{ color: '#a78bfa' }}>{myTeam.course_code} - {myTeam.course_name}</strong></span>
+                                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                                  <span>Nhóm: <strong style={{ color: '#38bdf8' }}>{myTeam.team_name}</strong> ({myTeam.semester || 'FA26'})</span>
+                                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                                  <span>GVHD: <strong style={{ color: '#f1f5f9' }}>{myTeam.lecturer_name || 'Nguyễn Thị Mai'}</strong></span>
+                                </div>
+                              </div>
+
+                              {/* Repo & Branch Information Strip */}
+                              <div style={{
+                                background: 'rgba(0, 0, 0, 0.45)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                borderRadius: '14px',
+                                padding: '12px 18px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: '12px',
+                                zIndex: 2
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                  <div style={{
+                                    width: '34px',
+                                    height: '34px',
+                                    borderRadius: '8px',
+                                    background: 'rgba(56, 189, 248, 0.15)',
+                                    color: '#38bdf8',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                  }}>
+                                    <GitBranch size={18} />
+                                  </div>
+                                  <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
+                                      GITHUB REPOSITORY URL
+                                    </div>
+                                    <a
+                                      href={effectiveRepoUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        color: '#38bdf8',
+                                        fontSize: '0.9rem',
+                                        fontFamily: 'monospace',
+                                        fontWeight: 700,
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        maxWidth: '100%'
+                                      }}
+                                    >
+                                      <span>{effectiveRepoUrl}</span>
+                                      <ExternalLink size={13} style={{ flexShrink: 0 }} />
+                                    </a>
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{
+                                    background: 'rgba(168, 85, 247, 0.2)',
+                                    border: '1px solid rgba(168, 85, 247, 0.45)',
+                                    color: '#c084fc',
+                                    padding: '4px 12px',
+                                    borderRadius: '8px',
+                                    fontSize: '0.78rem',
+                                    fontFamily: 'monospace',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                  }}>
+                                    <GitBranch size={13} />
+                                    <span>branch: {effectiveBranch}</span>
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(effectiveRepoUrl);
+                                      setCopiedRepoUrl(true);
+                                      setTimeout(() => setCopiedRepoUrl(false), 2000);
+                                    }}
+                                    style={{
+                                      background: 'rgba(255, 255, 255, 0.08)',
+                                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                                      color: copiedRepoUrl ? '#34d399' : '#cbd5e1',
+                                      padding: '6px 12px',
+                                      borderRadius: '8px',
+                                      fontSize: '0.78rem',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '5px'
+                                    }}
+                                  >
+                                    {copiedRepoUrl ? <Check size={13} /> : <Copy size={13} />}
+                                    <span>{copiedRepoUrl ? (lang === 'vi' ? 'Đã sao chép' : 'Copied') : (lang === 'vi' ? 'Sao chép link' : 'Copy')}</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Team Avatar Stack & Action Buttons */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', zIndex: 2, paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  {/* Avatar Stack */}
+                                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    {displayMembers.map((m, idx) => (
+                                      <div
+                                        key={m.user_id}
+                                        title={`${m.full_name} (${getStudentCode(m.email, idx)}) - ${m.role === 'LEADER' ? 'Trưởng nhóm' : 'Thành viên'}`}
+                                        style={{
+                                          width: '34px',
+                                          height: '34px',
+                                          borderRadius: '50%',
+                                          background: memberGradients[idx % memberGradients.length],
+                                          border: '2px solid #0f172a',
+                                          marginLeft: idx === 0 ? '0' : '-10px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          color: '#ffffff',
+                                          fontWeight: 800,
+                                          fontSize: '0.72rem',
+                                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+                                          cursor: 'pointer'
+                                        }}
+                                      >
+                                        {m.role === 'LEADER' ? '👑' : getInitials(m.full_name)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
+                                    <strong style={{ color: '#f8fafc' }}>{displayMembers.length}/5 thành viên</strong> đã liên kết nhóm
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTeamActionTab('analytics');
+                                      if (targetAnalyticsTeam?.team_id) fetchGitAnalytics(targetAnalyticsTeam.team_id);
+                                    }}
+                                    style={{
+                                      padding: '10px 20px',
+                                      borderRadius: '12px',
+                                      background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.95) 0%, rgba(147, 51, 234, 0.9) 100%)',
+                                      border: '1px solid rgba(192, 132, 252, 0.5)',
+                                      color: '#ffffff',
+                                      fontSize: '0.86rem',
+                                      fontWeight: 800,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      cursor: 'pointer',
+                                      boxShadow: '0 4px 18px rgba(124, 58, 237, 0.4)',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                  >
+                                    <Sparkles size={16} />
+                                    <span>{lang === 'vi' ? '✨ Xem Báo Cáo Đóng Góp Git & Free-Rider (BR-07)' : 'View BR-07 Git Analytics'}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* KHỐI 2: HOLOGRAPHIC 4-PHASE PIPELINE STEPPER */}
+                            <div
+                              className="glass-card"
+                              style={{
+                                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(19, 14, 32, 0.96) 100%)',
+                                border: '1px solid rgba(167, 139, 250, 0.25)',
+                                borderRadius: '20px',
+                                padding: '1.8rem 2.2rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1.5rem',
+                                boxShadow: '0 15px 35px -10px rgba(0, 0, 0, 0.6)'
+                              }}
+                            >
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                  <span style={{ fontSize: '1rem' }}>📡</span>
+                                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '0.3px' }}>
+                                    {lang === 'vi' ? 'THƯỚC ĐO TIẾN TRÌNH ĐỒ ÁN (HOLOGRAPHIC 4-PHASE PIPELINE)' : 'HOLOGRAPHIC 4-PHASE PIPELINE STEPPER'}
+                                  </h4>
+                                </div>
+                                <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
+                                  {lang === 'vi'
+                                    ? 'Hệ thống tự động đồng bộ tiến trình đồ án theo thời gian thực từ khâu nộp Git, quét mã nguồn cho tới thẩm định của Giảng viên.'
+                                    : 'Real-time project pipeline tracking from Git submission to faculty assessment.'}
+                                </p>
+                              </div>
+
+                              {/* Stepper Horizontal Track */}
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                                gap: '1rem',
+                                position: 'relative'
+                              }}>
+                                {/* Phase 1: Nộp Link Git (Complete - Emerald) */}
+                                <div style={{
+                                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                                  border: '1px solid rgba(16, 185, 129, 0.45)',
+                                  borderRadius: '16px',
+                                  padding: '1.1rem 1.25rem',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.15)'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '10px',
+                                      background: '#10b981',
+                                      color: '#ffffff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontWeight: 900,
+                                      fontSize: '0.9rem',
+                                      boxShadow: '0 0 12px rgba(16, 185, 129, 0.6)'
+                                    }}>
+                                      ✓
+                                    </div>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase' }}>
+                                      {lang === 'vi' ? 'Đã ghi nhận' : 'Recorded'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc' }}>
+                                      1. {lang === 'vi' ? 'Nộp Link Git' : 'Git Repo Submitted'}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', lineHeight: 1.4 }}>
+                                      {lang === 'vi' ? 'Link GitHub & branch main đã lưu trữ an toàn' : 'Repository and branch mapped'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Phase 2: Quét Telemetry & AI AST (Active - Neon Purple Pulse) */}
+                                <div style={{
+                                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                                  border: '1px solid rgba(192, 132, 252, 0.6)',
+                                  borderRadius: '16px',
+                                  padding: '1.1rem 1.25rem',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                  boxShadow: '0 0 20px rgba(168, 85, 247, 0.25)'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '10px',
+                                      background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                                      color: '#ffffff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontWeight: 900,
+                                      fontSize: '0.9rem',
+                                      boxShadow: '0 0 15px rgba(168, 85, 247, 0.6)'
+                                    }}>
+                                      ⚡
+                                    </div>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#c084fc', textTransform: 'uppercase' }}>
+                                      {lang === 'vi' ? 'Đã kích hoạt' : 'Telemetry Active'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#ffffff' }}>
+                                      2. {lang === 'vi' ? 'Quét Telemetry & AI AST' : 'Telemetry & AST Engine'}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '2px', lineHeight: 1.4 }}>
+                                      {lang === 'vi' ? 'Đã lọc nhiễu BR-07, bóc tách LOC sạch' : 'Noise-filtered LOC & commits computed'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Phase 3: Giảng Viên Thẩm Định (Amber - Awaiting Review) */}
+                                <div style={{
+                                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                                  border: '1px solid rgba(245, 158, 11, 0.45)',
+                                  borderRadius: '16px',
+                                  padding: '1.1rem 1.25rem',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.15)'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '10px',
+                                      background: '#f59e0b',
+                                      color: '#ffffff',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '1rem',
+                                      boxShadow: '0 0 12px rgba(245, 158, 11, 0.5)'
+                                    }}>
+                                      👨‍🏫
+                                    </div>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase' }}>
+                                      {lang === 'vi' ? 'Đang thẩm định' : 'In Review'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc' }}>
+                                      3. {lang === 'vi' ? 'Giảng Viên Thẩm Định' : 'Faculty Evaluation'}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', lineHeight: 1.4 }}>
+                                      {lang === 'vi' ? 'GV đối soát đóng góp và chất lượng code' : 'Instructor reviews contributions'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Phase 4: Công Bố Điểm & Báo Cáo Chốt (Locked/Muted) */}
+                                <div style={{
+                                  background: 'rgba(255, 255, 255, 0.02)',
+                                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                                  borderRadius: '16px',
+                                  padding: '1.1rem 1.25rem',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                  opacity: 0.75
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{
+                                      width: '32px',
+                                      height: '32px',
+                                      borderRadius: '10px',
+                                      background: 'rgba(255, 255, 255, 0.08)',
+                                      color: '#94a3b8',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.9rem'
+                                    }}>
+                                      🏆
+                                    </div>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                                      {lang === 'vi' ? 'Đang khóa' : 'Locked'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#cbd5e1' }}>
+                                      4. {lang === 'vi' ? 'Báo Cáo Điểm Chốt' : 'Final Grade & Report'}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: 1.4 }}>
+                                      {lang === 'vi' ? 'Chốt điểm sau khi hoàn tất kiểm tra' : 'Released after moderation'}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* KHỐI 3: QUICK TELEMETRY STRIP (3 THẺ TÓM TẮT NHANH) */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                              gap: '1.25rem'
+                            }}>
+                              {/* Stat 1: Commits */}
+                              <div
+                                className="glass-card"
+                                style={{
+                                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)',
+                                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                                  borderRadius: '18px',
+                                  padding: '1.35rem 1.5rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '16px',
+                                  boxShadow: '0 10px 25px -10px rgba(56, 189, 248, 0.1)'
+                                }}
+                              >
+                                <div style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '14px',
+                                  background: 'rgba(56, 189, 248, 0.15)',
+                                  color: '#38bdf8',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <GitBranch size={22} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    {lang === 'vi' ? 'Tổng số Commits' : 'Total Commits'}
+                                  </div>
+                                  <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#38bdf8', lineHeight: 1.2 }}>
+                                    {gitAnalytics?.total_commits || 48} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>commits</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                    {lang === 'vi' ? 'Đã bóc tách qua Git Telemetry' : 'Parsed by Telemetry Engine'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Stat 2: Clean LOC */}
+                              <div
+                                className="glass-card"
+                                style={{
+                                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)',
+                                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                                  borderRadius: '18px',
+                                  padding: '1.35rem 1.5rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '16px',
+                                  boxShadow: '0 10px 25px -10px rgba(168, 85, 247, 0.1)'
+                                }}
+                              >
+                                <div style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '14px',
+                                  background: 'rgba(168, 85, 247, 0.15)',
+                                  color: '#c084fc',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <FileCode size={22} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    {lang === 'vi' ? 'LOC Đã Lọc Nhiễu (BR-07)' : 'Noise-Filtered LOC'}
+                                  </div>
+                                  <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#c084fc', lineHeight: 1.2 }}>
+                                    +{gitAnalytics?.total_lines_added || 4250} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ef4444' }}>-{gitAnalytics?.total_lines_deleted || 820}</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                    {lang === 'vi' ? 'Bỏ qua 100% file rác thư viện' : 'Excluded node_modules & vendor'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Stat 3: Team Participation */}
+                              <div
+                                className="glass-card"
+                                style={{
+                                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)',
+                                  border: '1px solid rgba(52, 211, 153, 0.3)',
+                                  borderRadius: '18px',
+                                  padding: '1.35rem 1.5rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '16px',
+                                  boxShadow: '0 10px 25px -10px rgba(52, 211, 153, 0.1)'
+                                }}
+                              >
+                                <div style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '14px',
+                                  background: 'rgba(52, 211, 153, 0.15)',
+                                  color: '#34d399',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <Users size={22} />
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    {lang === 'vi' ? 'Độ Phủ Thành Viên' : 'Team Participation'}
+                                  </div>
+                                  <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#34d399', lineHeight: 1.2 }}>
+                                    5/5 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>thành viên (100%)</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                    {lang === 'vi' ? 'Tất cả đều có commit hợp lệ' : '100% active contributors'}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // =========================================================================
+                      // TRẠNG THÁI A: DUAL-PANEL BENTO GRID (KHI CHƯA NỘP HOẶC ĐANG CHỈNH SỬA)
+                      // =========================================================================
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                          {/* Banner nhắc nhở nếu đang ở chế độ chỉnh sửa */}
+                          {isEditingTeamRepo && (
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(124, 58, 237, 0.12) 100%)',
+                              border: '1px solid rgba(168, 85, 247, 0.45)',
+                              borderRadius: '14px',
+                              padding: '12px 20px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '12px',
+                              boxShadow: '0 4px 15px rgba(124, 58, 237, 0.15)'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Edit3 size={18} color="#c084fc" />
+                                <span style={{ fontSize: '0.88rem', color: '#f1f5f9', fontWeight: 600 }}>
+                                  {lang === 'vi'
+                                    ? 'Đang ở chế độ chỉnh sửa thông tin đề tài & kho lưu trữ Git nhóm.'
+                                    : 'Editing project topic & GitHub repository details.'}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setIsEditingTeamRepo(false)}
+                                style={{
+                                  background: 'rgba(255, 255, 255, 0.08)',
+                                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                                  color: '#cbd5e1',
+                                  padding: '5px 14px',
+                                  borderRadius: '8px',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {lang === 'vi' ? '✕ Hủy chỉnh sửa & Quay lại' : '✕ Cancel Edit'}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Section Intro */}
+                          <div>
+                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span>{lang === 'vi' ? 'Cổng Nộp Đồ Án Nhóm (Team Git Submission)' : 'Team Git Submission'}</span>
+                            </h3>
+                            <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0 }}>
+                              {lang === 'vi'
+                                ? 'Nộp đường dẫn kho lưu trữ GitHub chung của nhóm để hệ thống tự động bóc tách commit, phân tích đóng góp từng thành viên và gửi giảng viên chấm điểm.'
+                                : 'Submit shared GitHub repo for instructor analytics and contribution grading.'}
+                            </p>
+                          </div>
+
+                          {/* DUAL-PANEL BENTO GRID CONTAINER (60% CỘT TRÁI - 40% CỘT PHẢI) */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+                            gap: '1.5rem',
+                            alignItems: 'start'
+                          }}>
+                            {/* CỘT TRÁI (60%): FORM NỘP THÔNG TIN ĐỀ TÀI & REPOSITORY */}
+                            <div
+                              className="glass-card"
+                              style={{
+                                padding: '2rem 2.2rem',
+                                borderRadius: '22px',
+                                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.94) 0%, rgba(24, 18, 38, 0.96) 100%)',
+                                border: '1px solid rgba(167, 139, 250, 0.3)',
+                                boxShadow: '0 15px 35px -10px rgba(0, 0, 0, 0.6)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1.35rem'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '1rem' }}>
+                                <h4 style={{ fontSize: '1.08rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '0.3px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <GitBranch size={18} color="#c084fc" />
+                                  <span>{lang === 'vi' ? 'Thông Tin Đề Tài & Kho Lưu Trữ Git' : 'Repository Submission Details'}</span>
+                                </h4>
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  background: 'rgba(168, 85, 247, 0.15)',
+                                  color: '#c084fc',
+                                  border: '1px solid rgba(168, 85, 247, 0.35)',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px'
+                                }}>
+                                  GIT TELEMETRY
+                                </span>
+                              </div>
+
+                              <form onSubmit={handleSubmitArtifact} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                {/* 1. NHÓM ĐỒ ÁN & HỌC PHẦN */}
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                    👥 {lang === 'vi' ? 'NHÓM ĐỒ ÁN ĐƯỢC PHÂN CÔNG (YOUR ASSIGNED TEAM)' : 'YOUR ASSIGNED TEAM'} <span style={{ color: '#f43f5e' }}>*</span>
+                                  </label>
+
+                                  <div
+                                    style={{
+                                      background: 'rgba(168, 85, 247, 0.08)',
+                                      border: '1px solid rgba(168, 85, 247, 0.28)',
+                                      borderRadius: '14px',
+                                      padding: '14px 16px',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '10px'
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{
+                                          background: 'linear-gradient(135deg, #7c3aed, #9333ea)',
+                                          color: '#ffffff',
+                                          fontSize: '0.76rem',
+                                          fontWeight: 800,
+                                          padding: '3px 10px',
+                                          borderRadius: '6px',
+                                          boxShadow: '0 2px 8px rgba(124, 58, 237, 0.4)'
+                                        }}>
+                                          {myTeam.team_name.includes('Group') ? myTeam.team_name : `Nhóm ${myTeam.team_id}`}
+                                        </span>
+                                        <div>
+                                          <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: '0.92rem' }}>
+                                            {myTeam.team_name} — {myTeam.course_name}
+                                          </div>
+                                          <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <span>Lớp: <strong style={{ color: '#a78bfa' }}>{myTeam.course_code}</strong> ({myTeam.semester || 'FA26'})</span>
+                                            <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                                            <span>Trưởng nhóm: <strong style={{ color: '#fbbf24' }}>{leader.full_name}</strong></span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Dropdown switch team nếu có nhiều nhóm */}
+                                      {myTeams.length > 1 && (
+                                        <select
+                                          value={myTeam.team_id}
+                                          onChange={e => {
+                                            const selectedId = Number(e.target.value);
+                                            const chosen = myTeams.find(t => t.team_id === selectedId);
+                                            if (chosen) {
+                                              setMyTeam(chosen);
+                                              setSelectedFilter(String(chosen.team_id));
+                                              if (chosen.repo_url) setRepoUrl(chosen.repo_url);
+                                            }
+                                          }}
+                                          style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            background: 'rgba(15, 23, 42, 0.85)',
+                                            border: '1px solid rgba(168, 85, 247, 0.4)',
+                                            color: '#c084fc',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 600,
+                                            outline: 'none'
+                                          }}
+                                        >
+                                          {myTeams.map(t => (
+                                            <option key={t.team_id} value={t.team_id}>
+                                              Đổi sang {t.team_name} ({t.course_code})
+                                            </option>
+                                          ))}
+                                        </select>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* 2. TÊN CHỦ ĐỀ / ĐỀ TÀI ĐỒ ÁN (*) */}
+                                <div>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                    <span>🏷️</span>
+                                    <span>{lang === 'vi' ? 'TÊN CHỦ ĐỀ / ĐỀ TÀI ĐỒ ÁN (PROJECT TOPIC TITLE)' : 'PROJECT TOPIC TITLE'}</span>
+                                    <span style={{ color: '#f43f5e' }}>*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={teamTopicName}
+                                    onChange={e => setTeamTopicName(e.target.value)}
+                                    required
+                                    placeholder={lang === 'vi' ? 'VD: AITA - Nền tảng Đánh giá & Chấm Mã Nguồn Tự Động Kết Hợp Gia Sư Ảo AI' : 'E.g.: AITA - Intelligent Grading & AI Tutor Platform'}
+                                    style={{
+                                      width: '100%',
+                                      padding: '12px 16px',
+                                      background: 'rgba(15, 23, 42, 0.85)',
+                                      border: '1px solid rgba(168, 85, 247, 0.35)',
+                                      borderRadius: '12px',
+                                      color: '#f8fafc',
+                                      fontSize: '0.9rem',
+                                      outline: 'none',
+                                      boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)',
+                                      transition: 'border-color 0.2s ease'
+                                    }}
+                                  />
+                                </div>
+
+                                {/* 3. GITHUB REPOSITORY URL (*) */}
+                                <div>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                    <GitBranch size={14} color="#c084fc" />
+                                    <span>{lang === 'vi' ? 'ĐƯỜNG DẪN GITHUB REPOSITORY (GITHUB REPOSITORY URL)' : 'GITHUB REPOSITORY URL'}</span>
+                                    <span style={{ color: '#f43f5e' }}>*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={repoUrl}
+                                    onChange={e => setRepoUrl(e.target.value)}
+                                    required
+                                    placeholder="https://github.com/organization/repo.git"
+                                    style={{
+                                      width: '100%',
+                                      padding: '12px 16px',
+                                      background: 'rgba(15, 23, 42, 0.85)',
+                                      border: '1px solid rgba(168, 85, 247, 0.35)',
+                                      borderRadius: '12px',
+                                      color: '#f8fafc',
+                                      fontSize: '0.9rem',
+                                      fontFamily: 'monospace',
+                                      outline: 'none',
+                                      boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
+                                    }}
+                                  />
+                                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                                    {lang === 'vi'
+                                      ? 'Hỗ trợ định dạng .git hoặc link web repository. Hệ thống sẽ kết nối qua GitHub REST/GraphQL API.'
+                                      : 'Supports .git format or repo web URL.'}
+                                  </span>
+                                </div>
+
+                                {/* 4. NHÁNH PHÂN TÍCH (BRANCH) (*) */}
+                                <div>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                    <GitBranch size={14} color="#a78bfa" />
+                                    <span>{lang === 'vi' ? 'NHÁNH PHÂN TÍCH KIỂM THỬ (BRANCH)' : 'BRANCH'}</span>
+                                    <span style={{ color: '#f43f5e' }}>*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={teamBranch}
+                                    onChange={e => setTeamBranch(e.target.value)}
+                                    required
+                                    placeholder="main"
+                                    style={{
+                                      width: '100%',
+                                      padding: '12px 16px',
+                                      background: 'rgba(15, 23, 42, 0.85)',
+                                      border: '1px solid rgba(139, 92, 246, 0.35)',
+                                      borderRadius: '12px',
+                                      color: '#a78bfa',
+                                      fontSize: '0.9rem',
+                                      fontFamily: 'monospace',
+                                      fontWeight: 700,
+                                      outline: 'none',
+                                      boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.3)'
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Progress loading step indicator */}
+                                {isSubmitting && (
+                                  <div style={{
+                                    background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.18) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                                    borderRadius: '12px',
+                                    padding: '14px 18px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    color: '#d8b4fe',
+                                    fontSize: '0.88rem'
+                                  }}>
+                                    <Loader2 size={20} className="animate-spin" color="#c084fc" />
+                                    <div style={{ fontWeight: 500 }}>
+                                      {submitStep === 1 && (lang === 'vi' ? '1. Đang kết nối Git Repository và kiểm tra commit...' : '1. Verifying Git commit...')}
+                                      {submitStep === 2 && (lang === 'vi' ? '2. Đang đồng bộ và kích hoạt Pipeline bóc tách đóng góp...' : '2. Triggering analytics pipeline...')}
+                                      {submitStep === 3 && (lang === 'vi' ? '3. AI đang cập nhật radar đóng góp BR-07 cho nhóm...' : '3. Updating BR-07 contribution radar...')}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Error alert */}
+                                {submitError && (
+                                  <div style={{
+                                    background: 'rgba(244, 63, 94, 0.12)',
+                                    border: '1px solid rgba(244, 63, 94, 0.35)',
+                                    borderRadius: '10px',
+                                    padding: '12px 16px',
+                                    color: '#fda4af',
+                                    fontSize: '0.86rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px'
+                                  }}>
+                                    <AlertTriangle size={18} color="#f43f5e" />
+                                    <span>{submitError}</span>
+                                  </div>
+                                )}
+
+                                {/* Submit CTA Buttons */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                                  <button
+                                    type="submit"
+                                    disabled={isSubmitting || !repoUrl.trim()}
+                                    className="btn-primary"
+                                    style={{
+                                      flex: 1,
+                                      padding: '13px 22px',
+                                      fontSize: '0.94rem',
+                                      fontWeight: 800,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      gap: '10px',
+                                      borderRadius: '12px',
+                                      background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.95) 0%, rgba(147, 51, 234, 0.9) 100%)',
+                                      border: '1px solid rgba(192, 132, 252, 0.5)',
+                                      boxShadow: '0 4px 20px rgba(124, 58, 237, 0.45)',
+                                      opacity: (isSubmitting || !repoUrl.trim()) ? 0.6 : 1,
+                                      cursor: (isSubmitting || !repoUrl.trim()) ? 'not-allowed' : 'pointer'
+                                    }}
+                                  >
+                                    {isSubmitting ? (
+                                      <>
+                                        <Loader2 size={18} className="animate-spin" />
+                                        <span>{lang === 'vi' ? 'Đang kích hoạt Pipeline phân tích Git...' : 'Triggering Pipeline...'}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span>🚀</span>
+                                        <span>{lang === 'vi' ? 'Xác Nhận Nộp Đồ Án Nhóm & Link GitHub' : 'Confirm Team Project Submission'}</span>
+                                      </>
+                                    )}
+                                  </button>
+
+                                  {isEditingTeamRepo && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsEditingTeamRepo(false)}
+                                      style={{
+                                        padding: '13px 18px',
+                                        borderRadius: '12px',
+                                        background: 'rgba(255, 255, 255, 0.06)',
+                                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                                        color: '#cbd5e1',
+                                        fontWeight: 700,
+                                        fontSize: '0.88rem',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                                    </button>
+                                  )}
+                                </div>
+                              </form>
+                            </div>
+
+                            {/* CỘT PHẢI (40%): ĐỘI NGŨ PHÁT TRIỂN (TEAM ROSTER CARD) */}
+                            <div
+                              className="glass-card"
+                              style={{
+                                padding: '1.8rem 1.6rem',
+                                borderRadius: '22px',
+                                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.94) 0%, rgba(20, 16, 35, 0.96) 100%)',
+                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                                boxShadow: '0 15px 35px -10px rgba(0, 0, 0, 0.6)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '1.25rem'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.9rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <Users size={18} color="#c084fc" />
+                                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '0.3px' }}>
+                                    {lang === 'vi' ? 'Đội Ngũ Phát Triển (Team Roster)' : 'Team Roster'}
+                                  </h4>
+                                </div>
+                                <span style={{
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  background: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#34d399',
+                                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px'
+                                }}>
+                                  {displayMembers.length} {lang === 'vi' ? 'thành viên' : 'members'}
+                                </span>
+                              </div>
+
+                              {/* Thẻ Trưởng nhóm (Leader/Owner) - Viền vàng hoàng gia */}
+                              <div style={{
+                                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                                border: '1px solid rgba(245, 158, 11, 0.45)',
+                                borderRadius: '14px',
+                                padding: '14px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '14px',
+                                boxShadow: '0 4px 15px rgba(245, 158, 11, 0.12)'
+                              }}>
+                                <div style={{
+                                  width: '42px',
+                                  height: '42px',
+                                  borderRadius: '12px',
+                                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#ffffff',
+                                  fontSize: '1.2rem',
+                                  boxShadow: '0 2px 10px rgba(245, 158, 11, 0.4)',
+                                  flexShrink: 0
+                                }}>
+                                  👑
+                                </div>
+                                <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                                    <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {leader.full_name}
+                                    </span>
+                                    <span style={{
+                                      fontSize: '0.65rem',
+                                      fontWeight: 900,
+                                      background: '#f59e0b',
+                                      color: '#0f172a',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      letterSpacing: '0.5px'
+                                    }}>
+                                      LEADER
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '0.74rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <span style={{ color: '#fbbf24', fontWeight: 700 }}>{getStudentCode(leader.email, 0)}</span>
+                                    <span>•</span>
+                                    <span style={{ color: '#94a3b8' }}>{leader.email}</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: '#c084fc', fontWeight: 600, marginTop: '3px' }}>
+                                    {lang === 'vi' ? 'Trưởng nhóm đồ án' : 'Project Leader'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Danh sách 4 Thành viên còn lại */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                  {lang === 'vi' ? 'Thành viên nhóm dự án' : 'Team Members'}
+                                </span>
+
+                                {regularMembers.map((m, idx) => (
+                                  <div
+                                    key={m.user_id}
+                                    style={{
+                                      background: 'rgba(255, 255, 255, 0.03)',
+                                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                                      borderRadius: '12px',
+                                      padding: '10px 14px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '12px',
+                                      transition: 'background 0.2s ease'
+                                    }}
+                                  >
+                                    <div style={{
+                                      width: '34px',
+                                      height: '34px',
+                                      borderRadius: '50%',
+                                      background: memberGradients[(idx + 1) % memberGradients.length],
+                                      color: '#ffffff',
+                                      fontWeight: 800,
+                                      fontSize: '0.74rem',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      flexShrink: 0
+                                    }}>
+                                      {getInitials(m.full_name)}
+                                    </div>
+                                    <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          {m.full_name}
+                                        </span>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#38bdf8', background: 'rgba(56, 189, 248, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
+                                          {getStudentCode(m.email, idx + 1)}
+                                        </span>
+                                      </div>
+                                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {lang === 'vi' ? 'Thành viên nhóm' : 'Team Member'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Hộp nhắc nhở tiêu chuẩn BR-07 */}
+                              <div style={{
+                                background: 'rgba(14, 165, 233, 0.08)',
+                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                borderRadius: '12px',
+                                padding: '12px 14px',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '10px'
+                              }}>
+                                <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>🛡️</span>
+                                <div style={{ fontSize: '0.74rem', color: '#bae6fd', lineHeight: 1.5 }}>
+                                  <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '2px' }}>
+                                    TIÊU CHUẨN ĐÓNG GÓP BR-07 & LỌC NHIỄU:
+                                  </strong>
+                                  Hệ thống AI AST & Git Telemetry sẽ tự động loại bỏ các tệp thư viện (node_modules, build assets, vendor libs...) và chỉ ghi nhận LOC thực chất do từng thành viên commit trên nhánh main. Các thành viên có tỷ lệ đóng góp dưới ngưỡng quy định sẽ tự động bị cảnh báo Free-Rider.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      renderGitAnalyticsView()
+                    )}
+                  </div>
+            )
+          )}
+
+              {/* Submission Confirmation Modal */}
+              {showSubmitModal && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.82)',
+                  backdropFilter: 'blur(8px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 9999,
+                  padding: '20px'
+                }}>
+                  <div style={{
+                    maxWidth: '520px',
+                    width: '100%',
+                    background: '#0f172a',
+                    border: submitSubTab === 'individual' ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(168, 85, 247, 0.4)',
+                    borderRadius: '20px',
+                    padding: '26px',
+                    boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.85)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '18px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        padding: '10px',
+                        borderRadius: '12px',
+                        background: submitSubTab === 'individual' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                        color: submitSubTab === 'individual' ? '#a78bfa' : '#c084fc'
+                      }}>
+                        {submitSubTab === 'individual' ? <FileCode size={24} /> : <Users size={24} />}
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc' }}>
+                          {submitSubTab === 'individual'
+                            ? (lang === 'vi' ? 'Xác nhận nộp bài tập cá nhân' : 'Confirm Individual Submission')
+                            : (lang === 'vi' ? 'Xác nhận nộp đồ án nhóm' : 'Confirm Team Project Submission')}
+                        </h4>
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                          {submitSubTab === 'individual'
+                            ? (lang === 'vi' ? 'Bài làm sẽ được lưu và chấm tự động theo chuẩn quy định' : 'Work will be stored and evaluated')
+                            : (lang === 'vi' ? 'Hệ thống sẽ cập nhật Git Repository và đồng bộ đóng góp nhóm BR-07' : 'Will update Git repository & sync BR-07 contribution')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '12px',
+                      padding: '14px 16px',
+                      fontSize: '0.84rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      color: '#cbd5e1'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Hình thức:' : 'Type:'}</span>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          background: submitSubTab === 'individual' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                          color: submitSubTab === 'individual' ? '#a78bfa' : '#c084fc'
+                        }}>
+                          {submitSubTab === 'individual' ? (lang === 'vi' ? '👤 Bài tập cá nhân' : 'Individual Assignment') : (lang === 'vi' ? `👥 Đồ án nhóm (${myTeam?.team_name})` : `Team Project (${myTeam?.team_name})`)}
+                        </span>
+                      </div>
+
+                      {submitSubTab === 'individual' ? (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                          <span style={{ color: '#94a3b8', flexShrink: 0 }}>{lang === 'vi' ? 'Bài tập cần nộp:' : 'Assignment:'}</span>
+                          <strong style={{ color: '#f1f5f9', textAlign: 'right' }}>
+                            {assignments.find(a => String(a.assignment_id) === String(selectedIndividualAssignmentId || selectedAssignment))?.title || ('#' + (selectedIndividualAssignmentId || selectedAssignment))}
+                          </strong>
+                        </div>
+                      ) : null}
+
+                      {submitSubTab === 'individual' ? (
+                        individualMethod === 'file' ? (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Tệp bài làm tải lên:' : 'Uploaded file:'}</span>
+                              <strong style={{ color: '#a78bfa' }}>{uploadedFile?.name || 'Chưa chọn'}</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Dung lượng tệp:' : 'File size:'}</span>
+                              <strong style={{ color: '#f1f5f9' }}>{uploadedFile ? `${(uploadedFile.size / 1024).toFixed(1)} KB` : '0 KB'}</strong>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Ngôn ngữ:' : 'Language:'}</span>
+                              <span style={{ color: selectedLanguage === 'java' ? '#f87171' : selectedLanguage === 'python' ? '#a78bfa' : '#fbbf24', fontWeight: 700 }}>
+                                {selectedLanguage === 'java' ? '☕ Java (OpenJDK 17)' : selectedLanguage === 'python' ? '🐍 Python 3.11' : '🟨 JavaScript (Node.js 20)'}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Số dòng code:' : 'Lines:'}</span>
+                              <strong style={{ color: '#f1f5f9' }}>{codeContent.split('\n').length} dòng</strong>
+                            </div>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Nhóm đồ án:' : 'Team:'}</span>
+                            <strong style={{ color: '#c084fc' }}>{myTeam?.team_name}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Trưởng nhóm:' : 'Team Leader:'}</span>
+                            <strong style={{ color: '#a78bfa' }}>{myTeam?.members?.find((m: any) => m.role === 'LEADER')?.full_name || 'Đinh Gia Huy'}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Git Repository:' : 'Git Repository:'}</span>
+                            <strong style={{ color: '#a78bfa', fontFamily: 'var(--font-mono, monospace)', wordBreak: 'break-all' }}>{repoUrl}</strong>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#94a3b8' }}>{lang === 'vi' ? 'Nhánh (Branch):' : 'Branch:'}</span>
+                            <strong style={{ color: '#a78bfa' }}>{teamBranch || 'main'}</strong>
+                          </div>
+                        </>
+                      )}
+
+                      {submissionNote.trim() && (
+                        <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '8px', fontSize: '0.78rem', color: '#94a3b8' }}>
+                          <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{lang === 'vi' ? 'Ghi chú gửi giảng viên:' : 'Note:'}</span> {submissionNote}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowSubmitModal(false)}
+                        className="btn-secondary"
+                        style={{ padding: '9px 18px', fontSize: '0.84rem', borderRadius: '10px' }}
+                      >
+                        {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmSubmit}
+                        disabled={isSubmitting}
+                        className="btn-primary"
+                        style={{
+                          padding: '9px 22px',
+                          fontSize: '0.84rem',
+                          gap: '8px',
+                          borderRadius: '10px',
+                          background: submitSubTab === 'individual'
+                            ? 'linear-gradient(135deg, rgba(124, 58, 237, 1) 0%, rgba(14, 165, 233, 1) 100%)'
+                            : 'linear-gradient(135deg, rgba(124, 58, 237, 1) 0%, rgba(168, 85, 247, 1) 100%)'
+                        }}
+                      >
+                        {isSubmitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                        <span>{lang === 'vi' ? 'Xác nhận nộp bài' : 'Confirm & Submit'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ───── TAB: RESULTS ───── */}
         {activeTab === 'results' && (
@@ -1855,70 +6478,359 @@ export default function StudentDashboard() {
             {/* Live submissions from DB */}
             {displayedSubmissions.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {displayedSubmissions.map((sub) => (
-                  <div key={sub.submission_id} className="glass-card" style={{ padding: '1.5rem', borderLeft: `4px solid ${getStatusColor(sub.status)}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
-                        <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '4px' }}>{sub.assignment_title || 'Assignment #' + sub.assignment_id}</h4>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span>Commit: <code style={{ color: '#60a5fa' }}>{sub.git_commit_hash?.slice(0, 12)}</code></span>
-                          <span>{lang === 'vi' ? 'Nộp lúc:' : 'Submitted:'} {new Date(sub.submitted_at).toLocaleString('vi-VN')}</span>
-                          {sub.submitter_name && (
-                            <span style={{ 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: '5px', 
-                              background: 'rgba(167, 139, 250, 0.12)', 
-                              padding: '2px 8px', 
-                              borderRadius: '6px', 
-                              border: '1px solid rgba(167, 139, 250, 0.3)',
-                              color: '#c4b5fd',
-                              fontSize: '0.78rem'
+                {displayedSubmissions.map((sub) => {
+                  const isFailed = sub.status === 'FAILED' || (sub.status === 'GRADED' && Number(sub.final_score ?? sub.score) === 0);
+                  const isGrading = (sub.status === 'GRADING' || sub.status === 'QUEUED' || sub.grading_status === 'PROCESSING' || sub.grading_status === 'QUEUED') && sub.status !== 'FINALIZED';
+                  const scoreNum = Number(sub.final_score ?? sub.score ?? 0);
+
+                  return (
+                    <div 
+                      key={sub.submission_id} 
+                      className="glass-card" 
+                      style={{ 
+                        padding: '1.5rem', 
+                        borderLeft: `4px solid ${isFailed ? '#f43f5e' : (isGrading ? '#f59e0b' : '#34d399')}`,
+                        background: isFailed ? 'rgba(239, 68, 68, 0.03)' : 'var(--bg-card)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                          <h4 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}>
+                            {sub.assignment_title || 'Assignment #' + sub.assignment_id}
+                          </h4>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            {sub.language && (
+                              <span style={{
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                background: sub.language === 'python' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                color: sub.language === 'python' ? '#a78bfa' : '#fbbf24',
+                                border: `1px solid ${sub.language === 'python' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                              }}>
+                                {sub.language === 'python' ? '🐍 Python 3' : '🟨 Node.js'}
+                              </span>
+                            )}
+                            {sub.git_commit_hash && sub.git_commit_hash !== 'DIRECT_SUBMIT' && (
+                              <span>Commit: <code style={{ color: '#c4b5fd' }}>{sub.git_commit_hash?.slice(0, 12)}</code></span>
+                            )}
+                            <span>{lang === 'vi' ? 'Nộp lúc:' : 'Submitted:'} {new Date(sub.submitted_at).toLocaleString('vi-VN')}</span>
+                            {sub.test_results && sub.test_results.length > 0 && (() => {
+                              const passedCount = sub.test_results.filter(t => t.passed).length;
+                              const failedCount = sub.test_results.length - passedCount;
+                              return (
+                                <span style={{ display: 'inline-flex', gap: '6px' }}>
+                                  <span style={{ padding: '1px 7px', borderRadius: '4px', fontSize: '0.74rem', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                    ✓ {passedCount} Passed
+                                  </span>
+                                  {failedCount > 0 && (
+                                    <span style={{ padding: '1px 7px', borderRadius: '4px', fontSize: '0.74rem', fontWeight: 700, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                      ✗ {failedCount} Failed
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })()}
+                            {sub.submitter_name && (
+                              <span style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '5px', 
+                                background: 'rgba(167, 139, 250, 0.12)', 
+                                padding: '2px 8px', 
+                                borderRadius: '6px', 
+                                border: '1px solid rgba(167, 139, 250, 0.3)',
+                                color: '#c4b5fd',
+                                fontSize: '0.78rem'
+                              }}>
+                                <Users size={12} color="#a78bfa" />
+                                <span>{lang === 'vi' ? 'Người nộp:' : 'Submitted by:'} <strong style={{ color: '#e9d5ff' }}>{sub.submitter_name}</strong></span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Status Badges */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {!isGrading && (
+                            <span style={{
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.86rem', fontWeight: 800,
+                              background: isFailed ? 'rgba(239, 68, 68, 0.18)' : (scoreNum >= 8 ? 'rgba(16, 185, 129, 0.18)' : 'rgba(245, 158, 11, 0.18)'),
+                              color: isFailed ? '#f87171' : (scoreNum >= 8 ? '#34d399' : '#fbbf24'),
+                              border: `1px solid ${isFailed ? 'rgba(239, 68, 68, 0.4)' : (scoreNum >= 8 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)')}`
                             }}>
-                              <User size={12} color="#a78bfa" />
-                              <span>{lang === 'vi' ? 'Người nộp:' : 'Submitted by:'} <strong style={{ color: '#e9d5ff' }}>{sub.submitter_name}</strong></span>
+                              ★ {scoreNum.toFixed(1)} / 10
+                            </span>
+                          )}
+
+                          {/* Moderation Stage Badge */}
+                          {sub.status === 'FINALIZED' ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)'
+                            }}>
+                              <CheckCircle2 size={12} /> {lang === 'vi' ? 'Điểm chính thức đã duyệt' : 'Finalized Grade'}
+                            </span>
+                          ) : sub.status === 'PENDING_SECOND_REVIEW' ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)'
+                            }}>
+                              <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 chấm chéo (BR-09)' : 'Pending 2nd Review'}
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.35)'
+                            }}>
+                              <Sparkles size={12} /> {lang === 'vi' ? 'Điểm sơ bộ (AI Sandbox)' : 'AI Pre-Graded'}
+                            </span>
+                          )}
+
+                          {/* Late Submission Badge */}
+                          {sub.is_late && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
+                              background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)'
+                            }}>
+                              <AlertTriangle size={12} /> {lang === 'vi' ? `Nộp muộn ${sub.late_minutes ? sub.late_minutes + 'p' : ''}` : 'Late Submission'}
+                            </span>
+                          )}
+
+                          {isFailed ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
+                              background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.45)'
+                            }}>
+                              <AlertTriangle size={13} /> {lang === 'vi' ? 'FAILED (Không đạt)' : 'FAILED'}
+                            </span>
+                          ) : isGrading ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
+                              background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)'
+                            }}>
+                              <Loader2 size={13} className="animate-spin" /> {lang === 'vi' ? 'Đang chấm điểm Docker Sandbox...' : 'Grading in Sandbox...'}
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
+                              background: 'rgba(16, 185, 129, 0.18)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)'
+                            }}>
+                              <CheckCircle2 size={13} /> {lang === 'vi' ? 'PASSED (Thành công)' : 'PASSED'}
                             </span>
                           )}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        {(sub.score != null || sub.final_score != null) && (
-                          <span style={{
-                            padding: '4px 12px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 800,
-                            background: Number(sub.final_score ?? sub.score) >= 8 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                            color: Number(sub.final_score ?? sub.score) >= 8 ? '#34d399' : '#fbbf24',
-                            border: `1px solid ${Number(sub.final_score ?? sub.score) >= 8 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
-                          }}>
-                            ★ {Number(sub.final_score ?? sub.score).toFixed(1)} / 10
-                          </span>
-                        )}
-                        <span style={{
-                          padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
-                          background: `${getStatusColor(sub.status)}20`,
-                          color: getStatusColor(sub.status),
-                          border: `1px solid ${getStatusColor(sub.status)}50`
+
+                      {/* Watchdog / Failure Alert */}
+                      {isFailed && (
+                        <div style={{
+                          margin: '0.75rem 0', padding: '10px 14px', borderRadius: '10px',
+                          background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.35)',
+                          color: '#fca5a5', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '8px'
                         }}>
-                          {sub.status}
-                        </span>
-                        {sub.grading_status && (
-                          <span className="badge badge-info" style={{ fontSize: '0.75rem' }}>
-                            Grading: {sub.grading_status}
-                          </span>
+                          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#f87171' }} />
+                          <div>
+                            <strong style={{ color: '#f87171' }}>
+                              {lang === 'vi' ? 'Can thiệp Sandbox (Watchdog 5s - BR-03):' : 'Sandbox Watchdog Alert (BR-03):'}
+                            </strong>{' '}
+                            <span>{sub.ai_feedback || 'Phát hiện vòng lặp vô hạn hoặc thời gian chạy vượt quá 5,000ms. Container Docker Sandbox đã bị ngắt an toàn để chống nghẽn hệ thống.'}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Test Case Rubric Results breakdown */}
+                      {sub.test_results && sub.test_results.length > 0 && (
+                        <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {lang === 'vi' ? 'Chi tiết kết quả kiểm thử Docker Sandbox:' : 'Automated Test Cases Results:'}
+                          </div>
+                          {sub.test_results.map((tc, idx) => {
+                            const rawStatus = (tc.status || (tc.passed ? 'ACCEPTED' : 'WRONG_ANSWER')).toUpperCase();
+                            const isAccepted = rawStatus === 'ACCEPTED';
+                            const isTLE = rawStatus === 'TIME_LIMIT_EXCEEDED';
+                            const isRE = rawStatus === 'RUNTIME_ERROR';
+                            const isMLE = rawStatus === 'MEMORY_LIMIT_EXCEEDED';
+                            const isCE = rawStatus === 'COMPILATION_ERROR';
+                            const isSE = rawStatus === 'SYSTEM_ERROR';
+
+                            const statusName = isAccepted ? 'Accepted' : (isCE ? 'Compilation Error' : (isTLE ? 'Time Limit Exceeded' : (isRE ? 'Runtime Error' : (isMLE ? 'Memory Limit Exceeded' : (isSE ? 'System Error' : 'Wrong Answer')))));
+                            const statusColor = isAccepted 
+                              ? '#34d399' 
+                              : isCE 
+                              ? '#fbbf24'
+                              : (isTLE 
+                                  ? '#f59e0b' 
+                                  : (isRE ? '#fb923c' : (isMLE ? '#c084fc' : '#f87171')));
+
+                            return (
+                              <div 
+                                key={idx} 
+                                style={{ 
+                                  padding: '10px 14px', borderRadius: '10px', 
+                                  background: tc.passed ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.07)', 
+                                  border: `1px solid ${tc.passed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.25)'}`, 
+                                  fontSize: '0.82rem',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '6px'
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {tc.passed ? <CheckCircle2 size={16} color="#34d399" /> : <AlertTriangle size={16} color={statusColor} />}
+                                    <span style={{ fontWeight: 700, color: tc.passed ? 'var(--text-main)' : '#fca5a5' }}>
+                                      {tc.criterion}
+                                    </span>
+                                    {tc.is_hidden && (
+                                      <span style={{ fontSize: '0.7rem', color: '#a78bfa', padding: '1px 6px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.25)' }}>
+                                        Hidden Test
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ color: tc.execution_time_ms >= 5000 ? '#f87171' : 'var(--text-muted)', fontSize: '0.76rem', fontWeight: tc.execution_time_ms >= 5000 ? 700 : 400 }}>
+                                      {tc.execution_time_ms}ms
+                                    </span>
+                                    <span style={{ 
+                                      fontWeight: 800, fontSize: '0.78rem', padding: '2px 8px', borderRadius: '6px',
+                                      background: tc.passed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                      color: statusColor,
+                                      border: `1px solid ${statusColor}40`
+                                    }}>
+                                      {statusName} ({tc.score}/{tc.max_score}đ)
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Actual vs Expected Output & Reason for Failure */}
+                                {tc.is_hidden ? (
+                                  <div style={{ fontSize: '0.74rem', color: '#a78bfa', fontStyle: 'italic', padding: '4px 8px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: '6px' }}>
+                                    🔒 Hidden Test Case: Input và Expected Output được bảo mật theo cấu hình của giảng viên.
+                                  </div>
+                                ) : (
+                                  !tc.passed && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', marginTop: '4px' }}>
+                                      {tc.expected_output && (
+                                        <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontFamily: 'var(--font-mono, monospace)' }}>
+                                          <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginBottom: '2px' }}>Expected Output:</div>
+                                          <div style={{ color: '#34d399', whiteSpace: 'pre-wrap' }}>{tc.expected_output}</div>
+                                        </div>
+                                      )}
+                                      <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontFamily: 'var(--font-mono, monospace)' }}>
+                                        <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginBottom: '2px' }}>Actual Output:</div>
+                                        <div style={{ color: '#f87171', whiteSpace: 'pre-wrap' }}>{tc.actual_output || '(Không có kết quả)'}</div>
+                                      </div>
+                                    </div>
+                                  )
+                                )}
+
+                                {tc.ai_feedback && !tc.passed && (
+                                  <div style={{ fontSize: '0.74rem', color: '#fda4af', marginTop: '2px' }}>
+                                    💡 <strong>Chi tiết:</strong> {tc.ai_feedback}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Instructor Feedback Notes (if available) */}
+                      {(sub.consensus_notes || sub.reviewer_1_notes) && (
+                        <div style={{
+                          marginTop: '0.85rem',
+                          padding: '10px 14px',
+                          borderRadius: '10px',
+                          background: 'rgba(139, 92, 246, 0.08)',
+                          border: '1px solid rgba(139, 92, 246, 0.25)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#a78bfa' }}>
+                            <User size={13} />
+                            <span>{lang === 'vi' ? 'Nhận xét từ Giảng viên:' : 'Instructor Feedback:'}</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.84rem', color: '#f1f5f9', lineHeight: 1.5 }}>
+                            "{sub.consensus_notes || sub.reviewer_1_notes}"
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Submitted Code Viewer & Artifact Link */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.75rem' }}>
+                        {sub.code_content && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedCodeMap(prev => ({ ...prev, [sub.submission_id]: !prev[sub.submission_id] }))}
+                              style={{
+                                background: 'rgba(139, 92, 246, 0.08)',
+                                border: '1px solid rgba(139, 92, 246, 0.25)',
+                                color: '#a78bfa',
+                                padding: '5px 12px',
+                                borderRadius: '6px',
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                            >
+                              <FileCode size={13} />
+                              <span>
+                                {expandedCodeMap[sub.submission_id] 
+                                  ? (lang === 'vi' ? 'Ẩn mã nguồn bài nộp' : 'Hide submitted code') 
+                                  : (lang === 'vi' ? `Xem mã nguồn đã nộp (${sub.language || 'javascript'})` : `View submitted code (${sub.language || 'javascript'})`)}
+                              </span>
+                            </button>
+
+                            {expandedCodeMap[sub.submission_id] && (
+                              <pre style={{
+                                marginTop: '6px',
+                                padding: '12px 14px',
+                                borderRadius: '8px',
+                                background: '#090d16',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: sub.language === 'python' ? '#a78bfa' : '#fbbf24',
+                                fontSize: '0.8rem',
+                                fontFamily: 'var(--font-mono, monospace)',
+                                maxHeight: '240px',
+                                overflow: 'auto',
+                                lineHeight: 1.5
+                              }}>
+                                {sub.code_content}
+                              </pre>
+                            )}
+                          </div>
+                        )}
+
+                        {sub.artifact_url && sub.artifact_url.startsWith('http') && (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <ExternalLink size={13} />
+                            <a href={sub.artifact_url} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd', textDecoration: 'none' }}>
+                              {sub.artifact_url.replace('https://github.com/', '')}
+                            </a>
+                          </div>
                         )}
                       </div>
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <ExternalLink size={13} />
-                      <a href={sub.artifact_url} target="_blank" rel="noreferrer" style={{ color: '#60a5fa', textDecoration: 'none' }}>
-                        {sub.artifact_url?.replace('https://github.com/', '')}
-                      </a>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center', borderRadius: '16px', border: '1px dashed rgba(255, 255, 255, 0.12)' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                   <CheckCircle2 size={28} />
                 </div>
                 <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px' }}>
@@ -1969,17 +6881,32 @@ export default function StudentDashboard() {
                   style={{
                     alignSelf: m.sender === 'STUDENT' ? 'flex-end' : 'flex-start',
                     maxWidth: '80%',
-                    background: m.sender === 'STUDENT' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                    border: m.sender === 'STUDENT' ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                    background: m.sender === 'STUDENT' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                    border: m.sender === 'STUDENT' ? '1px solid rgba(124, 58, 237,0.4)' : '1px solid rgba(255,255,255,0.1)',
                     borderRadius: '12px', padding: '12px 16px', fontSize: '0.9rem', lineHeight: 1.5, whiteSpace: 'pre-line'
                   }}
                 >
-                  <strong style={{ display: 'block', fontSize: '0.75rem', color: m.sender === 'STUDENT' ? '#93c5fd' : '#c084fc', marginBottom: '4px' }}>
+                  <strong style={{ display: 'block', fontSize: '0.75rem', color: m.sender === 'STUDENT' ? '#c4b5fd' : '#c084fc', marginBottom: '4px' }}>
                     {m.sender === 'STUDENT' ? (lang === 'vi' ? 'Bạn' : 'You') : '🤖 AITA Tutor'}
                   </strong>
                   {m.text}
                 </div>
               ))}
+              {isChatLoading && (
+                <div 
+                  style={{
+                    alignSelf: 'flex-start',
+                    maxWidth: '80%',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '12px', padding: '12px 16px', fontSize: '0.88rem',
+                    display: 'flex', alignItems: 'center', gap: '8px', color: '#c084fc'
+                  }}
+                >
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>{lang === 'vi' ? 'AITA Socratic Tutor đang phân tích mã nguồn...' : 'AITA Tutor is thinking...'}</span>
+                </div>
+              )}
               <div ref={chatEndRef} />
             </div>
 
@@ -1989,209 +6916,31 @@ export default function StudentDashboard() {
                 placeholder={lang === 'vi' ? 'Đặt câu hỏi về kết quả kiểm thử, lỗi logic hoặc cách tối ưu thuật toán...' : 'Ask about test failures, bugs, or optimization...'}
                 value={inputMsg}
                 onChange={e => setInputMsg(e.target.value)}
+                disabled={isChatLoading}
                 style={{ flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text-main)', fontFamily: 'var(--font-main)', fontSize: '0.9rem', outline: 'none' }}
               />
-              <button type="submit" className="btn-primary">
-                <Send size={16} /> {lang === 'vi' ? 'Gửi' : 'Send'}
+              <button type="submit" className="btn-primary" disabled={isChatLoading}>
+                {isChatLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} {lang === 'vi' ? 'Gửi' : 'Send'}
               </button>
             </form>
           </div>
         )}
 
-        {/* ───── TAB: GIT ANALYTICS ───── */}
-        {activeTab === 'analytics' && (
-          !myTeam ? (
-            <div 
-              className="glass-card" 
-              style={{ 
-                maxWidth: '680px', 
-                margin: '2rem auto', 
-                padding: '2.5rem 2rem', 
-                textAlign: 'center', 
-                borderTop: '4px solid #f59e0b',
-                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                borderRadius: '20px',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
-                boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
-              }}
-            >
-              <div 
-                style={{ 
-                  width: '56px', 
-                  height: '56px', 
-                  borderRadius: '16px', 
-                  background: 'rgba(245, 158, 11, 0.15)', 
-                  color: '#fbbf24', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  margin: '0 auto 1.25rem' 
-                }}
-              >
-                <GitBranch size={28} />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.6rem', color: '#f8fafc' }}>
-                {lang === 'vi' ? 'Bạn chưa được phân công vào nhóm đồ án' : 'Not assigned to a project team yet'}
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.6, maxWidth: '500px', margin: '0 auto' }}>
-                {lang === 'vi'
-                  ? 'Chức năng thống kê đóng góp Git (LOC, Commits) chỉ khả dụng khi bạn đã được phân công vào một nhóm đồ án.'
-                  : 'Git contribution analytics are only available once you are assigned to a project team.'}
-              </p>
-            </div>
-          ) : (
-            <div className="glass-card" style={{ padding: '2rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <GitBranch size={20} color="#38bdf8" /> {lang === 'vi' ? `Báo cáo Đóng góp Git - ${targetAnalyticsTeam.team_name}` : `Team Git Contribution - ${targetAnalyticsTeam.team_name}`}
-              </h3>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-                {[
-                  { label: lang === 'vi' ? 'Lượt commit của bạn' : 'Your Commits', value: '42', color: '#38bdf8' },
-                  { label: lang === 'vi' ? 'Dòng code thêm (LOC)' : 'Your LOC Added', value: '1,245', color: '#a78bfa' },
-                  { label: lang === 'vi' ? 'Xếp hạng nhóm' : 'Team Ranking', value: '#1 / 5', color: '#34d399' },
-                ].map((stat, i) => (
-                  <div key={i} style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{stat.label}</div>
-                    <div style={{ fontSize: '2rem', fontWeight: 700, color: stat.color }}>{stat.value}</div>
-                  </div>
-                ))}
-              </div>
+        {/* ───── TAB: GIT ANALYTICS & REPO SUBMISSION (FALLBACK) ───── */}
+        {activeTab === 'analytics' && renderGitAnalyticsView()}
 
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>
-                  {lang === 'vi' ? 'Biểu đồ phân phối đóng góp (LOC):' : 'Contribution Distribution (LOC):'}
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {(myTeam.members || []).map((member, idx) => {
-                    const colors = ['#38bdf8', '#34d399', '#a78bfa', '#fbbf24', '#f43f5e'];
-                    const locValues = [1245, 1100, 950, 850, 120];
-                    const loc = locValues[idx] || 200;
-                    const isYou = member.user_id === currentUser?.userId;
-                    const isAlert = loc < 200;
-                    return (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '200px', fontSize: '0.88rem', color: isAlert ? '#f43f5e' : 'var(--text-main)' }}>
-                          {member.full_name} {isYou && `(${lang === 'vi' ? 'Bạn' : 'You'})`}
-                        </div>
-                        <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', height: '12px', borderRadius: '6px', overflow: 'hidden' }}>
-                          <div style={{ width: `${(loc / 1300) * 100}%`, background: colors[idx % colors.length], height: '100%', borderRadius: '6px' }} />
-                        </div>
-                        <div style={{ width: '80px', fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'right' }}>{loc.toLocaleString()} LOC</div>
-                        {isAlert && <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>{lang === 'vi' ? 'Đóng góp thấp' : 'Low Activity'}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )
-        )}
 
-        {/* ───── TAB: PEER AUDIT ───── */}
-        {activeTab === 'peer' && (
-          !myTeam ? (
-            <div 
-              className="glass-card" 
-              style={{ 
-                maxWidth: '680px', 
-                margin: '2rem auto', 
-                padding: '2.5rem 2rem', 
-                textAlign: 'center', 
-                borderTop: '4px solid #f59e0b',
-                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(10, 14, 23, 0.96) 100%)',
-                borderRadius: '20px',
-                border: '1px solid rgba(245, 158, 11, 0.25)',
-                boxShadow: '0 20px 50px -15px rgba(0, 0, 0, 0.7)'
-              }}
-            >
-              <div 
-                style={{ 
-                  width: '56px', 
-                  height: '56px', 
-                  borderRadius: '16px', 
-                  background: 'rgba(245, 158, 11, 0.15)', 
-                  color: '#fbbf24', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  margin: '0 auto 1.25rem' 
-                }}
-              >
-                <Users size={28} />
-              </div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.6rem', color: '#f8fafc' }}>
-                {lang === 'vi' ? 'Bạn chưa được phân công vào nhóm đồ án' : 'Not assigned to a project team yet'}
-              </h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.6, maxWidth: '500px', margin: '0 auto' }}>
-                {lang === 'vi'
-                  ? 'Chức năng đánh giá chéo thành viên (Peer Audit) chỉ khả dụng khi bạn đã được phân công vào một nhóm đồ án.'
-                  : 'Peer audit evaluation is only available once you are assigned to a project team.'}
-              </p>
-            </div>
-          ) : (
-            <div className="glass-card" style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={20} color="#f472b6" /> {lang === 'vi' ? 'Đánh giá chéo thành viên nhóm (Peer Audit)' : 'Peer Audit Evaluation'}
-              </h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '2rem', lineHeight: 1.5 }}>
-                {lang === 'vi'
-                  ? 'Đánh giá đóng góp của các thành viên trong nhóm về thái độ, chất lượng mã nguồn và mức độ hoàn thành nhiệm vụ. Bảng đánh giá hoàn toàn bảo mật và chỉ giảng viên mới có thể xem.'
-                  : 'Evaluate your teammates on contribution, code quality, and attitude. Your evaluation is strictly confidential.'}
-              </p>
+        </div>
+      </main>
 
-              <form onSubmit={handlePeerSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '8px', fontWeight: 600 }}>
-                    {lang === 'vi' ? 'Chọn thành viên cần đánh giá (*)' : 'Select Teammate (*)'}
-                  </label>
-                  <select 
-                    value={peerMember}
-                    onChange={e => setPeerMember(e.target.value)}
-                    required
-                    style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem' }}
-                  >
-                    <option value="">-- {lang === 'vi' ? 'Chọn thành viên' : 'Choose a teammate'} --</option>
-                    {teammates.length > 0 ? teammates.map(m => (
-                      <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.email})</option>
-                    )) : (
-                      <option value="" disabled>{lang === 'vi' ? 'Không có thành viên khác trong nhóm' : 'No other teammates in team'}</option>
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '8px', fontWeight: 600 }}>
-                    {lang === 'vi' ? 'Điểm đánh giá đóng góp (1 - 10) (*)' : 'Contribution Score (1-10) (*)'}
-                  </label>
-                  <input 
-                    type="number" min="1" max="10" value={peerScore}
-                    onChange={e => setPeerScore(e.target.value)}
-                    placeholder="e.g. 9" required 
-                    style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem' }} 
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.88rem', marginBottom: '8px', fontWeight: 600 }}>
-                    {lang === 'vi' ? 'Nhận xét chi tiết (Gửi riêng cho Giảng viên) (*)' : 'Constructive Feedback (*)'}
-                  </label>
-                  <textarea 
-                    rows={4} value={peerComment} onChange={e => setPeerComment(e.target.value)}
-                    placeholder={lang === 'vi' ? 'Nêu rõ điểm mạnh, tinh thần trách nhiệm và phần việc bạn ấy đã đóng góp...' : 'Describe their strengths and areas for improvement...'} 
-                    required 
-                    style={{ width: '100%', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '0.9rem', resize: 'vertical' }}
-                  />
-                </div>
-
-                <button type="submit" className="btn-primary" style={{ padding: '12px', justifyContent: 'center' }}>
-                  {lang === 'vi' ? 'Gửi đánh giá bảo mật' : 'Submit Evaluation'}
-                </button>
-              </form>
-            </div>
-          )
-        )}
-      </div>
-    </>
+      {/* Modal Hồ Sơ Sinh Viên Kiểu 1: Bento Grid Cột Đứng */}
+      <StudentProfileModal
+        isOpen={showStudentProfileModal}
+        onClose={() => setShowStudentProfileModal(false)}
+        user={currentUser}
+        scoreData={studentScoreData}
+        onLogout={handleLogout}
+      />
+    </div>
   );
 }

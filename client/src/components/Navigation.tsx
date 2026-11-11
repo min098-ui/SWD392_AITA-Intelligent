@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Bot } from 'lucide-react';
+import AitaLogo from './AitaLogo';
 import LanguageSwitcher from './LanguageSwitcher';
+import ThemeToggle from './ThemeToggle';
 import UserProfileMenu from './UserProfileMenu';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -23,23 +25,32 @@ export default function Navigation({
   const { lang } = useLanguage();
 
   useEffect(() => {
-    // Kiểm tra token khi component mount hoặc khi chuyển trang
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    if (token) {
-      setIsLoggedIn(true);
-      if (userStr) {
-        try {
-          const parsedUser = JSON.parse(userStr);
-          setUser(parsedUser);
-          setUserRole(parsedUser.role || '');
-        } catch (e) {}
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      if (token && token !== 'undefined' && token !== 'null') {
+        setIsLoggedIn(true);
+        if (userStr) {
+          try {
+            const parsedUser = JSON.parse(userStr);
+            setUser(parsedUser);
+            setUserRole(parsedUser.role || '');
+          } catch (e) {}
+        }
+      } else {
+        setIsLoggedIn(false);
+        setUser(null);
+        setUserRole('');
       }
-    } else {
-      setIsLoggedIn(false);
-      setUser(null);
-      setUserRole('');
-    }
+    };
+
+    checkAuth();
+    window.addEventListener('storage', checkAuth);
+    window.addEventListener('auth-change', checkAuth);
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+      window.removeEventListener('auth-change', checkAuth);
+    };
   }, [pathname]);
 
   const handleLogout = (e: React.MouseEvent) => {
@@ -72,52 +83,67 @@ export default function Navigation({
     }}>
       <div style={{
         width: '100%',
-        height: '66px',
+        minHeight: '72px',
+        padding: '6px 0',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '1.25rem'
+        gap: '1.25rem',
+        position: 'relative'
       }}>
-        {/* Phần Hình 1: Logo sát mép trái */}
-        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          <Link href={getDashboardHref()} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+        {/* Logo bên trái: Logo Bé Cú và chữ AITA.INTELLIGENT nằm ngang hàng bên phải của logo */}
+        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+          <Link 
+            href={getDashboardHref()} 
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              gap: '10px', 
+              textDecoration: 'none',
+              transition: 'transform 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
             <div style={{
-              background: 'var(--accent-gradient)',
-              width: '38px',
-              height: '38px',
-              borderRadius: '11px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: 'var(--shadow-neon)'
+              flexShrink: 0,
+              cursor: 'pointer'
             }}>
-              <Bot size={22} color="#fff" />
+              <AitaLogo size={44} />
             </div>
             <div>
-              <span style={{ fontWeight: 800, fontSize: '1.18rem', letterSpacing: '-0.02em', color: 'var(--text-main)', lineHeight: 1.15, display: 'block' }}>
-                AITA<span style={{ color: 'var(--accent-cyan)' }}>.INTELLIGENT</span>
-              </span>
-              <span style={{ display: 'block', fontSize: '0.66rem', color: 'var(--text-muted)', lineHeight: 1, marginTop: '2px', fontWeight: 600, letterSpacing: '0.04em' }}>
-                SWD392 • GROUP 4
+              <span style={{ 
+                fontWeight: 800, 
+                fontSize: '1.15rem', 
+                letterSpacing: '-0.02em', 
+                color: 'var(--text-main)', 
+                lineHeight: 1, 
+                display: 'block',
+                whiteSpace: 'nowrap'
+              }}>
+                AITA<span style={{ color: 'var(--accent-primary, #a855f7)' }}>.INTELLIGENT</span>
               </span>
             </div>
           </Link>
         </div>
 
         {/* Phần Hình 2: Tabs navigation ở giữa navbar */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flex: 1,
-          minWidth: 0,
-          overflowX: 'auto',
-          scrollbarWidth: 'none'
-        }}>
+        <div 
+          className="navbar-center-tabs"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
           {centerContent ? (
             centerContent
           ) : pathname === '/' && !isLoggedIn ? (
-            <nav style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
               <a href="#overview" style={{ fontSize: '0.9rem', color: 'var(--text-muted)', transition: 'color 0.2s', fontWeight: 500 }} onMouseEnter={(e) => e.currentTarget.style.color = '#fff'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}>
                 {lang === 'vi' ? 'Tổng Quan' : 'Overview'}
               </a>
@@ -138,12 +164,11 @@ export default function Navigation({
         </div>
 
         {/* Phần Hình 3: Profile Avatar Dropdown (nếu đăng nhập) hoặc LanguageSwitcher & Đăng Nhập (nếu chưa) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
           {isLoggedIn ? (
             <UserProfileMenu user={user} onLogout={handleLogout} />
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <LanguageSwitcher />
               <Link href="/login" className="pill-btn-white" style={{ padding: '7px 18px', fontSize: '0.88rem' }}>
                 <span>{lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}</span>
                 <span className="pill-arrow" style={{ width: '18px', height: '18px', fontSize: '0.7rem' }}>→</span>
