@@ -402,6 +402,20 @@ const mockUsers: MockUser[] = [
     status: 'ACTIVE',
     created_at: new Date(),
   },
+  { user_id: 101, full_name: 'Trần Bảo Nam', email: 'namtbqe180101@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 102, full_name: 'Hoàng Minh Quân', email: 'quanhmqe180102@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 103, full_name: 'Phan Thảo Vy', email: 'vyptqe180103@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 104, full_name: 'Vũ Đức Trọng', email: 'trongvdqe180104@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 105, full_name: 'Bùi Thu Trang', email: 'trangbtqe180105@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 106, full_name: 'Đặng Quang Huy', email: 'huydqqe180106@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 107, full_name: 'Trịnh Ngọc Hân', email: 'hantnqe180107@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 108, full_name: 'Dương Quốc Anh', email: 'anhdqqe180108@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 109, full_name: 'Ngô Diệu Linh', email: 'linhndqe180109@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 110, full_name: 'Phạm Tuấn Kiệt', email: 'kietptqe180110@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 111, full_name: 'Lâm Gia Hưng', email: 'hunglgqe180111@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 112, full_name: 'Mai Phương Thảo', email: 'thaompqe180112@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 113, full_name: 'Đỗ Hoàng Long', email: 'longdhqe180113@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
+  { user_id: 114, full_name: 'Huỳnh Thanh Trúc', email: 'truchttqe180114@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
 ];
 
 const mockCourses: MockCourse[] = [
@@ -441,7 +455,7 @@ const mockTeamMembers: MockTeamMember[] = [
     team_member_id: 1,
     team_id: 1,
     user_id: 9,
-    assigned_module: 'Git Analytics, Noise Filter & Peer Audit',
+    assigned_module: 'Git Analytics & Noise Filter',
     role: 'LEADER',
   },
   {
