@@ -217,7 +217,7 @@ router.post('/', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (req: 
   }
 
   const cleanTargetType = target_type === 'SPECIFIC_TEAMS' ? 'SPECIFIC_TEAMS' : 'ALL';
-  const cleanLang = ['python', 'javascript'].includes(String(allowed_language).toLowerCase()) 
+  const cleanLang = ['python', 'javascript', 'java'].includes(String(allowed_language).toLowerCase()) 
     ? String(allowed_language).toLowerCase() 
     : 'ALL';
   const cleanStatus = ['DRAFT', 'PUBLISHED', 'CLOSED', 'ARCHIVED'].includes(String(status).toUpperCase())
@@ -332,8 +332,8 @@ router.post('/:id/test-cases/preview', authenticateJWT, requireRole('LECTURER', 
   }
 
   const normalizedLang = (language || '').toLowerCase().trim();
-  if (normalizedLang !== 'python' && normalizedLang !== 'javascript') {
-    return res.status(400).json({ message: 'Only python and javascript are supported.' });
+  if (normalizedLang !== 'python' && normalizedLang !== 'javascript' && normalizedLang !== 'java') {
+    return res.status(400).json({ message: 'Only python, javascript, and java are supported in sandbox.' });
   }
 
   try {
@@ -347,7 +347,7 @@ router.post('/:id/test-cases/preview', authenticateJWT, requireRole('LECTURER', 
 
     const execResult = await sandboxService.runCode({
       code: code_content,
-      language: normalizedLang as 'python' | 'javascript',
+      language: normalizedLang as 'python' | 'javascript' | 'java',
       inputData: input_data !== undefined && input_data !== null ? String(input_data) : '',
       timeoutMs: timeLimit,
       memoryLimitBytes: memoryLimit * 1024 * 1024,
@@ -669,7 +669,7 @@ router.put('/:id', authenticateJWT, requireRole('LECTURER', 'ADMIN'), async (req
   try {
     const effectiveDeadline = due_date || deadline;
     const cleanTargetType = target_type ? (target_type === 'SPECIFIC_TEAMS' ? 'SPECIFIC_TEAMS' : 'ALL') : null;
-    const cleanLang = allowed_language !== undefined ? (['python', 'javascript'].includes(String(allowed_language).toLowerCase()) ? String(allowed_language).toLowerCase() : 'ALL') : null;
+    const cleanLang = allowed_language !== undefined ? (['python', 'javascript', 'java'].includes(String(allowed_language).toLowerCase()) ? String(allowed_language).toLowerCase() : 'ALL') : null;
     const cleanStatus = status !== undefined && ['DRAFT', 'PUBLISHED', 'CLOSED', 'ARCHIVED'].includes(String(status).toUpperCase())
       ? String(status).toUpperCase()
       : null;
