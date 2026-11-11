@@ -2174,21 +2174,16 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                           <td style={{ padding: '14px 16px', minWidth: '160px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '4px' }}>
-                              <span style={{ fontWeight: 700, color: isUnderThreshold ? '#f43f5e' : isMe ? '#a78bfa' : 'var(--text-main)' }}>
+                              <span style={{ fontWeight: 700, color: isMe ? '#a78bfa' : 'var(--text-main)' }}>
                                 {pct}%
                               </span>
-                              {isUnderThreshold && (
-                                <span style={{ color: '#f43f5e', fontSize: '0.72rem', fontWeight: 600 }}>
-                                  {lang === 'vi' ? '⚠️ Dưới 5% LOC' : '⚠️ Below 5% LOC'}
-                                </span>
-                              )}
                             </div>
                             <div style={{ height: '6px', borderRadius: '999px', background: 'rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
                               <div style={{
                                 width: `${Math.min(100, Math.max(lines > 0 ? 3 : 0, pct))}%`,
                                 height: '100%',
                                 borderRadius: '999px',
-                                background: isUnderThreshold ? '#f43f5e' : isTop ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #6366f1, #a855f7)',
+                                background: isTop ? 'linear-gradient(90deg, #10b981, #34d399)' : 'linear-gradient(90deg, #6366f1, #a855f7)',
                                 transition: 'width 0.4s ease'
                               }} />
                             </div>
