@@ -527,9 +527,9 @@ export default function LecturerDashboard() {
   const [examPaperTheme, setExamPaperTheme] = useState<'paper' | 'dark'>('paper');
 
   const handleDownloadExamDoc = (assign: AssignmentItem) => {
-    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
-    const courseCode = assign.course_code || (isJava ? 'PRO192' : 'CSD201');
-    const courseName = assign.course_name || (isJava ? 'Lập trình Hướng đối tượng Java (Java OOP)' : 'Cấu trúc dữ liệu & Giải thuật');
+    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA');
+    const courseCode = assign.course_code || 'CSD201';
+    const courseName = assign.course_name || 'Cấu trúc dữ liệu & Giải thuật';
     
     const content = `<!DOCTYPE html>
 <html>
@@ -651,8 +651,8 @@ ${q.sampleOutput}</pre>
   };
 
   const handleCopyExamText = (assign: AssignmentItem) => {
-    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
-    const courseCode = assign.course_code || (isJava ? 'PRO192' : 'CSD201');
+    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA');
+    const courseCode = assign.course_code || 'CSD201';
     const text = `==========================================================
 TRƯỜNG ĐẠI HỌC FPT QUY NHƠN • CƠ SỞ QUY NHƠN
 KHOA CÔNG NGHỆ THÔNG TIN — BỘ MÔN KỸ THUẬT PHẦN MỀM
@@ -732,8 +732,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
     setEditingAssignment(null);
     setPePresetMode(true);
     setExamCreationType('pe_custom');
-    const pro192Course = courses.find(c => c.course_code === 'PRO192') || courses.find(c => c.course_id === selectedCourseId) || courses[0];
-    if (pro192Course) setAssignmentCourseId(String(pro192Course.course_id));
+    const defaultCourse = courses.find(c => c.course_id === selectedCourseId) || courses[0];
+    if (defaultCourse) setAssignmentCourseId(String(defaultCourse.course_id));
     setAssignmentSubmissionType('INDIVIDUAL');
     setAssignmentAllowedLanguage('java');
     setAssignmentMaxScore('10.0');
@@ -1997,9 +1997,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
     setPePresetMode(true);
     setExamCreationType('pe_preset');
     setPeTemplateChoice(choice);
-    const pro192Course = courses.find(c => c.course_code === 'PRO192') || courses[0];
-    if (pro192Course) {
-      setAssignmentCourseId(String(pro192Course.course_id));
+    const targetCourse = courses.find(c => c.course_id === selectedCourseId) || courses[0];
+    if (targetCourse) {
+      setAssignmentCourseId(String(targetCourse.course_id));
     }
     setAssignmentSubmissionType('INDIVIDUAL');
     setAssignmentAllowedLanguage('java');
@@ -3668,7 +3668,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
             <p style={{ fontSize: '0.86rem', color: '#64748b', maxWidth: '480px', margin: 0 }}>
               {selectedCourseId !== null && courses.find(c => c.course_id === selectedCourseId)
                 ? (lang === 'vi' 
-                    ? `Học phần ${courses.find(c => c.course_id === selectedCourseId)?.course_code} hiện chưa có đề bài nào (Đề bài đang nằm ở học phần PRO192).` 
+                    ? `Học phần ${courses.find(c => c.course_id === selectedCourseId)?.course_code} hiện chưa có đề bài nào.` 
                     : `No assignments in ${courses.find(c => c.course_id === selectedCourseId)?.course_code}. Check other courses or view all.`)
                 : (lang === 'vi' 
                     ? 'Chưa có đề bài nào khớp với bộ lọc. Bắt đầu bằng cách bấm nút Tạo Đề Bài Mới ở trên.' 
@@ -3718,7 +3718,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 .replace(/\([Qq]1\s*[-–]\s*[Qq]4\)/i, '(Đề Số 1)');
 
               const isExam = Boolean(a.title?.includes('PE') || a.title?.includes('Practical Exam') || a.allowed_language?.toUpperCase() === 'JAVA');
-              const courseDisplayName = aCourse ? `${aCourse.course_name} (${aCourse.course_code})` : (a.course_code || 'Lập trình hướng đối tượng Java (PRO192)');
+              const courseDisplayName = aCourse ? `${aCourse.course_name} (${aCourse.course_code})` : (a.course_code || 'Học phần');
 
               // Tính toán đường tròn SVG
               const circleRadius = 24;
@@ -11370,9 +11370,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
         {viewingExamAssignment && (() => {
           const assign = viewingExamAssignment;
-          const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
-          const courseCode = assign.course_code || (isJava ? 'PRO192' : 'CSD201');
-          const courseName = assign.course_name || (isJava ? 'Object-Oriented Programming (Java OOP)' : 'Data Structures & Algorithms');
+          const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA');
+          const courseCode = assign.course_code || 'CSD201';
+          const courseName = assign.course_name || 'Data Structures & Algorithms';
           const isPaper = examPaperTheme === 'paper';
 
           const formattedDeadline = (() => {
