@@ -1,8 +1,14 @@
 import { Router, Request, Response } from 'express';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { pool } from '../../config/db';
 import { authenticateJWT, requireRole } from '../../common/auth.middleware';
 import { Octokit } from '@octokit/rest';
 
+const execFileAsync = promisify(execFile);
 const router = Router();
 
 import { isSourceCodeFile, parseGitHubUrl } from './noise-filter.service';
@@ -27,12 +33,56 @@ const GITHUB_USER_ALIASES: Record<string, string[]> = {
   'dinhgiahuylol12345@gmail.com': ['dinhgiahuylol12345', 'dinhgiahuy140905', 'giahuy', 'dinhgiahuy', 'huy', 'member4', 'peer audit', 'git-analytics'],
 };
 
+type TeamMemberRow = { user_id: number; full_name: string; email: string };
+type SyncedCommitItem = {
+  hash: string;
+  message: string;
+  authorUserId: number | null;
+  linesAdded: number;
+  linesDeleted: number;
+  committedAt: Date;
+};
+
+/**
+ * Normalize git `--numstat` paths (handles rename syntax like `dir/{old => new}/file.ts`).
+ */
+function normalizeGitNumstatPath(rawPath: string): string {
+  const trimmed = rawPath.trim();
+  const braceMatch = trimmed.match(/^(.*)\{[^}]*\s*=>\s*([^}]*)\}(.*)$/);
+  if (braceMatch) {
+    return `${braceMatch[1]}${braceMatch[2]}${braceMatch[3]}`.replace(/\/+/g, '/');
+  }
+  const arrowIdx = trimmed.indexOf(' => ');
+  if (arrowIdx !== -1) {
+    return trimmed.slice(arrowIdx + 4).trim();
+  }
+  return trimmed;
+}
+
+/**
+ * Validate branch name before passing to git CLI arguments.
+ */
+function sanitizeBranchName(rawBranch: unknown): string {
+  if (typeof rawBranch !== 'string') return 'main';
+  const candidate = rawBranch.trim();
+  if (
+    !candidate ||
+    candidate.startsWith('-') ||
+    candidate.includes('..') ||
+    !/^[a-zA-Z0-9._/-]+$/.test(candidate)
+  ) {
+    return 'main';
+  }
+  return candidate;
+}
+
 /**
  * Intelligent committer-to-member matcher supporting login, email aliases, normalized name, and commit log indicators.
  */
-function matchCommitAuthor(gc: any, members: Array<{ user_id: number; full_name: string; email: string }>): number | null {
+function matchCommitAuthor(gc: any, members: TeamMemberRow[]): number | null {
   const committerEmail = (gc.commit?.author?.email || '').toLowerCase().trim();
-  const committerLogin = (gc.author?.login || '').toLowerCase().trim();
+  const noreplyLogin = committerEmail.match(/^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/i)?.[1] || '';
+  const committerLogin = ((gc.author?.login || noreplyLogin) as string).toLowerCase().trim();
   const committerName = (gc.commit?.author?.name || '').toLowerCase().trim();
   const commitMsg = (gc.commit?.message || '').toLowerCase();
 
@@ -99,9 +149,305 @@ function matchCommitAuthor(gc: any, members: Array<{ user_id: number; full_name:
 }
 
 /**
+ * Fetch commit history and BR-07 noise-filtered LOC via GitHub REST API.
+ * Throws if GitHub API is unavailable or rate-limited before full sync completes.
+ */
+async function fetchCommitsViaGitHubApi(
+  parsed: { owner: string; repo: string },
+  targetBranch: string,
+  teamId: number,
+  members: TeamMemberRow[]
+): Promise<SyncedCommitItem[]> {
+  const configuredToken = process.env.GITHUB_ACCESS_TOKEN || process.env.GITHUB_TOKEN || undefined;
+  let octokit = new Octokit({ auth: configuredToken });
+
+  const listBranchCommits = async (client: Octokit) => {
+    const collected: any[] = [];
+    const maxPages = 4;
+    for (let page = 1; page <= maxPages; page++) {
+      try {
+        const listRes = await client.rest.repos.listCommits({
+          owner: parsed.owner,
+          repo: parsed.repo,
+          sha: targetBranch,
+          per_page: 100,
+          page,
+        });
+        if (!listRes.data || listRes.data.length === 0) break;
+        collected.push(...listRes.data);
+        if (listRes.data.length < 100) break;
+      } catch (branchErr: any) {
+        if (branchErr?.status === 401 || branchErr?.status === 403) {
+          throw branchErr;
+        }
+        if (page === 1 && targetBranch !== 'main') {
+          console.warn(`[GitSync] Branch "${targetBranch}" not found via API, falling back to default branch.`);
+          const fallbackRes = await client.rest.repos.listCommits({
+            owner: parsed.owner,
+            repo: parsed.repo,
+            per_page: 100,
+            page: 1,
+          });
+          return fallbackRes.data || [];
+        }
+        console.warn(`[GitSync] Error fetching page ${page}:`, branchErr.message);
+        break;
+      }
+    }
+    return collected;
+  };
+
+  let githubCommits: any[] = [];
+  let hasValidAuth = Boolean(configuredToken);
+  try {
+    githubCommits = await listBranchCommits(octokit);
+  } catch (authErr: any) {
+    if (authErr?.status === 401 && configuredToken) {
+      console.warn('[GitSync] Configured GitHub token rejected (401). Retrying unauthenticated public access...');
+      octokit = new Octokit();
+      hasValidAuth = false;
+      githubCommits = await listBranchCommits(octokit);
+    } else {
+      throw authErr;
+    }
+  }
+
+  console.log(`[GitSync] Total commits retrieved from GitHub API for branch "${targetBranch}": ${githubCommits.length}`);
+
+  const existingCommitsRes = await pool.query(
+    `SELECT commit_hash, lines_added, lines_deleted, author_user_id FROM git_commits WHERE team_id = $1`,
+    [teamId]
+  );
+  const existingMap = new Map<string, { lines_added: number; lines_deleted: number; author_user_id: number | null }>();
+  for (const ec of existingCommitsRes.rows) {
+    existingMap.set(ec.commit_hash, {
+      lines_added: ec.lines_added,
+      lines_deleted: ec.lines_deleted,
+      author_user_id: ec.author_user_id,
+    });
+  }
+
+  const results: SyncedCommitItem[] = [];
+  const uncachedCommits: any[] = [];
+
+  for (const gc of githubCommits) {
+    const hash = gc.sha;
+    const msg = gc.commit.message || 'Commit from GitHub';
+    const committedAt = gc.commit.author?.date ? new Date(gc.commit.author.date) : new Date();
+    const authorUserId = matchCommitAuthor(gc, members);
+
+    if (existingMap.has(hash)) {
+      const cached = existingMap.get(hash)!;
+      results.push({
+        hash,
+        message: msg.substring(0, 255),
+        authorUserId: authorUserId || cached.author_user_id,
+        linesAdded: cached.lines_added,
+        linesDeleted: cached.lines_deleted,
+        committedAt,
+      });
+    } else {
+      uncachedCommits.push(gc);
+    }
+  }
+
+  // Without a valid token, unauthenticated IP rate limit (60 req/hr) cannot inspect many uncached commits;
+  // hand off to git CLI fallback so exact --numstat LOC is still computed without rate limits.
+  if (!hasValidAuth && uncachedCommits.length > 20) {
+    throw new Error(`Unauthenticated GitHub API limit insufficient for ${uncachedCommits.length} uncached commits`);
+  }
+
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < uncachedCommits.length; i += BATCH_SIZE) {
+    const batch = uncachedCommits.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (gc) => {
+        const hash = gc.sha;
+        const msg = gc.commit.message || 'Commit from GitHub';
+        const committedAt = gc.commit.author?.date ? new Date(gc.commit.author.date) : new Date();
+        const authorUserId = matchCommitAuthor(gc, members);
+
+        let linesAdded = 0;
+        let linesDeleted = 0;
+
+        const { data: detail } = await octokit.rest.repos.getCommit({
+          owner: parsed.owner,
+          repo: parsed.repo,
+          ref: hash,
+        });
+
+        if (detail.files && detail.files.length > 0) {
+          for (const file of detail.files) {
+            if (isSourceCodeFile(file.filename)) {
+              linesAdded += file.additions || 0;
+              linesDeleted += file.deletions || 0;
+            }
+          }
+        } else if (detail.stats) {
+          linesAdded = detail.stats.additions || 0;
+          linesDeleted = detail.stats.deletions || 0;
+        }
+
+        results.push({
+          hash,
+          message: msg.substring(0, 255),
+          authorUserId,
+          linesAdded,
+          linesDeleted,
+          committedAt,
+        });
+      })
+    );
+  }
+
+  return results;
+}
+
+/**
+ * Fallback telemetry collector using local git workspace or a temporary blobless clone
+ * when GitHub REST API fails (401/403 rate limit). Applies BR-07 noise filter on `--numstat`.
+ */
+async function fetchCommitsViaGitCli(
+  parsed: { owner: string; repo: string },
+  targetBranch: string,
+  members: TeamMemberRow[]
+): Promise<SyncedCommitItem[]> {
+  const workspaceRoot = path.resolve(__dirname, '../../../..');
+  let gitDir = '';
+  let tmpBareDir = '';
+  let refSpec = 'HEAD';
+
+  try {
+    let usesLocalWorkspace = false;
+    try {
+      const { stdout: remoteOut } = await execFileAsync('git', ['config', '--get', 'remote.origin.url'], {
+        cwd: workspaceRoot,
+        timeout: 5000,
+      });
+      const localRemote = parseGitHubUrl(remoteOut.trim());
+      if (
+        localRemote &&
+        localRemote.owner.toLowerCase() === parsed.owner.toLowerCase() &&
+        localRemote.repo.toLowerCase() === parsed.repo.toLowerCase()
+      ) {
+        usesLocalWorkspace = true;
+      }
+    } catch {
+      usesLocalWorkspace = false;
+    }
+
+    if (usesLocalWorkspace) {
+      gitDir = workspaceRoot;
+      try {
+        await execFileAsync('git', ['fetch', 'origin', '--prune'], { cwd: gitDir, timeout: 15000 });
+      } catch (fetchErr: any) {
+        console.warn(`[GitSync] git fetch skipped/failed (${fetchErr.message}); reading cached refs.`);
+      }
+
+      const candidateRefs = [`origin/${targetBranch}`, targetBranch, 'origin/main', 'HEAD'];
+      for (const candidate of candidateRefs) {
+        try {
+          await execFileAsync('git', ['rev-parse', '--verify', candidate], { cwd: gitDir, timeout: 3000 });
+          refSpec = candidate;
+          break;
+        } catch {
+          // try next ref candidate
+        }
+      }
+    } else {
+      const canonicalUrl = `https://github.com/${parsed.owner}/${parsed.repo}.git`;
+      tmpBareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aita-git-'));
+      try {
+        await execFileAsync(
+          'git',
+          ['clone', '--bare', '--filter=blob:none', '--branch', targetBranch, canonicalUrl, tmpBareDir],
+          { timeout: 30000 }
+        );
+        refSpec = targetBranch;
+      } catch {
+        await execFileAsync(
+          'git',
+          ['clone', '--bare', '--filter=blob:none', canonicalUrl, tmpBareDir],
+          { timeout: 30000 }
+        );
+        refSpec = 'HEAD';
+      }
+      gitDir = tmpBareDir;
+    }
+
+    const COMMIT_MARKER = '__AITA_COMMIT_9F3A__';
+    const { stdout } = await execFileAsync(
+      'git',
+      ['log', refSpec, '--max-count=400', '--numstat', `--format=${COMMIT_MARKER}%n%H%n%an%n%ae%n%aI%n%s`],
+      { cwd: gitDir, timeout: 20000, maxBuffer: 25 * 1024 * 1024 }
+    );
+
+    const blocks = stdout.split(`${COMMIT_MARKER}\n`).filter((b) => b.trim().length > 0);
+    const items: SyncedCommitItem[] = [];
+
+    for (const block of blocks) {
+      const lines = block.split(/\r?\n/);
+      if (lines.length < 5) continue;
+
+      const hash = lines[0].trim();
+      const authorName = lines[1].trim();
+      const authorEmail = lines[2].trim();
+      const committedAtRaw = lines[3].trim();
+      const message = lines[4].trim() || 'Commit from Git';
+
+      if (!/^[0-9a-f]{7,40}$/i.test(hash)) continue;
+
+      let linesAdded = 0;
+      let linesDeleted = 0;
+
+      for (let i = 5; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line) continue;
+        const tabParts = line.split('\t');
+        if (tabParts.length < 3) continue;
+        const addedNum = tabParts[0] === '-' ? 0 : Number(tabParts[0]);
+        const deletedNum = tabParts[1] === '-' ? 0 : Number(tabParts[1]);
+        const filePath = normalizeGitNumstatPath(tabParts.slice(2).join('\t'));
+        if (!Number.isNaN(addedNum) && !Number.isNaN(deletedNum) && isSourceCodeFile(filePath)) {
+          linesAdded += addedNum;
+          linesDeleted += deletedNum;
+        }
+      }
+
+      const authorUserId = matchCommitAuthor(
+        {
+          commit: {
+            message,
+            author: { name: authorName, email: authorEmail },
+          },
+        },
+        members
+      );
+
+      const parsedDate = new Date(committedAtRaw);
+      items.push({
+        hash,
+        message: message.substring(0, 255),
+        authorUserId,
+        linesAdded,
+        linesDeleted,
+        committedAt: Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate,
+      });
+    }
+
+    console.log(`[GitSync] Git CLI retrieved ${items.length} real commits from ref "${refSpec}".`);
+    return items;
+  } finally {
+    if (tmpBareDir && fs.existsSync(tmpBareDir)) {
+      fs.rmSync(tmpBareDir, { recursive: true, force: true });
+    }
+  }
+}
+
+/**
  * POST /api/git/:teamId/sync
  * Trigger sync of latest commit history from GitHub repository (BR-07)
- * Uses Octokit REST API with Noise Filtering for lines of code.
+ * Uses Octokit REST API with automatic Git CLI fallback for exact Noise-Filtered LOC.
  */
 router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response) => {
   const teamId = Number(req.params.teamId);
@@ -121,7 +467,7 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
       await pool.query('UPDATE teams SET repo_url = $1 WHERE team_id = $2', [effectiveRepoUrl, teamId]);
     }
 
-    const targetBranch = (branch && typeof branch === 'string' && branch.trim()) ? branch.trim() : 'main';
+    const targetBranch = sanitizeBranchName(branch);
 
     // 2. Fetch team members to map GitHub committer emails to users
     const membersRes = await pool.query(
@@ -131,155 +477,30 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
        WHERE tm.team_id = $1`,
       [teamId]
     );
-    const members = membersRes.rows;
+    const members: TeamMemberRow[] = membersRes.rows;
 
     const parsed = parseGitHubUrl(effectiveRepoUrl);
-    const octokit = new Octokit({
-      auth: process.env.GITHUB_ACCESS_TOKEN || process.env.GITHUB_TOKEN || undefined,
-    });
-
-    let commitsToUpsert: Array<{
-      hash: string;
-      message: string;
-      authorUserId: number | null;
-      linesAdded: number;
-      linesDeleted: number;
-      committedAt: Date;
-    }> = [];
-
+    let commitsToUpsert: SyncedCommitItem[] = [];
     let source = 'live_github';
 
     if (parsed) {
       try {
-        let githubCommits: any[] = [];
-        let page = 1;
-        const maxPages = 4; // Fetch up to 400 commits to cover the entire repository history
-
-        while (page <= maxPages) {
-          try {
-            const listRes = await octokit.rest.repos.listCommits({
-              owner: parsed.owner,
-              repo: parsed.repo,
-              sha: targetBranch,
-              per_page: 100,
-              page,
-            });
-            if (!listRes.data || listRes.data.length === 0) break;
-            githubCommits.push(...listRes.data);
-            if (listRes.data.length < 100) break;
-            page++;
-          } catch (branchErr: any) {
-            if (page === 1 && targetBranch !== 'main') {
-              console.warn(`[GitSync] Branch "${targetBranch}" not found, falling back to default branch.`);
-              const fallbackRes = await octokit.rest.repos.listCommits({
-                owner: parsed.owner,
-                repo: parsed.repo,
-                per_page: 100,
-                page: 1,
-              });
-              githubCommits = fallbackRes.data || [];
-            } else {
-              console.warn(`[GitSync] Error fetching page ${page}:`, branchErr.message);
-            }
-            break;
-          }
-        }
-
-        console.log(`[GitSync] Total commits retrieved from GitHub for branch "${targetBranch}": ${githubCommits.length}`);
-
-        // Fetch existing commits from DB to avoid redundant GitHub API rate limits
-        const existingCommitsRes = await pool.query(
-          `SELECT commit_hash, lines_added, lines_deleted, author_user_id FROM git_commits WHERE team_id = $1`,
-          [teamId]
-        );
-        const existingMap = new Map<string, { lines_added: number; lines_deleted: number; author_user_id: number | null }>();
-        for (const ec of existingCommitsRes.rows) {
-          existingMap.set(ec.commit_hash, {
-            lines_added: ec.lines_added,
-            lines_deleted: ec.lines_deleted,
-            author_user_id: ec.author_user_id
-          });
-        }
-
-        const uncachedCommits: any[] = [];
-
-        for (const gc of githubCommits) {
-          const hash = gc.sha;
-          const msg = gc.commit.message || 'Commit from GitHub';
-          const committedAt = gc.commit.author?.date ? new Date(gc.commit.author.date) : new Date();
-          const authorUserId = matchCommitAuthor(gc, members);
-
-          if (existingMap.has(hash)) {
-            const cached = existingMap.get(hash)!;
-            commitsToUpsert.push({
-              hash,
-              message: msg.substring(0, 255),
-              authorUserId: authorUserId || cached.author_user_id,
-              linesAdded: cached.lines_added,
-              linesDeleted: cached.lines_deleted,
-              committedAt,
-            });
-          } else {
-            uncachedCommits.push(gc);
-          }
-        }
-
-        // Fetch details in concurrent batches of 10 for uncached commits
-        const BATCH_SIZE = 10;
-        for (let i = 0; i < uncachedCommits.length; i += BATCH_SIZE) {
-          const batch = uncachedCommits.slice(i, i + BATCH_SIZE);
-          await Promise.all(batch.map(async (gc) => {
-            const hash = gc.sha;
-            const msg = gc.commit.message || 'Commit from GitHub';
-            const committedAt = gc.commit.author?.date ? new Date(gc.commit.author.date) : new Date();
-            const authorUserId = matchCommitAuthor(gc, members);
-
-            let linesAdded = 0;
-            let linesDeleted = 0;
-
-            try {
-              const { data: detail } = await octokit.rest.repos.getCommit({
-                owner: parsed.owner,
-                repo: parsed.repo,
-                ref: hash,
-              });
-
-              if (detail.files && detail.files.length > 0) {
-                for (const file of detail.files) {
-                  if (isSourceCodeFile(file.filename)) {
-                    linesAdded += file.additions || 0;
-                    linesDeleted += file.deletions || 0;
-                  }
-                }
-              } else if (detail.stats) {
-                linesAdded = detail.stats.additions || 0;
-                linesDeleted = detail.stats.deletions || 0;
-              }
-            } catch (fileErr) {
-              // Graceful fallback for rate limit or network glitch
-              linesAdded = Math.max(15, Math.min(120, (gc.commit.message || '').length * 2));
-              linesDeleted = 5;
-            }
-
-            commitsToUpsert.push({
-              hash,
-              message: msg.substring(0, 255),
-              authorUserId,
-              linesAdded,
-              linesDeleted,
-              committedAt,
-            });
-          }));
-        }
+        commitsToUpsert = await fetchCommitsViaGitHubApi(parsed, targetBranch, teamId, members);
       } catch (ghErr: any) {
-        console.warn(`[GitSync] GitHub API unavailable (${ghErr.message}), generating verified telemetry seed.`);
-        source = 'simulated_offline';
+        console.warn(`[GitSync] GitHub REST sync bypassed (${ghErr.message}); switching to Git CLI --numstat fallback.`);
+        try {
+          commitsToUpsert = await fetchCommitsViaGitCli(parsed, targetBranch, members);
+          source = 'git_cli';
+        } catch (cliErr: any) {
+          console.warn(`[GitSync] Git CLI fallback unavailable (${cliErr.message}).`);
+          source = 'simulated_offline';
+        }
       }
     } else {
       source = 'simulated_offline';
     }
 
-    // Fallback seed if GitHub API rate-limited or repository is private/offline
+    // Fallback seed if GitHub API & Git CLI unavailable or repository is synthetic test fixture
     if (commitsToUpsert.length === 0) {
       // Check if team already has existing real commits in DB
       const existingCommits = await pool.query('SELECT COUNT(*)::int as cnt FROM git_commits WHERE team_id = $1', [teamId]);
@@ -287,6 +508,7 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
         return res.status(200).json({
           message: 'GitHub API tạm thời giới hạn. Hệ thống bảo lưu toàn bộ dữ liệu commit đã xác thực trong cơ sở dữ liệu!',
           team_id: teamId,
+          branch: targetBranch,
           source: 'database_preserved',
           synced_commits_count: existingCommits.rows[0].cnt,
           noise_filter_applied: true,
@@ -318,26 +540,43 @@ router.post('/:teamId/sync', authenticateJWT, async (req: Request, res: Response
       }
     }
 
-    // 3. Upsert commits into database (using commit_message column)
+    // 3. Upsert commits into database inside a transaction.
+    // When performing a real repository sync, replace stale synthetic rows or commits from prior branches
+    // so contribution stats match the exact synced branch.
     let insertedCount = 0;
-    for (const c of commitsToUpsert) {
-      await pool.query(
-        `INSERT INTO git_commits (team_id, author_user_id, commit_hash, commit_message, lines_added, lines_deleted, committed_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (commit_hash) DO UPDATE SET
-           author_user_id = EXCLUDED.author_user_id,
-           lines_added = EXCLUDED.lines_added,
-           lines_deleted = EXCLUDED.lines_deleted,
-           commit_message = EXCLUDED.commit_message,
-           committed_at = EXCLUDED.committed_at`,
-        [teamId, c.authorUserId, c.hash, c.message, c.linesAdded, c.linesDeleted, c.committedAt]
-      );
-      insertedCount++;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (source === 'live_github' || source === 'git_cli') {
+        await client.query('DELETE FROM git_commits WHERE team_id = $1', [teamId]);
+      }
+      for (const c of commitsToUpsert) {
+        await client.query(
+          `INSERT INTO git_commits (team_id, author_user_id, commit_hash, commit_message, lines_added, lines_deleted, committed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (commit_hash) DO UPDATE SET
+             team_id = EXCLUDED.team_id,
+             author_user_id = EXCLUDED.author_user_id,
+             lines_added = EXCLUDED.lines_added,
+             lines_deleted = EXCLUDED.lines_deleted,
+             commit_message = EXCLUDED.commit_message,
+             committed_at = EXCLUDED.committed_at`,
+          [teamId, c.authorUserId, c.hash, c.message, c.linesAdded, c.linesDeleted, c.committedAt]
+        );
+        insertedCount++;
+      }
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
     }
 
     return res.status(200).json({
       message: 'Git commit telemetry successfully synced and filtered!',
       team_id: teamId,
+      branch: targetBranch,
       source,
       synced_commits_count: insertedCount,
       noise_filter_applied: true,
