@@ -173,10 +173,10 @@ router.post('/regrade/:submissionId', authenticateJWT, requireRole('LECTURER', '
     const codeToRun = submission.code_content.trim();
 
     // Strict Validation: Must have valid language (NEVER default to javascript)
-    if (!submission.language || !['python', 'javascript', 'nodejs'].includes(submission.language.toLowerCase())) {
+    if (!submission.language || !['python', 'javascript', 'nodejs', 'java'].includes(submission.language.toLowerCase())) {
       return res.status(400).json({ message: 'Ngôn ngữ của bài nộp không hợp lệ hoặc bị thiếu (Không tự ý mặc định JavaScript).' });
     }
-    const cleanLang = submission.language.toLowerCase() === 'python' ? 'python' : 'javascript';
+    const cleanLang: 'python' | 'javascript' | 'java' = submission.language.toLowerCase() === 'python' ? 'python' : (submission.language.toLowerCase() === 'java' ? 'java' : 'javascript');
 
     // Calculate attempt_number
     const attemptRes = await pool.query(
@@ -210,7 +210,7 @@ router.post('/regrade/:submissionId', authenticateJWT, requireRole('LECTURER', '
       artifact_url: submission.artifact_url || '',
       git_commit_hash: submission.git_commit_hash || 'DIRECT_SUBMIT',
       code_content: codeToRun,
-      language: cleanLang as 'python' | 'javascript',
+      language: cleanLang as 'python' | 'javascript' | 'java',
       priority: 2,
     });
 
