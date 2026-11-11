@@ -46,22 +46,21 @@ export default function LanguageSwitcher() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
-          borderRadius: '18px',
+          justifyContent: 'center',
+          padding: '4px 12px',
+          borderRadius: '16px',
           border: 'none',
-          background: lang === 'vi' ? 'rgba(218, 37, 29, 0.25)' : 'transparent',
+          background: lang === 'vi' ? '#dc2626' : 'transparent',
           color: lang === 'vi' ? '#ffffff' : 'var(--text-dim)',
-          boxShadow: lang === 'vi' ? '0 0 10px rgba(218, 37, 29, 0.35)' : 'none',
+          boxShadow: lang === 'vi' ? '0 2px 8px rgba(220, 38, 38, 0.35)' : 'none',
           fontSize: '0.78rem',
-          fontWeight: 600,
+          fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           outline: 'none'
         }}
         title="Tiếng Việt (VN)"
       >
-        <VietnamFlag />
         <span>VN</span>
       </button>
 
@@ -71,22 +70,21 @@ export default function LanguageSwitcher() {
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
-          borderRadius: '18px',
+          justifyContent: 'center',
+          padding: '4px 12px',
+          borderRadius: '16px',
           border: 'none',
-          background: lang === 'en' ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
+          background: lang === 'en' ? '#2563eb' : 'transparent',
           color: lang === 'en' ? '#ffffff' : 'var(--text-dim)',
-          boxShadow: lang === 'en' ? '0 0 10px rgba(59, 130, 246, 0.35)' : 'none',
+          boxShadow: lang === 'en' ? '0 2px 8px rgba(37, 99, 235, 0.35)' : 'none',
           fontSize: '0.78rem',
-          fontWeight: 600,
+          fontWeight: 700,
           cursor: 'pointer',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           outline: 'none'
         }}
         title="English (EN)"
       >
-        <UKFlag />
         <span>EN</span>
       </button>
     </div>
