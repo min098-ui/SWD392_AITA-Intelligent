@@ -1378,12 +1378,15 @@ III. QUY CHUẨN DOCKER SANDBOX:
     }
   };
 
-  // Auto fetch Git analytics when switching to analytics tab or team analytics sub-tab
+  // Auto fetch Git analytics when viewing analytics tab or team submission overview / analytics
   useEffect(() => {
-    if ((activeTab === 'analytics' || (activeTab === 'submit' && submitSubTab === 'team' && teamActionTab === 'analytics')) && targetAnalyticsTeam?.team_id) {
-      fetchGitAnalytics(targetAnalyticsTeam.team_id);
+    const teamIdToFetch = (activeTab === 'submit' && submitSubTab === 'team')
+      ? (myTeam?.team_id || targetAnalyticsTeam?.team_id)
+      : targetAnalyticsTeam?.team_id;
+    if ((activeTab === 'analytics' || (activeTab === 'submit' && submitSubTab === 'team')) && teamIdToFetch) {
+      fetchGitAnalytics(teamIdToFetch);
     }
-  }, [activeTab, submitSubTab, teamActionTab, targetAnalyticsTeam?.team_id]);
+  }, [activeTab, submitSubTab, teamActionTab, myTeam?.team_id, targetAnalyticsTeam?.team_id]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -6059,7 +6062,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     {lang === 'vi' ? 'Tổng số Commits' : 'Total Commits'}
                                   </div>
                                   <div style={{ fontSize: '1.55rem', fontWeight: 900, color: isDark ? '#38bdf8' : '#0284c7', lineHeight: 1.2 }}>
-                                    {gitAnalytics?.total_commits || 48} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#475569' }}>commits</span>
+                                    {loadingGit && !gitAnalytics ? '...' : (Number(gitAnalytics?.team_total_commits) || 0).toLocaleString()} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#475569' }}>commits</span>
                                   </div>
                                   <div style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px' }}>
                                     {lang === 'vi' ? 'Đã bóc tách qua Git Telemetry' : 'Parsed by Telemetry Engine'}
@@ -6099,7 +6102,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     {lang === 'vi' ? 'LOC Đã Lọc Nhiễu (BR-07)' : 'Noise-Filtered LOC'}
                                   </div>
                                   <div style={{ fontSize: '1.45rem', fontWeight: 900, color: isDark ? '#c084fc' : '#6d28d9', lineHeight: 1.2 }}>
-                                    +{gitAnalytics?.total_lines_added || 4250} <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isDark ? '#ef4444' : '#dc2626' }}>-{gitAnalytics?.total_lines_deleted || 820}</span>
+                                    +{loadingGit && !gitAnalytics ? '...' : (Number(gitAnalytics?.team_total_lines_added) || 0).toLocaleString()} <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isDark ? '#ef4444' : '#dc2626' }}>-{loadingGit && !gitAnalytics ? '...' : (Number(gitAnalytics?.team_total_lines_deleted) || 0).toLocaleString()}</span>
                                   </div>
                                   <div style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px' }}>
                                     {lang === 'vi' ? 'Bỏ qua 100% file rác thư viện' : 'Excluded node_modules & vendor'}
@@ -6108,6 +6111,12 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               </div>
 
                               {/* Stat 3: Team Participation */}
+                              {(() => {
+                                const contribs = Array.isArray(gitAnalytics?.member_contributions) ? gitAnalytics.member_contributions : [];
+                                const totalMembers = Math.max(displayMembers.length, contribs.length);
+                                const activeMembers = contribs.filter((m: any) => (Number(m.total_commits) || 0) > 0).length;
+                                const participationPct = totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0;
+                                return (
                               <div
                                 className="glass-card"
                                 style={{
@@ -6139,13 +6148,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     {lang === 'vi' ? 'Độ Phủ Thành Viên' : 'Team Participation'}
                                   </div>
                                   <div style={{ fontSize: '1.55rem', fontWeight: 900, color: isDark ? '#34d399' : '#059669', lineHeight: 1.2 }}>
-                                    5/5 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#475569' }}>thành viên (100%)</span>
+                                    {loadingGit && !gitAnalytics ? '...' : `${activeMembers}/${totalMembers}`} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#475569' }}>{loadingGit && !gitAnalytics ? '' : `${lang === 'vi' ? 'thành viên' : 'members'} (${participationPct}%)`}</span>
                                   </div>
                                   <div style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px' }}>
-                                    {lang === 'vi' ? 'Tất cả đều có commit hợp lệ' : '100% active contributors'}
+                                    {loadingGit && !gitAnalytics
+                                      ? (lang === 'vi' ? 'Đang tải dữ liệu Git...' : 'Loading Git telemetry...')
+                                      : (activeMembers === totalMembers && totalMembers > 0
+                                        ? (lang === 'vi' ? 'Tất cả đều có commit hợp lệ' : '100% active contributors')
+                                        : (lang === 'vi' ? `${activeMembers} thành viên có commit hợp lệ` : `${activeMembers} active contributors`))}
                                   </div>
                                 </div>
                               </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         );
