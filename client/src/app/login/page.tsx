@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Bot, Loader2, GraduationCap, School, AlertCircle, Clock, ShieldAlert } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Bot, Loader2, GraduationCap, School, AlertCircle, Clock, ShieldAlert, CheckCircle, ArrowRight, Mail } from 'lucide-react';
 import Navigation from '../../components/Navigation';
 import AitaLogo from '../../components/AitaLogo';
 import { useLanguage } from '../../context/LanguageContext';
@@ -30,6 +30,7 @@ const GoogleIcon = () => (
 );
 
 function LoginContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { lang } = useLanguage();
   const urlRole = searchParams.get('state') || searchParams.get('role');
@@ -37,6 +38,9 @@ function LoginContent() {
   const [redirectingProvider, setRedirectingProvider] = useState<'google' | null>(null);
   const [errorType, setErrorType] = useState<'pending' | 'role_conflict' | 'locked' | 'general' | null>(null);
   const [alertMessage, setAlertMessage] = useState('');
+  const [showGoogleConfirm, setShowGoogleConfirm] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState('');
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Từ điển ngôn ngữ
   const t = {
@@ -75,6 +79,11 @@ function LoginContent() {
   useEffect(() => {
     const err = searchParams.get('error');
     const msg = searchParams.get('message');
+    const isFallback = searchParams.get('google_fallback') === 'true';
+
+    if (isFallback) {
+      setShowGoogleConfirm(true);
+    }
 
     if (err === 'LECTURER_PENDING_APPROVAL' || msg?.includes('chờ Quản trị viên') || msg?.includes('phê duyệt')) {
       setErrorType('pending');
@@ -102,6 +111,56 @@ function LoginContent() {
       setAlertMessage(msg || currentT.errorGeneral);
     }
   }, [searchParams, currentT]);
+
+  // Hoàn tất đăng nhập trực tiếp Google (Cơ chế ban đầu của Thành Viên 1)
+  const handleDirectGoogleLogin = async (emailToUse: string) => {
+    if (!emailToUse.trim()) return;
+    setIsConfirming(true);
+    setErrorType(null);
+    setAlertMessage('');
+
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailToUse.trim(),
+          fullName: emailToUse.split('@')[0],
+          role: selectedRole
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.code === 'LECTURER_PENDING_APPROVAL') {
+          setErrorType('pending');
+        } else if (data.code?.startsWith('ROLE_CONFLICT')) {
+          setErrorType('role_conflict');
+        } else if (data.code === 'ACCOUNT_LOCKED') {
+          setErrorType('locked');
+        } else {
+          setErrorType('general');
+        }
+        setAlertMessage(data.message || 'Đăng nhập không thành công.');
+      } else {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        const finalRole = data.user.role || selectedRole;
+        if (finalRole === 'ADMIN') {
+          router.push('/admin');
+        } else if (finalRole === 'LECTURER') {
+          router.push('/lecturer');
+        } else {
+          router.push('/student');
+        }
+      }
+    } catch (e: any) {
+      setErrorType('general');
+      setAlertMessage('Không thể kết nối đến Backend Server (http://localhost:5000). Vui lòng thử lại.');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
 
   // Chuyển hướng trực tiếp tới Google OAuth 2.0 chính thức kèm state là vai trò đã chọn
   const handleGoogleLogin = () => {
@@ -148,11 +207,11 @@ function LoginContent() {
           width: '100%',
           maxWidth: '440px',
           padding: '2.6rem 2.2rem',
-          position: 'relative',
           borderRadius: '24px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.55)',
-          textAlign: 'center'
+          textAlign: 'center',
+          boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)',
+          position: 'relative',
+          zIndex: 1
         }}>
           {/* Logo icon */}
           <div style={{
@@ -165,34 +224,43 @@ function LoginContent() {
           </div>
 
           {/* Heading */}
-          <h1 style={{ 
-            fontSize: '1.65rem', 
-            fontWeight: 800, 
-            marginBottom: '0.4rem', 
-            letterSpacing: '-0.02em', 
-            color: 'var(--text-main)' 
+          <h1 style={{
+            fontSize: '1.75rem',
+            fontWeight: 800,
+            marginBottom: '0.4rem',
+            letterSpacing: '-0.02em',
+            color: 'var(--text-main)'
           }}>
             {currentT.title}
           </h1>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.45 }}>
-            {selectedRole === 'STUDENT' ? currentT.studentSub : currentT.lecturerSub}
+
+          <p style={{
+            color: 'var(--text-muted)',
+            fontSize: '0.9rem',
+            marginBottom: '1.8rem',
+            lineHeight: 1.45
+          }}>
+            {selectedRole === 'LECTURER' ? currentT.lecturerSub : currentT.studentSub}
           </p>
 
-          {/* Role Selector Segmented Control: Sinh viên vs Giảng viên */}
+          {/* Chọn vai trò (Role Switcher) */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '14px',
+            gap: '8px',
             padding: '4px',
-            marginBottom: '1.5rem',
-            gap: '4px'
+            borderRadius: '14px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            marginBottom: '1.8rem'
           }}>
             <button
               type="button"
-              id="role-btn-student"
-              onClick={() => { setSelectedRole('STUDENT'); setErrorType(null); setAlertMessage(''); }}
+              onClick={() => {
+                setSelectedRole('STUDENT');
+                setErrorType(null);
+                setAlertMessage('');
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -201,27 +269,29 @@ function LoginContent() {
                 padding: '10px 14px',
                 borderRadius: '10px',
                 border: 'none',
-                background: selectedRole === 'STUDENT' ? 'rgba(139, 92, 246, 0.22)' : 'transparent',
+                background: selectedRole === 'STUDENT' ? 'var(--accent-primary, #7c3aed)' : 'transparent',
                 color: selectedRole === 'STUDENT' ? '#ffffff' : 'var(--text-dim)',
-                boxShadow: selectedRole === 'STUDENT' ? '0 2px 8px rgba(139, 92, 246, 0.3)' : 'none',
+                boxShadow: selectedRole === 'STUDENT' ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none',
                 borderWidth: '1px',
                 borderStyle: 'solid',
-                borderColor: selectedRole === 'STUDENT' ? 'rgba(139, 92, 246, 0.5)' : 'transparent',
+                borderColor: selectedRole === 'STUDENT' ? 'rgba(124, 58, 237, 0.5)' : 'transparent',
                 fontSize: '0.9rem',
                 fontWeight: selectedRole === 'STUDENT' ? 600 : 500,
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                outline: 'none'
+                transition: 'all 0.2s ease'
               }}
             >
-              <GraduationCap size={18} color={selectedRole === 'STUDENT' ? '#60a5fa' : 'currentColor'} />
+              <GraduationCap size={18} />
               <span>{currentT.studentRole}</span>
             </button>
 
             <button
               type="button"
-              id="role-btn-lecturer"
-              onClick={() => { setSelectedRole('LECTURER'); setErrorType(null); setAlertMessage(''); }}
+              onClick={() => {
+                setSelectedRole('LECTURER');
+                setErrorType(null);
+                setAlertMessage('');
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -230,32 +300,31 @@ function LoginContent() {
                 padding: '10px 14px',
                 borderRadius: '10px',
                 border: 'none',
-                background: selectedRole === 'LECTURER' ? 'rgba(16, 185, 129, 0.22)' : 'transparent',
+                background: selectedRole === 'LECTURER' ? 'var(--accent-primary, #7c3aed)' : 'transparent',
                 color: selectedRole === 'LECTURER' ? '#ffffff' : 'var(--text-dim)',
-                boxShadow: selectedRole === 'LECTURER' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none',
+                boxShadow: selectedRole === 'LECTURER' ? '0 2px 8px rgba(124, 58, 237, 0.35)' : 'none',
                 borderWidth: '1px',
                 borderStyle: 'solid',
-                borderColor: selectedRole === 'LECTURER' ? 'rgba(16, 185, 129, 0.5)' : 'transparent',
+                borderColor: selectedRole === 'LECTURER' ? 'rgba(124, 58, 237, 0.5)' : 'transparent',
                 fontSize: '0.9rem',
                 fontWeight: selectedRole === 'LECTURER' ? 600 : 500,
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                outline: 'none'
+                transition: 'all 0.2s ease'
               }}
             >
-              <School size={18} color={selectedRole === 'LECTURER' ? '#34d399' : 'currentColor'} />
+              <School size={18} />
               <span>{currentT.lecturerRole}</span>
             </button>
           </div>
 
-          {/* Alert Banners */}
+          {/* Cảnh báo: Giảng viên chờ duyệt */}
           {errorType === 'pending' && (
             <div style={{
               marginBottom: '1.4rem',
               padding: '14px 16px',
               borderRadius: '14px',
-              background: 'rgba(245, 158, 11, 0.14)',
-              border: '1px solid rgba(245, 158, 11, 0.45)',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
               color: '#fef3c7',
               fontSize: '0.87rem',
               textAlign: 'left',
@@ -267,13 +336,14 @@ function LoginContent() {
               <Clock size={22} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
                 <div style={{ fontWeight: 700, color: '#fcd34d', marginBottom: '2px' }}>
-                  Tài khoản Giảng viên đang chờ duyệt
+                  Tài khoản đang chờ duyệt
                 </div>
                 <div>{alertMessage}</div>
               </div>
             </div>
           )}
 
+          {/* Cảnh báo: Xung đột vai trò */}
           {errorType === 'role_conflict' && (
             <div style={{
               marginBottom: '1.4rem',
@@ -289,16 +359,17 @@ function LoginContent() {
               gap: '12px',
               lineHeight: 1.45,
             }}>
-              <AlertCircle size={22} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <ShieldAlert size={22} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
               <div>
                 <div style={{ fontWeight: 700, color: '#fca5a5', marginBottom: '2px' }}>
-                  Xung đột vai trò tài khoản
+                  Xung đột quyền truy cập
                 </div>
                 <div>{alertMessage}</div>
               </div>
             </div>
           )}
 
+          {/* Cảnh báo: Tài khoản bị khóa */}
           {errorType === 'locked' && (
             <div style={{
               marginBottom: '1.4rem',
@@ -360,28 +431,28 @@ function LoginContent() {
                 gap: '12px',
                 borderRadius: '14px',
                 background: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
+                border: '1px solid rgba(0, 0, 0, 0.12)',
                 color: '#1f2937',
                 fontSize: '0.94rem',
                 fontWeight: 600,
                 cursor: redirectingProvider !== null ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 outline: 'none',
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.18)',
+                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.08)',
                 opacity: redirectingProvider === 'google' ? 0.75 : 1
               }}
               onMouseEnter={(e) => {
                 if (!redirectingProvider) {
-                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.background = '#f8fafc';
                   e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 6px 18px rgba(0, 0, 0, 0.28)';
+                  e.currentTarget.style.boxShadow = '0 6px 18px rgba(0, 0, 0, 0.12)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!redirectingProvider) {
                   e.currentTarget.style.background = '#ffffff';
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.18)';
+                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.08)';
                 }
               }}
             >
@@ -399,17 +470,142 @@ function LoginContent() {
             </button>
           </div>
 
-          {/* Dòng ghi chú chân trang */}
-          <p style={{
+          {/* Hộp xác nhận tài khoản Google ban đầu của Thành Viên 1 (Dự phòng khi Google Cloud offline hoặc test nhanh) */}
+          {(showGoogleConfirm || searchParams.get('google_fallback') === 'true') && (
+            <div style={{
+              marginTop: '1.4rem',
+              padding: '1.2rem',
+              borderRadius: '16px',
+              background: 'rgba(124, 58, 237, 0.06)',
+              border: '1px solid rgba(124, 58, 237, 0.25)',
+              textAlign: 'left'
+            }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-primary, #7c3aed)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <GoogleIcon /> Xác nhận tài khoản Google để đăng nhập nhanh:
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                Bấm vào tài khoản bên dưới hoặc nhập email để đăng nhập trực tiếp theo chuẩn Thành Viên 1:
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleDirectGoogleLogin('lenguyenanhmai05@gmail.com')}
+                  disabled={isConfirming}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: '#dc2626',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: isConfirming ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span>👑 <strong>lenguyenanhmai05@gmail.com</strong> (Admin Cố Định)</span>
+                  <ArrowRight size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDirectGoogleLogin('lenguyenanhmai113@gmail.com')}
+                  disabled={isConfirming}
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: '#059669',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    cursor: isConfirming ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span>📧 <strong>lenguyenanhmai113@gmail.com</strong> (Google Của Bạn)</span>
+                  <ArrowRight size={14} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="email"
+                  value={googleEmailInput}
+                  onChange={(e) => setGoogleEmailInput(e.target.value)}
+                  placeholder="Hoặc nhập email Google khác..."
+                  style={{
+                    flex: 1,
+                    height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(0, 0, 0, 0.15)',
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    padding: '0 10px',
+                    fontSize: '0.82rem',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={isConfirming || !googleEmailInput.trim()}
+                  onClick={() => handleDirectGoogleLogin(googleEmailInput)}
+                  style={{
+                    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '0 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: isConfirming || !googleEmailInput.trim() ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {isConfirming ? <Loader2 size={14} className="animate-spin" /> : <span>Vào</span>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Dòng ghi chú chân trang & nút bật hộp xác nhận Google nhanh */}
+          <div style={{
             marginTop: '1.6rem',
             fontSize: '0.78rem',
             color: 'var(--text-muted)',
             lineHeight: 1.5,
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-            paddingTop: '1.2rem'
+            borderTop: '1px solid var(--border-color, rgba(148, 163, 184, 0.2))',
+            paddingTop: '1.2rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px'
           }}>
-            {currentT.footerNotice}
-          </p>
+            <p>{currentT.footerNotice}</p>
+            {!showGoogleConfirm && (
+              <button
+                type="button"
+                onClick={() => setShowGoogleConfirm(true)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--accent-primary, #7c3aed)',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  textDecoration: 'underline',
+                  cursor: 'pointer'
+                }}
+              >
+                Gặp sự cố kết nối Google Cloud? Bấm để chọn email xác nhận nhanh
+              </button>
+            )}
+          </div>
         </div>
       </main>
     </>
