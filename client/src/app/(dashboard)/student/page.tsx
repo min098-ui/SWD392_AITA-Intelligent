@@ -1156,20 +1156,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
     setTimeout(() => setCopiedExamText(false), 2000);
   };
 
-  // Memoized Team assignments
+  // Memoized Team assignments (strictly TEAM assignments only — never fallback to INDIVIDUAL exams)
   const teamAssignments = React.useMemo(() => {
     if (!myTeam) return [];
-    // 1. Lọc theo đúng học phần của nhóm hiện tại
-    const courseAssigns = assignments.filter(a => a.course_id === myTeam.course_id);
-    // 2. Ưu tiên các bài tập / cột mốc được đánh dấu TEAM
-    const teamOnly = courseAssigns.filter(a => a.submission_type === 'TEAM');
-    if (teamOnly.length > 0) return teamOnly;
-    // 3. Fallback: Nếu giảng viên chưa gắn cờ TEAM nhưng có bài tập của môn, cho phép hiển thị
-    if (courseAssigns.length > 0) return courseAssigns;
-    // 4. Fallback bài tập chung (không gắn course_id)
-    const generalAssigns = assignments.filter(a => !a.course_id);
-    if (generalAssigns.length > 0) return generalAssigns;
-    return [];
+    const teamOnlyAll = assignments.filter(a => a.submission_type === 'TEAM');
+    const courseTeamAssigns = teamOnlyAll.filter(a => a.course_id === myTeam.course_id);
+    if (courseTeamAssigns.length > 0) return courseTeamAssigns;
+    return teamOnlyAll.filter(a => !a.course_id);
   }, [assignments, myTeam]);
 
   // Sync selected assignment IDs
@@ -1488,6 +1481,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
         setSubmitError(lang === 'vi' ? 'Bạn chưa được phân công vào nhóm đồ án!' : 'You are not assigned to a project team!');
         return;
       }
+      if (teamAssignments.length === 0) {
+        setSubmitError(lang === 'vi' ? `Học phần ${myTeam.course_code || ''} hiện chưa có cột mốc Đồ án Nhóm (TEAM) để nộp bài!` : 'No Team Project assignment found for this course.');
+        return;
+      }
       if (!repoUrl || !repoUrl.trim()) {
         setSubmitError(lang === 'vi' ? 'Vui lòng nhập đường dẫn Git Repository của nhóm!' : 'Please enter team Git Repository URL!');
         return;
@@ -1626,16 +1623,25 @@ III. QUY CHUẨN DOCKER SANDBOX:
           git_commit_hash: commitVal
         };
       } else {
-        // Team submission (Git Repository only)
-        const activeAssignId = selectedTeamAssignmentId || (teamAssignments.length > 0 ? teamAssignments[0].assignment_id : (assignments.find(a => !a.course_id || a.course_id === myTeam?.course_id)?.assignment_id || 1));
-        const currentAssign = assignments.find(a => String(a.assignment_id) === String(activeAssignId));
-        const assignLang = currentAssign?.allowed_language && currentAssign.allowed_language !== 'ALL'
-          ? (currentAssign.allowed_language === 'python' ? 'python' : 'javascript')
-          : 'javascript';
+        // Team submission (Git Repository only — never route onto INDIVIDUAL PE exams)
+        const targetTeamAssign =
+          teamAssignments.find(a => String(a.assignment_id) === String(selectedTeamAssignmentId)) ||
+          teamAssignments[0];
+        if (!targetTeamAssign) {
+          setIsSubmitting(false);
+          setSubmitStep(0);
+          setSubmitError(lang === 'vi' ? 'Không tìm thấy bài Đồ án Nhóm (TEAM) hợp lệ cho học phần này!' : 'No valid Team assignment found.');
+          return;
+        }
+        const activeAssignId = targetTeamAssign.assignment_id;
+        const rawAllowed = (targetTeamAssign.allowed_language || 'ALL').toLowerCase();
+        const assignLang = rawAllowed === 'python' || rawAllowed === 'java' || rawAllowed === 'javascript'
+          ? rawAllowed
+          : 'git';
 
         const finalCommit = commitHash?.trim() || '7a9f4c28e9b1';
-        const teamLeader = myTeam?.members?.find((m: any) => m.role === 'LEADER')?.full_name || 'Đinh Gia Huy';
-        const teamCodeSummary = `// [BÁO CÁO NỘP ĐỒ ÁN NHÓM - GIT REPOSITORY]\n// Kho lưu trữ Git: ${repoUrl.trim()}\n// Nhánh kiểm thử: ${teamBranch.trim() || 'main'}\n// Mã Commit SHA: ${finalCommit}\n// Nhóm đồ án: ${myTeam?.team_name || 'Group 4 (AITA)'}\n// Trưởng nhóm: ${teamLeader}\n// Thời gian gửi: ${new Date().toLocaleString('vi-VN')}`;
+        const teamLeader = myTeam?.members?.find((m: any) => m.role === 'LEADER')?.full_name || myTeam?.members?.[0]?.full_name || currentUser?.full_name || 'Trưởng nhóm';
+        const teamCodeSummary = `// [BÁO CÁO NỘP ĐỒ ÁN NHÓM - GIT REPOSITORY]\n// Đề tài đồ án: ${teamTopicName.trim() || myTeam?.team_name || 'Đồ án nhóm'}\n// Kho lưu trữ Git: ${repoUrl.trim()}\n// Nhánh kiểm thử: ${teamBranch.trim() || 'main'}\n// Mã Commit SHA: ${finalCommit}\n// Nhóm đồ án: ${myTeam?.team_name || 'Group 4 (AITA)'}\n// Trưởng nhóm: ${teamLeader}\n// Thời gian gửi: ${new Date().toLocaleString('vi-VN')}`;
 
         payload = {
           assignment_id: Number(activeAssignId),

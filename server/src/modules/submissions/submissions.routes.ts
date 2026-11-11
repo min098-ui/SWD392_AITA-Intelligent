@@ -204,9 +204,10 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Mã nguồn vượt quá dung lượng cho phép (tối đa 100 KB).' });
   }
 
-  // 4. Validate language: python, javascript, or java
+  // 4. Validate language: python, javascript, java (or 'git'/'repo' alias for TEAM Git submissions)
   const normalizedLang = (language || '').toLowerCase().trim();
-  if (normalizedLang !== 'python' && normalizedLang !== 'javascript' && normalizedLang !== 'nodejs' && normalizedLang !== 'java') {
+  const isGitLangAlias = normalizedLang === 'git' || normalizedLang === 'repo' || normalizedLang === '';
+  if (!isGitLangAlias && normalizedLang !== 'python' && normalizedLang !== 'javascript' && normalizedLang !== 'nodejs' && normalizedLang !== 'java') {
     return res.status(400).json({ message: 'Ngôn ngữ không hợp lệ. Hệ thống chỉ hỗ trợ "python", "javascript" hoặc "java".' });
   }
   const cleanLang: 'python' | 'javascript' | 'java' = normalizedLang === 'python' ? 'python' : (normalizedLang === 'java' ? 'java' : 'javascript');
@@ -256,8 +257,21 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Bài tập đã quá hạn nộp và không cho phép nộp trễ.' });
     }
 
-    // 5b. Validate allowed language
-    if (assignment.allowed_language && assignment.allowed_language !== 'ALL') {
+    // Check if TEAM submission is Git-only manual evaluation (no AUTOMATED Docker test cases)
+    const automatedRuleRes = await client.query(
+      `SELECT COUNT(*)::int AS cnt FROM rubric_rules
+       WHERE assignment_id = $1 AND rule_type = 'AUTOMATED' AND (status IS NULL OR status IN ('Active', 'Hidden'))`,
+      [assignment_id]
+    );
+    const hasAutomatedTests = Number(automatedRuleRes.rows[0]?.cnt || 0) > 0;
+    const isTeamGitManualSubmission = assignment.submission_type === 'TEAM' && !hasAutomatedTests;
+
+    if (isGitLangAlias && !isTeamGitManualSubmission) {
+      return res.status(400).json({ message: 'Ngôn ngữ không hợp lệ. Hệ thống chỉ hỗ trợ "python", "javascript" hoặc "java".' });
+    }
+
+    // 5b. Validate allowed language (skip for TEAM Git-repository manual submissions — no sandbox execution)
+    if (!isTeamGitManualSubmission && assignment.allowed_language && assignment.allowed_language !== 'ALL') {
       if (cleanLang !== assignment.allowed_language) {
         return res.status(400).json({
           message: `Bài tập này chỉ cho phép nộp bằng ngôn ngữ ${assignment.allowed_language}. Vui lòng chọn đúng ngôn ngữ yêu cầu.`,
@@ -343,11 +357,19 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
     let submission: any;
     let attemptNumber = 1;
 
-    if (assignment.submission_type === 'TEAM' && finalTeamId) {
+    if (assignment.submission_type === 'TEAM') {
+      if (!finalTeamId) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Bài tập nhóm yêu cầu nộp theo nhóm (vui lòng chọn team_id).' });
+      }
       const existingSubRes = await client.query(
         'SELECT submission_id FROM submissions WHERE assignment_id = $1 AND team_id = $2 LIMIT 1',
         [assignment_id, finalTeamId]
       );
+      const initialSubStatus = isTeamGitManualSubmission ? 'SUBMITTED' : 'QUEUED';
+      const initialFeedback = isTeamGitManualSubmission
+        ? 'Đã ghi nhận đường dẫn GitHub Repository nhóm & đồng bộ Telemetry BR-07. Chờ Giảng viên xem xét và chấm điểm thủ công.'
+        : null;
 
       if (existingSubRes.rows.length > 0) {
         if (assignment.allow_resubmission === false) {
@@ -371,8 +393,8 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
           `UPDATE submissions 
            SET code_content = $1, language = $2, submitted_by_user_id = $3, 
                artifact_url = $4, git_commit_hash = $5, submitted_at = CURRENT_TIMESTAMP, 
-               status = 'QUEUED'
-           WHERE submission_id = $6
+               status = $6, ai_feedback = COALESCE($7, ai_feedback)
+           WHERE submission_id = $8
            RETURNING *`,
           [
             code_content.trim(),
@@ -380,14 +402,16 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
             user.userId,
             artifact_url || '',
             git_commit_hash || 'DIRECT_SUBMIT',
+            initialSubStatus,
+            initialFeedback,
             existingSubId
           ]
         );
         submission = updateSubRes.rows[0];
       } else {
         const subRes = await client.query(
-          `INSERT INTO submissions (assignment_id, team_id, submitted_by_user_id, code_content, language, artifact_url, git_commit_hash, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, 'QUEUED') RETURNING *`,
+          `INSERT INTO submissions (assignment_id, team_id, submitted_by_user_id, code_content, language, artifact_url, git_commit_hash, status, ai_feedback)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
           [
             assignment_id,
             finalTeamId,
@@ -395,10 +419,16 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
             code_content.trim(),
             cleanLang,
             artifact_url || '',
-            git_commit_hash || 'DIRECT_SUBMIT'
+            git_commit_hash || 'DIRECT_SUBMIT',
+            initialSubStatus,
+            initialFeedback
           ]
         );
         submission = subRes.rows[0];
+      }
+
+      if (isTeamGitManualSubmission && artifact_url && typeof artifact_url === 'string' && artifact_url.trim().startsWith('http')) {
+        await client.query('UPDATE teams SET repo_url = $1 WHERE team_id = $2', [artifact_url.trim(), finalTeamId]);
       }
     } else {
       const userSubsRes = await client.query(
@@ -431,6 +461,19 @@ router.post('/', authenticateJWT, async (req: Request, res: Response) => {
         ]
       );
       submission = subRes.rows[0];
+    }
+
+    if (isTeamGitManualSubmission) {
+      await client.query('COMMIT');
+      return res.status(201).json({
+        submission,
+        grading_job: null,
+        is_late: isLate,
+        manual_review: true,
+        message: isLate
+          ? 'Nộp đồ án nhóm thành công (Nộp sau hạn). Link GitHub đã được lưu để Giảng viên xem xét và chấm điểm.'
+          : 'Nộp đồ án nhóm thành công! Link GitHub đã được lưu và gửi Giảng viên chấm điểm.',
+      });
     }
 
     // 8. Fetch default prompt template & active AI API Key
