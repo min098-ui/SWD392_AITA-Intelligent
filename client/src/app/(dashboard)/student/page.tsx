@@ -5,10 +5,8 @@ import { useRouter } from 'next/navigation';
 import JSZip from 'jszip';
 import Navigation from '../../../components/Navigation';
 import AitaLogo from '../../../components/AitaLogo';
-import UserProfileMenu from '../../../components/UserProfileMenu';
 import StudentProfileModal from '../../../components/StudentProfileModal';
 import { useLanguage } from '../../../context/LanguageContext';
-import LanguageSwitcher from '../../../components/LanguageSwitcher';
 import ThemeToggle from '../../../components/ThemeToggle';
 import { 
   Send, Bot, CheckCircle2, ShieldCheck, Clock, GitBranch, Edit3, MessageSquare, 
@@ -2945,10 +2943,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <LanguageSwitcher />
-            <UserProfileMenu user={currentUser} onLogout={handleLogout} scoreData={studentScoreData} />
-          </div>
+          {/* Right Area */}
+          <div style={{ display: 'flex', alignItems: 'center' }} />
         </header>
 
         {/* Nội dung chính theo từng Tab */}
