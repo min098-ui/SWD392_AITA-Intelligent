@@ -3,23 +3,7 @@
 -- Course: SWD392 - Group 4
 -- =============================================================================
 
--- 1. Insert Users (Admins, Lecturer, 5 Official Group 4 Members)
--- Remove obsolete/mock users and former Dr. Nguyen Van Giang (giangnv@fe.edu.vn)
-DELETE FROM users WHERE email IN (
-  'student1@fpt.edu.vn', 'student2@fpt.edu.vn', 'student3@fpt.edu.vn', 'ylai.test@fpt.edu.vn',
-  'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn',
-  'giangnv@fe.edu.vn'
-);
-
--- Clean up any obsolete Course 1 and Team 1
-DELETE FROM team_members WHERE team_id = 1;
-DELETE FROM git_commits WHERE team_id = 1;
-DELETE FROM peer_audits WHERE team_id = 1;
-DELETE FROM teams WHERE team_id = 1;
-DELETE FROM course_enrollments WHERE course_id = 1;
-DELETE FROM assignments WHERE course_id = 1;
-DELETE FROM courses WHERE course_id = 1;
-
+-- 1. Insert Users First (Admins, Lecturer Yen12 Yen, Nguyen Lan, 5 Official Members, 15 Demo Students)
 INSERT INTO users (full_name, email, password_hash, role, status) VALUES
 ('System Administrator', 'admin@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'ADMIN', 'ACTIVE'),
 ('Yen12 Yen', 'yeny36306@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'LECTURER', 'ACTIVE'),
@@ -33,7 +17,24 @@ INSERT INTO users (full_name, email, password_hash, role, status) VALUES
 ('Đinh Gia Huy', 'dinhgiahuylol12345@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
 ('Đỗ Trần Đăng Khoa', 'dotrandangkhoa17@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
 ('Nguyễn Tường Vy', 'vyntqe180099@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
-('Nguyễn Quốc Thanh Phong', 'tfongcs05@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE')
+('Nguyễn Quốc Thanh Phong', 'tfongcs05@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+
+-- 15 Sinh Viên Demo & Bổ Sung
+('Min Jin', 'minanhzong@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Trần Bảo Nam', 'namtbqe180101@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Hoàng Minh Quân', 'quanhmqe180102@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Phan Thảo Vy', 'vyptqe180103@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Vũ Đức Trọng', 'trongvdqe180104@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Bùi Thu Trang', 'trangbtqe180105@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Đặng Quang Huy', 'huydqqe180106@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Trịnh Ngọc Hân', 'hantnqe180107@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Dương Quốc Anh', 'anhdqqe180108@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Ngô Diệu Linh', 'linhndqe180109@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Phạm Tuấn Kiệt', 'kietptqe180110@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Lâm Gia Hưng', 'hunglgqe180111@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Mai Phương Thảo', 'thaompqe180112@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Đỗ Hoàng Long', 'longdhqe180113@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
+('Huỳnh Thanh Trúc', 'truchttqe180114@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE')
 ON CONFLICT (email) DO UPDATE SET
   full_name = EXCLUDED.full_name,
   password_hash = EXCLUDED.password_hash,
@@ -41,6 +42,63 @@ ON CONFLICT (email) DO UPDATE SET
   status = EXCLUDED.status;
 
 SELECT setval('users_user_id_seq', (SELECT COALESCE(MAX(user_id), 1) FROM users));
+
+-- Reassign courses taught by obsolete lecturers (giangnv@fe.edu.vn, etc.) to Yen12 Yen
+UPDATE courses
+SET lecturer_id = (SELECT user_id FROM users WHERE email = 'yeny36306@gmail.com' LIMIT 1)
+WHERE lecturer_id IN (
+  SELECT user_id FROM users WHERE email IN (
+    'student1@fpt.edu.vn', 'student2@fpt.edu.vn', 'student3@fpt.edu.vn', 'ylai.test@fpt.edu.vn',
+    'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn',
+    'giangnv@fe.edu.vn'
+  )
+);
+
+-- Clean up any obsolete PRO192 course and related teams/records
+DELETE FROM team_members WHERE team_id IN (SELECT team_id FROM teams WHERE team_name ILIKE '%PRO192%' OR course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192'));
+DELETE FROM git_commits WHERE team_id IN (SELECT team_id FROM teams WHERE team_name ILIKE '%PRO192%' OR course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192'));
+DELETE FROM peer_audits WHERE team_id IN (SELECT team_id FROM teams WHERE team_name ILIKE '%PRO192%' OR course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192'));
+DELETE FROM teams WHERE team_name ILIKE '%PRO192%' OR course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192');
+DELETE FROM course_enrollments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192');
+DELETE FROM submissions WHERE assignment_id IN (SELECT assignment_id FROM assignments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192'));
+DELETE FROM rubric_rules WHERE assignment_id IN (SELECT assignment_id FROM assignments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192'));
+DELETE FROM assignments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192');
+DELETE FROM courses WHERE course_code = 'PRO192';
+
+-- Reassign submissions from obsolete users before deleting them
+UPDATE submissions
+SET submitted_by_user_id = (SELECT user_id FROM users WHERE email = 'dotrandangkhoa17@gmail.com' LIMIT 1)
+WHERE submitted_by_user_id IN (
+  SELECT user_id FROM users WHERE email IN (
+    'student1@fpt.edu.vn', 'student2@fpt.edu.vn', 'student3@fpt.edu.vn', 'ylai.test@fpt.edu.vn',
+    'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn',
+    'giangnv@fe.edu.vn'
+  )
+);
+
+-- Delete obsolete user references in team_members and course_enrollments
+DELETE FROM team_members WHERE user_id IN (
+  SELECT user_id FROM users WHERE email IN (
+    'student1@fpt.edu.vn', 'student2@fpt.edu.vn', 'student3@fpt.edu.vn', 'ylai.test@fpt.edu.vn',
+    'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn',
+    'giangnv@fe.edu.vn'
+  )
+);
+
+DELETE FROM course_enrollments WHERE user_id IN (
+  SELECT user_id FROM users WHERE email IN (
+    'student1@fpt.edu.vn', 'student2@fpt.edu.vn', 'student3@fpt.edu.vn', 'ylai.test@fpt.edu.vn',
+    'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn',
+    'giangnv@fe.edu.vn'
+  )
+);
+
+-- Delete obsolete users
+DELETE FROM users WHERE email IN (
+  'student1@fpt.edu.vn', 'student2@fpt.edu.vn', 'student3@fpt.edu.vn', 'ylai.test@fpt.edu.vn',
+  'phong.nqt.qe190030@fpt.edu.vn', 'huy.dg.qe190149@fpt.edu.vn', 'vy.nt.qe180099@fpt.edu.vn',
+  'giangnv@fe.edu.vn'
+);
 
 -- 2. Insert Official Courses (SWD392 taught by Yen12 Yen, CSD201 taught by Nguyen Lan)
 INSERT INTO courses (course_id, course_code, course_name, semester, lecturer_id)
