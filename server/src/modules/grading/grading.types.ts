@@ -1,12 +1,14 @@
 export type GradingStatus =
   | 'ACCEPTED'
   | 'WRONG_ANSWER'
+  | 'COMPILATION_ERROR'
   | 'RUNTIME_ERROR'
   | 'TIME_LIMIT_EXCEEDED'
   | 'MEMORY_LIMIT_EXCEEDED'
   | 'SYSTEM_ERROR'
   | 'Accepted'
   | 'Wrong Answer'
+  | 'Compilation Error'
   | 'Runtime Error'
   | 'Time Limit Exceeded'
   | 'Memory Limit Exceeded'
@@ -20,7 +22,7 @@ export interface GradingJobPayload {
   artifact_url: string;
   git_commit_hash: string;
   code_content?: string;
-  language?: 'javascript' | 'nodejs' | 'python';
+  language?: 'javascript' | 'nodejs' | 'python' | 'java';
   priority?: number;
 }
 
@@ -52,6 +54,10 @@ export interface TestResultItem {
   status?: GradingStatus;
   error?: string;
   ai_feedback?: string;
+  container_id?: string;
+  docker_image?: string;
+  exit_code?: number;
+  code_hash?: string;
 }
 
 export interface GradingJobSummary {
@@ -64,4 +70,7 @@ export interface GradingJobSummary {
   total_rules_count: number;
   results: TestResultItem[];
   completed_at?: Date;
+  container_id?: string;
+  docker_image?: string;
+  code_hash?: string;
 }
