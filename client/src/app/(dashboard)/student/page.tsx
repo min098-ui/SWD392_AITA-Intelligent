@@ -5382,21 +5382,25 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             padding: '8px 18px',
                             borderRadius: '10px',
                             background: teamActionTab === 'submit' 
-                              ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.95) 0%, rgba(147, 51, 234, 0.9) 100%)' 
-                              : 'rgba(15, 23, 42, 0.8)',
-                            border: teamActionTab === 'submit' ? '1px solid rgba(192, 132, 252, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
-                            color: teamActionTab === 'submit' ? '#ffffff' : '#cbd5e1',
+                              ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' 
+                              : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#ffffff'),
+                            border: teamActionTab === 'submit'
+                              ? '1px solid rgba(192, 132, 252, 0.5)'
+                              : (isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1'),
+                            color: teamActionTab === 'submit' ? '#ffffff' : (isDark ? '#cbd5e1' : '#334155'),
                             fontWeight: 700,
                             fontSize: '0.86rem',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
                             cursor: 'pointer',
-                            boxShadow: teamActionTab === 'submit' ? '0 4px 20px rgba(147, 51, 234, 0.4)' : 'none',
+                            boxShadow: teamActionTab === 'submit'
+                              ? '0 4px 16px rgba(124, 58, 237, 0.35)'
+                              : (isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)'),
                             transition: 'all 0.2s ease'
                           }}
                         >
-                          <GitBranch size={16} color={teamActionTab === 'submit' ? '#ffffff' : '#a78bfa'} />
+                          <GitBranch size={16} color={teamActionTab === 'submit' ? '#ffffff' : (isDark ? '#a78bfa' : '#7c3aed')} />
                           <span>1. {lang === 'vi' ? 'Cổng Nộp Đồ Án Nhóm (Team Git Submission)' : 'Submit Team Repo'}</span>
                         </button>
 
@@ -5410,21 +5414,25 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             padding: '8px 18px',
                             borderRadius: '10px',
                             background: teamActionTab === 'analytics'
-                              ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95) 0%, rgba(124, 58, 237, 0.9) 100%)'
-                              : 'rgba(15, 23, 42, 0.8)',
-                            border: teamActionTab === 'analytics' ? '1px solid rgba(167, 139, 250, 0.5)' : '1px solid rgba(255, 255, 255, 0.12)',
-                            color: teamActionTab === 'analytics' ? '#ffffff' : '#cbd5e1',
+                              ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)'
+                              : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#ffffff'),
+                            border: teamActionTab === 'analytics'
+                              ? '1px solid rgba(167, 139, 250, 0.5)'
+                              : (isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1'),
+                            color: teamActionTab === 'analytics' ? '#ffffff' : (isDark ? '#cbd5e1' : '#334155'),
                             fontWeight: 700,
                             fontSize: '0.86rem',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
                             cursor: 'pointer',
-                            boxShadow: teamActionTab === 'analytics' ? '0 4px 20px rgba(139, 92, 246, 0.35)' : 'none',
+                            boxShadow: teamActionTab === 'analytics'
+                              ? '0 4px 16px rgba(124, 58, 237, 0.35)'
+                              : (isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)'),
                             transition: 'all 0.2s ease'
                           }}
                         >
-                          <BarChart2 size={16} color={teamActionTab === 'analytics' ? '#ffffff' : '#a78bfa'} />
+                          <BarChart2 size={16} color={teamActionTab === 'analytics' ? '#ffffff' : (isDark ? '#a78bfa' : '#7c3aed')} />
                           <span>2. {lang === 'vi' ? 'Báo Cáo Đóng Góp & Radar Free-Rider (BR-07)' : 'Contribution & Free-Rider Report'}</span>
                         </button>
                       </div>
@@ -5440,19 +5448,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               setTeamTopicName('AITA - Nền tảng Đánh giá & Chấm Mã Nguồn Tự Động Kết Hợp Gia Sư Ảo AI');
                             }}
                             style={{
-                              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(124, 58, 237, 0.15))',
-                              border: '1px solid rgba(168, 85, 247, 0.4)',
-                              color: '#c084fc',
+                              background: isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(124, 58, 237, 0.15))' : '#f5f3ff',
+                              border: isDark ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid #c4b5fd',
+                              color: isDark ? '#c084fc' : '#6d28d9',
                               padding: '7px 14px',
                               borderRadius: '10px',
                               fontSize: '0.8rem',
-                              fontWeight: 600,
+                              fontWeight: 700,
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
                               gap: '6px',
                               whiteSpace: 'nowrap',
-                              boxShadow: '0 0 15px rgba(168, 85, 247, 0.15)',
+                              boxShadow: isDark ? '0 0 15px rgba(168, 85, 247, 0.15)' : '0 2px 6px rgba(109, 40, 217, 0.08)',
                               transition: 'all 0.2s ease',
                               flexShrink: 0
                             }}
@@ -5512,9 +5520,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             {/* Header Section Intro */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                               <div>
-                                <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   <span style={{
-                                    background: 'linear-gradient(135deg, #38bdf8 0%, #c084fc 100%)',
+                                    background: isDark ? 'linear-gradient(135deg, #38bdf8 0%, #c084fc 100%)' : 'linear-gradient(135deg, #0284c7 0%, #7c3aed 100%)',
                                     WebkitBackgroundClip: 'text',
                                     WebkitTextFillColor: 'transparent',
                                     fontWeight: 900
@@ -5533,17 +5541,17 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   gap: '8px',
                                   padding: '9px 18px',
                                   borderRadius: '12px',
-                                  background: 'rgba(255, 255, 255, 0.05)',
-                                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                                  color: '#cbd5e1',
+                                  background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+                                  border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1',
+                                  color: isDark ? '#cbd5e1' : '#334155',
                                   fontSize: '0.84rem',
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                   cursor: 'pointer',
                                   transition: 'all 0.2s ease',
-                                  boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+                                  boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.2)' : '0 2px 8px rgba(15, 23, 42, 0.06)'
                                 }}
                               >
-                                <Edit3 size={15} color="#c084fc" />
+                                <Edit3 size={15} color={isDark ? '#c084fc' : '#7c3aed'} />
                                 <span>{lang === 'vi' ? '✏️ Chỉnh Sửa Đề Tài / Kho Lưu Trữ (Nộp Lại)' : 'Edit Submission'}</span>
                               </button>
                             </div>
@@ -5552,9 +5560,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <div
                               className="glass-card"
                               style={{
-                                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 16, 38, 0.98) 100%)',
-                                border: '1px solid rgba(52, 211, 153, 0.4)',
-                                boxShadow: '0 20px 50px -15px rgba(16, 185, 129, 0.15)',
+                                background: isDark ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 16, 38, 0.98) 100%)' : '#ffffff',
+                                border: isDark ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid #a7f3d0',
+                                boxShadow: isDark ? '0 20px 50px -15px rgba(16, 185, 129, 0.15)' : '0 10px 30px -10px rgba(16, 185, 129, 0.12)',
                                 borderRadius: '24px',
                                 padding: '2rem 2.4rem',
                                 display: 'flex',
@@ -5572,7 +5580,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 width: '220px',
                                 height: '220px',
                                 borderRadius: '50%',
-                                background: 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(0,0,0,0) 70%)',
+                                background: isDark ? 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(0,0,0,0) 70%)' : 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(0,0,0,0) 70%)',
                                 pointerEvents: 'none'
                               }} />
 
@@ -5582,27 +5590,27 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '8px',
-                                  background: 'rgba(16, 185, 129, 0.15)',
-                                  border: '1px solid rgba(52, 211, 153, 0.5)',
+                                  background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7',
+                                  border: isDark ? '1px solid rgba(52, 211, 153, 0.5)' : '1px solid #86efac',
                                   borderRadius: '9999px',
                                   padding: '5px 16px',
-                                  color: '#34d399',
+                                  color: isDark ? '#34d399' : '#15803d',
                                   fontSize: '0.82rem',
                                   fontWeight: 800,
                                   letterSpacing: '0.5px'
                                 }}>
-                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
+                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDark ? '#34d399' : '#16a34a', boxShadow: isDark ? '0 0 10px #34d399' : 'none' }} />
                                   <span>{lang === 'vi' ? '✓ ĐÃ NỘP ĐỒ ÁN & LINK GITHUB THÀNH CÔNG' : 'TEAM PROJECT SUBMITTED & LINKED'}</span>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.82rem', color: '#94a3b8' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#475569' }}>
                                   <div style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '6px',
-                                    background: 'rgba(245, 158, 11, 0.12)',
-                                    border: '1px solid rgba(245, 158, 11, 0.35)',
-                                    color: '#fbbf24',
+                                    background: isDark ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7',
+                                    border: isDark ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid #fcd34d',
+                                    color: isDark ? '#fbbf24' : '#b45309',
                                     padding: '3px 12px',
                                     borderRadius: '8px',
                                     fontWeight: 700
@@ -5612,7 +5620,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   </div>
                                   <span>
                                     {lang === 'vi' ? 'Nộp gần nhất: ' : 'Submitted: '}
-                                    <strong style={{ color: '#e2e8f0' }}>
+                                    <strong style={{ color: isDark ? '#e2e8f0' : '#0f172a' }}>
                                       {latestTeamSub?.submitted_at ? new Date(latestTeamSub.submitted_at).toLocaleString('vi-VN', { hour12: false }) : (lang === 'vi' ? 'Vừa xong' : 'Just now')}
                                     </strong>
                                   </span>
@@ -5621,25 +5629,25 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                               {/* Project Topic Title & Course Meta */}
                               <div style={{ zIndex: 2 }}>
-                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#c084fc' : '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
                                   {lang === 'vi' ? 'TÊN ĐỀ TÀI / DỰ ÁN TỐT NGHIỆP' : 'CAPSTONE PROJECT TOPIC'}
                                 </div>
-                                <h4 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#ffffff', margin: '0 0 10px 0', lineHeight: 1.3 }}>
+                                <h4 style={{ fontSize: '1.45rem', fontWeight: 900, color: isDark ? '#ffffff' : '#0f172a', margin: '0 0 10px 0', lineHeight: 1.3 }}>
                                   {teamTopicName || myTeam.team_name}
                                 </h4>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.84rem', color: '#cbd5e1' }}>
-                                  <span>Học phần: <strong style={{ color: '#a78bfa' }}>{myTeam.course_code} - {myTeam.course_name}</strong></span>
-                                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
-                                  <span>Nhóm: <strong style={{ color: '#38bdf8' }}>{myTeam.team_name}</strong> ({myTeam.semester || 'FA26'})</span>
-                                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
-                                  <span>GVHD: <strong style={{ color: '#f1f5f9' }}>{myTeam.lecturer_name || 'Nguyễn Thị Mai'}</strong></span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.84rem', color: isDark ? '#cbd5e1' : '#475569' }}>
+                                  <span>Học phần: <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{myTeam.course_code} - {myTeam.course_name}</strong></span>
+                                  <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
+                                  <span>Nhóm: <strong style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>{myTeam.team_name}</strong> ({myTeam.semester || 'FA26'})</span>
+                                  <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
+                                  <span>GVHD: <strong style={{ color: isDark ? '#f1f5f9' : '#0f172a' }}>{myTeam.lecturer_name || 'Nguyễn Thị Mai'}</strong></span>
                                 </div>
                               </div>
 
                               {/* Repo & Branch Information Strip */}
                               <div style={{
-                                background: 'rgba(0, 0, 0, 0.45)',
-                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                background: isDark ? 'rgba(0, 0, 0, 0.45)' : '#f1f5f9',
+                                border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #cbd5e1',
                                 borderRadius: '14px',
                                 padding: '12px 18px',
                                 display: 'flex',
@@ -5654,8 +5662,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     width: '34px',
                                     height: '34px',
                                     borderRadius: '8px',
-                                    background: 'rgba(56, 189, 248, 0.15)',
-                                    color: '#38bdf8',
+                                    background: isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe',
+                                    color: isDark ? '#38bdf8' : '#0284c7',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -5664,7 +5672,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     <GitBranch size={18} />
                                   </div>
                                   <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
+                                    <div style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#475569', fontWeight: 700, textTransform: 'uppercase' }}>
                                       GITHUB REPOSITORY URL
                                     </div>
                                     <a
@@ -5672,7 +5680,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       style={{
-                                        color: '#38bdf8',
+                                        color: isDark ? '#38bdf8' : '#0369a1',
                                         fontSize: '0.9rem',
                                         fontFamily: 'monospace',
                                         fontWeight: 700,
@@ -5694,9 +5702,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   <span style={{
-                                    background: 'rgba(168, 85, 247, 0.2)',
-                                    border: '1px solid rgba(168, 85, 247, 0.45)',
-                                    color: '#c084fc',
+                                    background: isDark ? 'rgba(168, 85, 247, 0.2)' : '#ede9fe',
+                                    border: isDark ? '1px solid rgba(168, 85, 247, 0.45)' : '1px solid #c4b5fd',
+                                    color: isDark ? '#c084fc' : '#6d28d9',
                                     padding: '4px 12px',
                                     borderRadius: '8px',
                                     fontSize: '0.78rem',
@@ -5718,12 +5726,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       setTimeout(() => setCopiedRepoUrl(false), 2000);
                                     }}
                                     style={{
-                                      background: 'rgba(255, 255, 255, 0.08)',
-                                      border: '1px solid rgba(255, 255, 255, 0.15)',
-                                      color: copiedRepoUrl ? '#34d399' : '#cbd5e1',
+                                      background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
+                                      border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1',
+                                      color: copiedRepoUrl ? (isDark ? '#34d399' : '#15803d') : (isDark ? '#cbd5e1' : '#334155'),
                                       padding: '6px 12px',
                                       borderRadius: '8px',
                                       fontSize: '0.78rem',
+                                      fontWeight: 600,
                                       cursor: 'pointer',
                                       display: 'flex',
                                       alignItems: 'center',
@@ -5737,7 +5746,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               </div>
 
                               {/* Team Avatar Stack & Action Buttons */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', zIndex: 2, paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', zIndex: 2, paddingTop: '0.5rem', borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #e2e8f0' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                   {/* Avatar Stack */}
                                   <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -5750,7 +5759,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                           height: '34px',
                                           borderRadius: '50%',
                                           background: memberGradients[idx % memberGradients.length],
-                                          border: '2px solid #0f172a',
+                                          border: isDark ? '2px solid #0f172a' : '2px solid #ffffff',
                                           marginLeft: idx === 0 ? '0' : '-10px',
                                           display: 'flex',
                                           alignItems: 'center',
@@ -5758,7 +5767,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                           color: '#ffffff',
                                           fontWeight: 800,
                                           fontSize: '0.72rem',
-                                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+                                          boxShadow: isDark ? '0 2px 8px rgba(0, 0, 0, 0.4)' : '0 2px 6px rgba(15, 23, 42, 0.18)',
                                           cursor: 'pointer'
                                         }}
                                       >
@@ -5766,8 +5775,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       </div>
                                     ))}
                                   </div>
-                                  <div style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
-                                    <strong style={{ color: '#f8fafc' }}>{displayMembers.length}/5 thành viên</strong> đã liên kết nhóm
+                                  <div style={{ fontSize: '0.82rem', color: isDark ? '#cbd5e1' : '#475569' }}>
+                                    <strong style={{ color: isDark ? '#f8fafc' : '#0f172a' }}>{displayMembers.length}/5 thành viên</strong> đã liên kết nhóm
                                   </div>
                                 </div>
 
@@ -5781,7 +5790,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     style={{
                                       padding: '10px 20px',
                                       borderRadius: '12px',
-                                      background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.95) 0%, rgba(147, 51, 234, 0.9) 100%)',
+                                      background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
                                       border: '1px solid rgba(192, 132, 252, 0.5)',
                                       color: '#ffffff',
                                       fontSize: '0.86rem',
@@ -5790,7 +5799,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       alignItems: 'center',
                                       gap: '8px',
                                       cursor: 'pointer',
-                                      boxShadow: '0 4px 18px rgba(124, 58, 237, 0.4)',
+                                      boxShadow: '0 4px 18px rgba(124, 58, 237, 0.35)',
                                       transition: 'all 0.2s ease'
                                     }}
                                   >
@@ -5805,24 +5814,24 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <div
                               className="glass-card"
                               style={{
-                                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(19, 14, 32, 0.96) 100%)',
-                                border: '1px solid rgba(167, 139, 250, 0.25)',
+                                background: isDark ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(19, 14, 32, 0.96) 100%)' : '#ffffff',
+                                border: isDark ? '1px solid rgba(167, 139, 250, 0.25)' : '1px solid #ddd6fe',
                                 borderRadius: '20px',
                                 padding: '1.8rem 2.2rem',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '1.5rem',
-                                boxShadow: '0 15px 35px -10px rgba(0, 0, 0, 0.6)'
+                                boxShadow: isDark ? '0 15px 35px -10px rgba(0, 0, 0, 0.6)' : '0 8px 24px -10px rgba(109, 40, 217, 0.1)'
                               }}
                             >
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                                   <span style={{ fontSize: '1rem' }}>📡</span>
-                                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc', margin: 0, letterSpacing: '0.3px' }}>
+                                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', margin: 0, letterSpacing: '0.3px' }}>
                                     {lang === 'vi' ? 'THƯỚC ĐO TIẾN TRÌNH ĐỒ ÁN (HOLOGRAPHIC 4-PHASE PIPELINE)' : 'HOLOGRAPHIC 4-PHASE PIPELINE STEPPER'}
                                   </h4>
                                 </div>
-                                <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: 0 }}>
+                                <p style={{ fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#475569', margin: 0 }}>
                                   {lang === 'vi'
                                     ? 'Hệ thống tự động đồng bộ tiến trình đồ án theo thời gian thực từ khâu nộp Git, quét mã nguồn cho tới thẩm định của Giảng viên.'
                                     : 'Real-time project pipeline tracking from Git submission to faculty assessment.'}
@@ -5838,14 +5847,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               }}>
                                 {/* Phase 1: Nộp Link Git (Complete - Emerald) */}
                                 <div style={{
-                                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
-                                  border: '1px solid rgba(16, 185, 129, 0.45)',
+                                  background: isDark ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                                  border: isDark ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid #6ee7b7',
                                   borderRadius: '16px',
                                   padding: '1.1rem 1.25rem',
                                   display: 'flex',
                                   flexDirection: 'column',
                                   gap: '8px',
-                                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.15)'
+                                  boxShadow: isDark ? '0 4px 15px rgba(16, 185, 129, 0.15)' : '0 4px 12px rgba(16, 185, 129, 0.12)'
                                 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{
@@ -5859,19 +5868,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       justifyContent: 'center',
                                       fontWeight: 900,
                                       fontSize: '0.9rem',
-                                      boxShadow: '0 0 12px rgba(16, 185, 129, 0.6)'
+                                      boxShadow: isDark ? '0 0 12px rgba(16, 185, 129, 0.6)' : '0 2px 8px rgba(16, 185, 129, 0.35)'
                                     }}>
                                       ✓
                                     </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#34d399', textTransform: 'uppercase' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#34d399' : '#047857', textTransform: 'uppercase' }}>
                                       {lang === 'vi' ? 'Đã ghi nhận' : 'Recorded'}
                                     </span>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc' }}>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#064e3b' }}>
                                       1. {lang === 'vi' ? 'Nộp Link Git' : 'Git Repo Submitted'}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', lineHeight: 1.4 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#065f46', marginTop: '2px', lineHeight: 1.4 }}>
                                       {lang === 'vi' ? 'Link GitHub & branch main đã lưu trữ an toàn' : 'Repository and branch mapped'}
                                     </div>
                                   </div>
@@ -5879,14 +5888,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                                 {/* Phase 2: Quét Telemetry & AI AST (Active - Neon Purple Pulse) */}
                                 <div style={{
-                                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)',
-                                  border: '1px solid rgba(192, 132, 252, 0.6)',
+                                  background: isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                                  border: isDark ? '1px solid rgba(192, 132, 252, 0.6)' : '1px solid #c4b5fd',
                                   borderRadius: '16px',
                                   padding: '1.1rem 1.25rem',
                                   display: 'flex',
                                   flexDirection: 'column',
                                   gap: '8px',
-                                  boxShadow: '0 0 20px rgba(168, 85, 247, 0.25)'
+                                  boxShadow: isDark ? '0 0 20px rgba(168, 85, 247, 0.25)' : '0 4px 12px rgba(124, 58, 237, 0.12)'
                                 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{
@@ -5900,19 +5909,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       justifyContent: 'center',
                                       fontWeight: 900,
                                       fontSize: '0.9rem',
-                                      boxShadow: '0 0 15px rgba(168, 85, 247, 0.6)'
+                                      boxShadow: isDark ? '0 0 15px rgba(168, 85, 247, 0.6)' : '0 2px 8px rgba(124, 58, 237, 0.35)'
                                     }}>
                                       ⚡
                                     </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#c084fc', textTransform: 'uppercase' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#c084fc' : '#6d28d9', textTransform: 'uppercase' }}>
                                       {lang === 'vi' ? 'Đã kích hoạt' : 'Telemetry Active'}
                                     </span>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#ffffff' }}>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#ffffff' : '#4c1d95' }}>
                                       2. {lang === 'vi' ? 'Quét Telemetry & AI AST' : 'Telemetry & AST Engine'}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '2px', lineHeight: 1.4 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#cbd5e1' : '#5b21b6', marginTop: '2px', lineHeight: 1.4 }}>
                                       {lang === 'vi' ? 'Đã lọc nhiễu BR-07, bóc tách LOC sạch' : 'Noise-filtered LOC & commits computed'}
                                     </div>
                                   </div>
@@ -5920,14 +5929,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                                 {/* Phase 3: Giảng Viên Thẩm Định (Amber - Awaiting Review) */}
                                 <div style={{
-                                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)',
-                                  border: '1px solid rgba(245, 158, 11, 0.45)',
+                                  background: isDark ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                                  border: isDark ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid #fcd34d',
                                   borderRadius: '16px',
                                   padding: '1.1rem 1.25rem',
                                   display: 'flex',
                                   flexDirection: 'column',
                                   gap: '8px',
-                                  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.15)'
+                                  boxShadow: isDark ? '0 4px 15px rgba(245, 158, 11, 0.15)' : '0 4px 12px rgba(245, 158, 11, 0.12)'
                                 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{
@@ -5940,19 +5949,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       fontSize: '1rem',
-                                      boxShadow: '0 0 12px rgba(245, 158, 11, 0.5)'
+                                      boxShadow: isDark ? '0 0 12px rgba(245, 158, 11, 0.5)' : '0 2px 8px rgba(245, 158, 11, 0.35)'
                                     }}>
                                       👨‍🏫
                                     </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#fbbf24' : '#b45309', textTransform: 'uppercase' }}>
                                       {lang === 'vi' ? 'Đang thẩm định' : 'In Review'}
                                     </span>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#f8fafc' }}>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#78350f' }}>
                                       3. {lang === 'vi' ? 'Giảng Viên Thẩm Định' : 'Faculty Evaluation'}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', lineHeight: 1.4 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#92400e', marginTop: '2px', lineHeight: 1.4 }}>
                                       {lang === 'vi' ? 'GV đối soát đóng góp và chất lượng code' : 'Instructor reviews contributions'}
                                     </div>
                                   </div>
@@ -5960,22 +5969,21 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                                 {/* Phase 4: Công Bố Điểm & Báo Cáo Chốt (Locked/Muted) */}
                                 <div style={{
-                                  background: 'rgba(255, 255, 255, 0.02)',
-                                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                                  background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+                                  border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #cbd5e1',
                                   borderRadius: '16px',
                                   padding: '1.1rem 1.25rem',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: '8px',
-                                  opacity: 0.75
+                                  gap: '8px'
                                 }}>
                                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{
                                       width: '32px',
                                       height: '32px',
                                       borderRadius: '10px',
-                                      background: 'rgba(255, 255, 255, 0.08)',
-                                      color: '#94a3b8',
+                                      background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0',
+                                      color: isDark ? '#94a3b8' : '#475569',
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
@@ -5983,15 +5991,15 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     }}>
                                       🏆
                                     </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#64748b' : '#475569', textTransform: 'uppercase' }}>
                                       {lang === 'vi' ? 'Đang khóa' : 'Locked'}
                                     </span>
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#cbd5e1' }}>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#cbd5e1' : '#334155' }}>
                                       4. {lang === 'vi' ? 'Báo Cáo Điểm Chốt' : 'Final Grade & Report'}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: 1.4 }}>
+                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px', lineHeight: 1.4 }}>
                                       {lang === 'vi' ? 'Chốt điểm sau khi hoàn tất kiểm tra' : 'Released after moderation'}
                                     </div>
                                   </div>
@@ -6009,22 +6017,22 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               <div
                                 className="glass-card"
                                 style={{
-                                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)',
-                                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                                  background: isDark ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)' : '#ffffff',
+                                  border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #bae6fd',
                                   borderRadius: '18px',
                                   padding: '1.35rem 1.5rem',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '16px',
-                                  boxShadow: '0 10px 25px -10px rgba(56, 189, 248, 0.1)'
+                                  boxShadow: isDark ? '0 10px 25px -10px rgba(56, 189, 248, 0.1)' : '0 6px 18px -8px rgba(2, 132, 199, 0.12)'
                                 }}
                               >
                                 <div style={{
                                   width: '46px',
                                   height: '46px',
                                   borderRadius: '14px',
-                                  background: 'rgba(56, 189, 248, 0.15)',
-                                  color: '#38bdf8',
+                                  background: isDark ? 'rgba(56, 189, 248, 0.15)' : '#e0f2fe',
+                                  color: isDark ? '#38bdf8' : '#0284c7',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -6033,13 +6041,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   <GitBranch size={22} />
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                     {lang === 'vi' ? 'Tổng số Commits' : 'Total Commits'}
                                   </div>
-                                  <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#38bdf8', lineHeight: 1.2 }}>
-                                    {gitAnalytics?.total_commits || 48} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>commits</span>
+                                  <div style={{ fontSize: '1.55rem', fontWeight: 900, color: isDark ? '#38bdf8' : '#0284c7', lineHeight: 1.2 }}>
+                                    {gitAnalytics?.total_commits || 48} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#475569' }}>commits</span>
                                   </div>
-                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                  <div style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px' }}>
                                     {lang === 'vi' ? 'Đã bóc tách qua Git Telemetry' : 'Parsed by Telemetry Engine'}
                                   </div>
                                 </div>
@@ -6049,22 +6057,22 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               <div
                                 className="glass-card"
                                 style={{
-                                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)',
-                                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                                  background: isDark ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)' : '#ffffff',
+                                  border: isDark ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid #ddd6fe',
                                   borderRadius: '18px',
                                   padding: '1.35rem 1.5rem',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '16px',
-                                  boxShadow: '0 10px 25px -10px rgba(168, 85, 247, 0.1)'
+                                  boxShadow: isDark ? '0 10px 25px -10px rgba(168, 85, 247, 0.1)' : '0 6px 18px -8px rgba(124, 58, 237, 0.12)'
                                 }}
                               >
                                 <div style={{
                                   width: '46px',
                                   height: '46px',
                                   borderRadius: '14px',
-                                  background: 'rgba(168, 85, 247, 0.15)',
-                                  color: '#c084fc',
+                                  background: isDark ? 'rgba(168, 85, 247, 0.15)' : '#ede9fe',
+                                  color: isDark ? '#c084fc' : '#7c3aed',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -6073,13 +6081,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   <FileCode size={22} />
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                     {lang === 'vi' ? 'LOC Đã Lọc Nhiễu (BR-07)' : 'Noise-Filtered LOC'}
                                   </div>
-                                  <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#c084fc', lineHeight: 1.2 }}>
-                                    +{gitAnalytics?.total_lines_added || 4250} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ef4444' }}>-{gitAnalytics?.total_lines_deleted || 820}</span>
+                                  <div style={{ fontSize: '1.45rem', fontWeight: 900, color: isDark ? '#c084fc' : '#6d28d9', lineHeight: 1.2 }}>
+                                    +{gitAnalytics?.total_lines_added || 4250} <span style={{ fontSize: '0.85rem', fontWeight: 700, color: isDark ? '#ef4444' : '#dc2626' }}>-{gitAnalytics?.total_lines_deleted || 820}</span>
                                   </div>
-                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                  <div style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px' }}>
                                     {lang === 'vi' ? 'Bỏ qua 100% file rác thư viện' : 'Excluded node_modules & vendor'}
                                   </div>
                                 </div>
@@ -6089,22 +6097,22 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               <div
                                 className="glass-card"
                                 style={{
-                                  background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)',
-                                  border: '1px solid rgba(52, 211, 153, 0.3)',
+                                  background: isDark ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(20, 16, 38, 0.92) 100%)' : '#ffffff',
+                                  border: isDark ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid #a7f3d0',
                                   borderRadius: '18px',
                                   padding: '1.35rem 1.5rem',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: '16px',
-                                  boxShadow: '0 10px 25px -10px rgba(52, 211, 153, 0.1)'
+                                  boxShadow: isDark ? '0 10px 25px -10px rgba(52, 211, 153, 0.1)' : '0 6px 18px -8px rgba(16, 185, 129, 0.12)'
                                 }}
                               >
                                 <div style={{
                                   width: '46px',
                                   height: '46px',
                                   borderRadius: '14px',
-                                  background: 'rgba(52, 211, 153, 0.15)',
-                                  color: '#34d399',
+                                  background: isDark ? 'rgba(52, 211, 153, 0.15)' : '#dcfce7',
+                                  color: isDark ? '#34d399' : '#059669',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -6113,13 +6121,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   <Users size={22} />
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                     {lang === 'vi' ? 'Độ Phủ Thành Viên' : 'Team Participation'}
                                   </div>
-                                  <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#34d399', lineHeight: 1.2 }}>
-                                    5/5 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8' }}>thành viên (100%)</span>
+                                  <div style={{ fontSize: '1.55rem', fontWeight: 900, color: isDark ? '#34d399' : '#059669', lineHeight: 1.2 }}>
+                                    5/5 <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#94a3b8' : '#475569' }}>thành viên (100%)</span>
                                   </div>
-                                  <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                  <div style={{ fontSize: '0.72rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px' }}>
                                     {lang === 'vi' ? 'Tất cả đều có commit hợp lệ' : '100% active contributors'}
                                   </div>
                                 </div>
@@ -6137,8 +6145,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           {/* Banner nhắc nhở nếu đang ở chế độ chỉnh sửa */}
                           {isEditingTeamRepo && (
                             <div style={{
-                              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(124, 58, 237, 0.12) 100%)',
-                              border: '1px solid rgba(168, 85, 247, 0.45)',
+                              background: isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(124, 58, 237, 0.12) 100%)' : '#f5f3ff',
+                              border: isDark ? '1px solid rgba(168, 85, 247, 0.45)' : '1px solid #c4b5fd',
                               borderRadius: '14px',
                               padding: '12px 20px',
                               display: 'flex',
@@ -6146,11 +6154,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               justifyContent: 'space-between',
                               flexWrap: 'wrap',
                               gap: '12px',
-                              boxShadow: '0 4px 15px rgba(124, 58, 237, 0.15)'
+                              boxShadow: isDark ? '0 4px 15px rgba(124, 58, 237, 0.15)' : '0 4px 12px rgba(124, 58, 237, 0.08)'
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Edit3 size={18} color="#c084fc" />
-                                <span style={{ fontSize: '0.88rem', color: '#f1f5f9', fontWeight: 600 }}>
+                                <Edit3 size={18} color={isDark ? '#c084fc' : '#6d28d9'} />
+                                <span style={{ fontSize: '0.88rem', color: isDark ? '#f1f5f9' : '#4c1d95', fontWeight: 700 }}>
                                   {lang === 'vi'
                                     ? 'Đang ở chế độ chỉnh sửa thông tin đề tài & kho lưu trữ Git nhóm.'
                                     : 'Editing project topic & GitHub repository details.'}
@@ -6160,13 +6168,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 type="button"
                                 onClick={() => setIsEditingTeamRepo(false)}
                                 style={{
-                                  background: 'rgba(255, 255, 255, 0.08)',
-                                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                                  color: '#cbd5e1',
+                                  background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
+                                  border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1',
+                                  color: isDark ? '#cbd5e1' : '#334155',
                                   padding: '5px 14px',
                                   borderRadius: '8px',
                                   fontSize: '0.78rem',
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                   cursor: 'pointer'
                                 }}
                               >
@@ -6177,10 +6185,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                           {/* Section Intro */}
                           <div>
-                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
                               <span>{lang === 'vi' ? 'Cổng Nộp Đồ Án Nhóm (Team Git Submission)' : 'Team Git Submission'}</span>
                             </h3>
-                            <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0 }}>
+                            <p style={{ color: isDark ? '#94a3b8' : '#475569', fontSize: '0.88rem', margin: 0 }}>
                               {lang === 'vi'
                                 ? 'Nộp đường dẫn kho lưu trữ GitHub chung của nhóm để hệ thống tự động bóc tách commit, phân tích đóng góp từng thành viên và gửi giảng viên chấm điểm.'
                                 : 'Submit shared GitHub repo for instructor analytics and contribution grading.'}
