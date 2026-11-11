@@ -1521,10 +1521,46 @@ III. QUY CHUẨN DOCKER SANDBOX:
             try {
               const zip = new JSZip();
               const loadedZip = await zip.loadAsync(uploadedFile);
-              const javaFileNames = Object.keys(loadedZip.files).filter(name => !name.startsWith('__MACOSX') && name.endsWith('.java'));
+              const javaFileNames = Object.keys(loadedZip.files).filter(name => !name.startsWith('__MACOSX') && name.endsWith('.java') && !loadedZip.files[name].dir);
               if (javaFileNames.length > 0) {
-                const mainFile = javaFileNames.find(n => n.toLowerCase().includes('main') || n.toLowerCase().includes('solution')) || javaFileNames[0];
-                finalCode = await loadedZip.files[mainFile].async('text');
+                const q1Files: string[] = [];
+                const q2Files: string[] = [];
+                const q3Files: string[] = [];
+                const q4Files: string[] = [];
+                const commonFiles: string[] = [];
+
+                for (const fName of javaFileNames) {
+                  const lower = fName.toLowerCase();
+                  const fileContent = await loadedZip.files[fName].async('text');
+                  const header = `// --- File: ${fName} ---\n${fileContent.trim()}`;
+                  
+                  if (lower.includes('q1') || lower.includes('cau1') || lower.includes('string')) {
+                    q1Files.push(header);
+                  } else if (lower.includes('q2') || lower.includes('cau2') || lower.includes('car') || lower.includes('speccar')) {
+                    q2Files.push(header);
+                  } else if (lower.includes('q3') || lower.includes('cau3') || lower.includes('mylist') || lower.includes('node')) {
+                    q3Files.push(header);
+                  } else if (lower.includes('q4') || lower.includes('cau4') || lower.includes('reverse') || lower.includes('word')) {
+                    q4Files.push(header);
+                  } else {
+                    commonFiles.push(header);
+                  }
+                }
+
+                if (q1Files.length > 0 || q2Files.length > 0 || q3Files.length > 0 || q4Files.length > 0) {
+                  const parts: string[] = [];
+                  if (q1Files.length > 0) parts.push(`// ==================== QUESTION 1 ====================\n` + q1Files.join('\n\n'));
+                  if (q2Files.length > 0) parts.push(`// ==================== QUESTION 2 ====================\n` + q2Files.join('\n\n'));
+                  if (q3Files.length > 0) parts.push(`// ==================== QUESTION 3 ====================\n` + q3Files.join('\n\n'));
+                  if (q4Files.length > 0) parts.push(`// ==================== QUESTION 4 ====================\n` + q4Files.join('\n\n'));
+                  if (commonFiles.length > 0) parts.push(`// ==================== COMMON FILES ====================\n` + commonFiles.join('\n\n'));
+                  finalCode = parts.join('\n\n');
+                } else if (javaFileNames.length > 1) {
+                  const allContents = await Promise.all(javaFileNames.map(async f => `// --- File: ${f} ---\n` + (await loadedZip.files[f].async('text')).trim()));
+                  finalCode = allContents.join('\n\n');
+                } else {
+                  finalCode = await loadedZip.files[javaFileNames[0]].async('text');
+                }
               }
             } catch (zipErr) {
               console.warn('Could not extract zip:', zipErr);

@@ -158,6 +158,35 @@ export class GradingWorkerService {
       // 4. Execute code in Docker Sandbox for each Test Case (Prevent duplicate scoring)
       const evaluatedRuleIds = new Set<number>();
 
+function extractQuestionCode(fullCode: string, ruleCriterion: string): string {
+  if (!fullCode) return '';
+
+  const qMatch = ruleCriterion.match(/Q([1-4])/i) || ruleCriterion.match(/C[âa]u\s*([1-4])/i);
+  if (!qMatch) return fullCode;
+
+  const qNum = qMatch[1]; // "1", "2", "3", "4"
+
+  // 1. Explicit section delimiters: // ==================== QUESTION 1 ====================
+  const delimiterRegex = new RegExp(
+    `(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}\\s*\\*\\/)([\\s\\S]*?)(?=(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|$))`,
+    'i'
+  );
+  const match = fullCode.match(delimiterRegex);
+  if (match && match[1] && match[1].trim().length > 0) {
+    return match[1].trim();
+  }
+
+  // 2. Content heuristics if single file or partial submission
+  if (qNum === '2' && (fullCode.includes('class Car') || fullCode.includes('class SpecCar'))) {
+    return fullCode;
+  }
+  if (qNum === '3' && (fullCode.includes('MyList') || fullCode.includes('class Node'))) {
+    return fullCode;
+  }
+
+  return fullCode;
+}
+
       for (const rule of rubrics) {
         if (evaluatedRuleIds.has(rule.rubric_rule_id)) {
           console.warn(`[Grading Worker] Skipping duplicate rubric rule #${rule.rubric_rule_id}`);
@@ -177,11 +206,13 @@ export class GradingWorkerService {
         let testExitCode: number = 0;
 
         if (rule.rule_type === 'AUTOMATED') {
+          const codeToRun = extractQuestionCode(studentCode, rule.criterion);
+
           const sandboxRes = await sandboxService.runCode({
-            code: studentCode,
+            code: codeToRun,
             language: language,
             inputData: rule.input_data || '',
-            timeoutMs: language === 'java' ? 10000 : 5000, // 10s for Java (JVM warm-up & compilation), 5s for others (BR-03)
+            timeoutMs: language === 'java' ? 15000 : 5000, // 15s for Java (JVM warm-up & compilation), 5s for others (BR-03)
           });
 
           actualOutput = sandboxRes.stdout || sandboxRes.stderr || '';

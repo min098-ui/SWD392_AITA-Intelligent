@@ -895,6 +895,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
   const [consensusNotes, setConsensusNotes] = useState<string>('');
   const [finalScoreInput, setFinalScoreInput] = useState<number>(0);
   const [scoreDiffNotice, setScoreDiffNotice] = useState<string>('');
+  const [selectedQuestionTab, setSelectedQuestionTab] = useState<'all' | 'Q1' | 'Q2' | 'Q3' | 'Q4'>('all');
 
   // Real Git Analytics State for Lecturer
   const [gitAnalyticsMap, setGitAnalyticsMap] = useState<Record<number, any>>({});
@@ -2442,6 +2443,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
   const openGradingModal = (sub: SubmissionItem) => {
     setSelectedSub(sub);
+    setSelectedQuestionTab('all');
     setEditingGrade(sub.final_score ?? sub.grade);
     setEditingNote(sub.overrideNote || sub.reviewer_1_notes || '');
     setReviewer1Score(sub.reviewer_1_score ?? sub.grade ?? (sub.ai_score ?? 0));
@@ -6725,40 +6727,160 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 </button>
               </div>
 
-              {/* 📄 MÃ NGUỒN BÀI NỘP TRỰC TIẾP (DIRECT CODE) */}
-              {selectedSub.code_content && (
-                <div style={{
-                  marginBottom: '0.85rem',
-                  background: '#090d16',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  borderRadius: '10px',
-                  padding: '10px 14px',
-                  fontSize: '0.8rem'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <span style={{ fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <FileText size={14} color="#a78bfa" /> {lang === 'vi' ? 'Mã nguồn sinh viên đã nộp' : 'Student Submitted Code'} ({selectedSub.language || 'javascript'})
-                    </span>
-                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>
-                      {selectedSub.code_content.split('\n').length} dòng
-                    </span>
-                  </div>
-                  <pre style={{
-                    margin: 0,
-                    padding: '8px 10px',
-                    borderRadius: '6px',
-                    background: 'rgba(0,0,0,0.4)',
-                    color: selectedSub.language === 'python' ? '#a78bfa' : '#fbbf24',
-                    fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: '0.78rem',
-                    maxHeight: '160px',
-                    overflow: 'auto',
-                    lineHeight: 1.5
+              {/* 📄 MÃ NGUỒN BÀI NỘP TRỰC TIẾP (DIRECT CODE) & 4 CÂU HỎI PE */}
+              {selectedSub.code_content && (() => {
+                const code = selectedSub.code_content || '';
+                const extractSection = (qNum: string) => {
+                  const reg = new RegExp(
+                    `(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}\\s*\\*\\/)([\\s\\S]*?)(?=(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|$))`,
+                    'i'
+                  );
+                  const m = code.match(reg);
+                  if (m && m[1] && m[1].trim()) return m[1].trim();
+
+                  if (qNum === '2' && (code.includes('class Car') || code.includes('class SpecCar'))) {
+                    return code;
+                  }
+                  if (qNum === '3' && (code.includes('MyList') || code.includes('class Node'))) {
+                    return code;
+                  }
+                  return '';
+                };
+
+                const q1Code = extractSection('1');
+                const q2Code = extractSection('2');
+                const q3Code = extractSection('3');
+                const q4Code = extractSection('4');
+
+                const displayedCode = selectedQuestionTab === 'all' 
+                  ? code 
+                  : (selectedQuestionTab === 'Q1' 
+                      ? (q1Code || '// (Chưa có mã nguồn cho Câu 1 trong bài nộp)') 
+                      : (selectedQuestionTab === 'Q2' 
+                          ? (q2Code || '// (Chưa có mã nguồn cho Câu 2 trong bài nộp)') 
+                          : (selectedQuestionTab === 'Q3' 
+                              ? (q3Code || '// (Chưa có mã nguồn cho Câu 3 trong bài nộp)') 
+                              : (q4Code || '// (Chưa có mã nguồn cho Câu 4 trong bài nộp)'))));
+
+                return (
+                  <div style={{
+                    marginBottom: '0.85rem',
+                    background: '#090d16',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: '10px',
+                    padding: '10px 14px',
+                    fontSize: '0.8rem'
                   }}>
-                    {selectedSub.code_content}
-                  </pre>
-                </div>
-              )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FileText size={14} color="#a78bfa" /> {lang === 'vi' ? 'Mã nguồn bài làm của sinh viên' : 'Student Submitted Code'} ({selectedSub.language === 'java' ? 'Java 17 (OpenJDK)' : selectedSub.language})
+                      </span>
+                      <span style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>
+                        {displayedCode.split('\n').length} dòng
+                      </span>
+                    </div>
+
+                    {/* 4 TABS CÂU HỎI PE PRO192 (Q1 - Q4) */}
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQuestionTab('all')}
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          border: selectedQuestionTab === 'all' ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.12)',
+                          background: selectedQuestionTab === 'all' ? 'rgba(167, 139, 250, 0.2)' : 'rgba(255,255,255,0.04)',
+                          color: selectedQuestionTab === 'all' ? '#c4b5fd' : '#94a3b8'
+                        }}
+                      >
+                        ⭐ Tất cả mã nguồn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQuestionTab('Q1')}
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          border: selectedQuestionTab === 'Q1' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.12)',
+                          background: selectedQuestionTab === 'Q1' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.04)',
+                          color: selectedQuestionTab === 'Q1' ? '#38bdf8' : (q1Code ? '#cbd5e1' : '#64748b')
+                        }}
+                      >
+                        Q1: Xử lý chuỗi (2đ) {q1Code ? '✓' : '—'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQuestionTab('Q2')}
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          border: selectedQuestionTab === 'Q2' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.12)',
+                          background: selectedQuestionTab === 'Q2' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255,255,255,0.04)',
+                          color: selectedQuestionTab === 'Q2' ? '#34d399' : (q2Code ? '#cbd5e1' : '#64748b')
+                        }}
+                      >
+                        Q2: Car & SpecCar (3đ) {q2Code ? '✓' : '—'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQuestionTab('Q3')}
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          border: selectedQuestionTab === 'Q3' ? '1px solid #fbbf24' : '1px solid rgba(255,255,255,0.12)',
+                          background: selectedQuestionTab === 'Q3' ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255,255,255,0.04)',
+                          color: selectedQuestionTab === 'Q3' ? '#fbbf24' : (q3Code ? '#cbd5e1' : '#64748b')
+                        }}
+                      >
+                        Q3: MyList (3đ) {q3Code ? '✓' : '—'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQuestionTab('Q4')}
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '6px',
+                          fontSize: '0.74rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          border: selectedQuestionTab === 'Q4' ? '1px solid #f472b6' : '1px solid rgba(255,255,255,0.12)',
+                          background: selectedQuestionTab === 'Q4' ? 'rgba(244, 114, 182, 0.2)' : 'rgba(255,255,255,0.04)',
+                          color: selectedQuestionTab === 'Q4' ? '#f472b6' : (q4Code ? '#cbd5e1' : '#64748b')
+                        }}
+                      >
+                        Q4: Đảo từ (2đ) {q4Code ? '✓' : '—'}
+                      </button>
+                    </div>
+
+                    <pre style={{
+                      margin: 0,
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      background: 'rgba(0,0,0,0.4)',
+                      color: selectedSub.language === 'python' ? '#a78bfa' : '#fbbf24',
+                      fontFamily: 'var(--font-mono, monospace)',
+                      fontSize: '0.78rem',
+                      maxHeight: '180px',
+                      overflow: 'auto',
+                      lineHeight: 1.5
+                    }}>
+                      {displayedCode}
+                    </pre>
+                  </div>
+                );
+              })()}
 
               {/* 🧪 BẢNG ĐỐI SOÁT CHI TIẾT TEST CASES & BÁO CÁO LỖI DOCKER SANDBOX (HẠNG MỤC 1) */}
               {(() => {
@@ -6975,21 +7097,21 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                         })}
                       </div>
                     ) : (
-                      <pre style={{
+                      <div style={{
                         background: 'rgba(0, 0, 0, 0.55)',
                         border: '1px solid rgba(255, 255, 255, 0.06)',
                         borderRadius: '6px',
-                        padding: '8px 10px',
-                        fontSize: '0.74rem',
-                        fontFamily: 'monospace',
-                        color: '#c4b5fd',
-                        whiteSpace: 'pre-wrap',
-                        maxHeight: '90px',
-                        overflowY: 'auto',
-                        margin: 0
+                        padding: '10px 12px',
+                        fontSize: '0.78rem',
+                        color: '#c4b5fd'
                       }}>
-                        {selectedSub.sandboxOutput}
-                      </pre>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', color: '#fbbf24', fontWeight: 600 }}>
+                          <Clock size={14} /> {lang === 'vi' ? 'Hệ thống Docker Sandbox đang xử lý hoặc đang nạp chi tiết các câu hỏi.' : 'Sandbox processing or loading test cases.'}
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#94a3b8', whiteSpace: 'pre-wrap' }}>
+                          {selectedSub.sandboxOutput}
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
