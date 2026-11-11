@@ -3467,7 +3467,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           <BookOpen size={24} />
                         </div>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: '1.26rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.3px' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.26rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', letterSpacing: '-0.3px' }}>
                             {lang === 'vi' ? 'Đề Bài & Bàn Làm Việc Cá Nhân' : 'Individual Tasks & Sandbox'}
                           </h3>
                         </div>
@@ -3482,19 +3482,25 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           gap: '8px',
                           padding: '9px 16px',
                           borderRadius: '10px',
-                          background: 'rgba(15, 23, 42, 0.85)',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          color: '#e2e8f0',
+                          background: isDark ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+                          border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1',
+                          color: isDark ? '#e2e8f0' : '#334155',
                           fontSize: '0.84rem',
                           fontWeight: 600,
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)'
+                          boxShadow: isDark ? '0 4px 14px rgba(0, 0, 0, 0.35)' : '0 2px 8px rgba(15, 23, 42, 0.06)'
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)'; e.currentTarget.style.color = '#a78bfa'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.color = '#e2e8f0'; }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+                          e.currentTarget.style.color = isDark ? '#a78bfa' : '#7c3aed';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1';
+                          e.currentTarget.style.color = isDark ? '#e2e8f0' : '#334155';
+                        }}
                       >
-                        <FileText size={15} color="#a78bfa" />
+                        <FileText size={15} color={isDark ? '#a78bfa' : '#7c3aed'} />
                         <span>{lang === 'vi' ? 'Lịch Sử Nộp & Kết Quả Chấm' : 'View History & Scores'}</span>
                         <ArrowRight size={14} />
                       </button>
@@ -3502,38 +3508,28 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                     {/* Course filter chips */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', paddingTop: '2px' }}>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', marginRight: '4px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#475569', marginRight: '4px' }}>
                         {lang === 'vi' ? 'Chọn lớp học:' : 'Courses:'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedIndividualCourseId('ALL')}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '8px',
-                          fontSize: '0.82rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease',
-                          background: selectedIndividualCourseId === 'ALL'
-                            ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95) 0%, rgba(185, 28, 28, 0.95) 100%)'
-                            : 'rgba(15, 23, 42, 0.75)',
-                          border: selectedIndividualCourseId === 'ALL' ? '1px solid rgba(248, 113, 113, 0.6)' : '1px solid rgba(255, 255, 255, 0.12)',
-                          color: selectedIndividualCourseId === 'ALL' ? '#ffffff' : '#94a3b8',
-                          boxShadow: selectedIndividualCourseId === 'ALL' ? '0 4px 14px rgba(220, 38, 38, 0.4)' : 'none'
-                        }}
-                      >
-                        {lang === 'vi' ? `Tất cả các lớp (${allIndividualAssignments.length})` : `All courses (${allIndividualAssignments.length})`}
-                      </button>
-
-                      {availableCourses.map(c => {
-                        const count = allIndividualAssignments.filter(a => a.course_id === c.course_id).length;
-                        const isSelected = String(selectedIndividualCourseId) === String(c.course_id);
+                      {[
+                        {
+                          id: 'ALL',
+                          label: lang === 'vi' ? `Tất cả các lớp (${allIndividualAssignments.length})` : `All courses (${allIndividualAssignments.length})`
+                        },
+                        ...availableCourses.map(c => {
+                          const count = allIndividualAssignments.filter(a => a.course_id === c.course_id).length;
+                          return {
+                            id: String(c.course_id),
+                            label: `${c.course_code} ${count > 0 ? `(${count} đề)` : `(0 đề)`}`
+                          };
+                        })
+                      ].map(chip => {
+                        const isSelected = String(selectedIndividualCourseId) === chip.id;
                         return (
                           <button
-                            key={c.course_id}
+                            key={chip.id}
                             type="button"
-                            onClick={() => setSelectedIndividualCourseId(String(c.course_id))}
+                            onClick={() => setSelectedIndividualCourseId(chip.id)}
                             style={{
                               padding: '6px 14px',
                               borderRadius: '8px',
@@ -3543,13 +3539,17 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               transition: 'all 0.2s ease',
                               background: isSelected
                                 ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95) 0%, rgba(185, 28, 28, 0.95) 100%)'
-                                : 'rgba(15, 23, 42, 0.75)',
-                              border: isSelected ? '1px solid rgba(248, 113, 113, 0.6)' : '1px solid rgba(255, 255, 255, 0.12)',
-                              color: isSelected ? '#ffffff' : '#cbd5e1',
-                              boxShadow: isSelected ? '0 4px 14px rgba(220, 38, 38, 0.4)' : 'none'
+                                : (isDark ? 'rgba(15, 23, 42, 0.75)' : '#ffffff'),
+                              border: isSelected
+                                ? '1px solid rgba(248, 113, 113, 0.6)'
+                                : (isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1'),
+                              color: isSelected ? '#ffffff' : (isDark ? '#cbd5e1' : '#334155'),
+                              boxShadow: isSelected
+                                ? '0 4px 14px rgba(220, 38, 38, 0.35)'
+                                : (isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)')
                             }}
                           >
-                            {c.course_code} {count > 0 ? `(${count} đề)` : `(0 đề)`}
+                            {chip.label}
                           </button>
                         );
                       })}
@@ -3751,16 +3751,17 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           style={{
                             width: '100%',
                             padding: '10px 36px 10px 40px',
-                            background: 'rgba(15, 23, 42, 0.85)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            background: isDark ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+                            border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1',
                             borderRadius: '10px',
-                            color: '#f8fafc',
+                            color: isDark ? '#f8fafc' : '#0f172a',
                             fontSize: '0.86rem',
                             outline: 'none',
-                            transition: 'border-color 0.2s ease'
+                            transition: 'border-color 0.2s ease',
+                            boxShadow: isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.05)'
                           }}
                           onFocus={(e) => e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)'}
-                          onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)'}
+                          onBlur={(e) => e.target.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : '#cbd5e1'}
                         />
                         {assignSearchQuery && (
                           <button
@@ -3776,63 +3777,55 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       {/* Status filter pills */}
                       <div style={{
                         display: 'inline-flex',
-                        background: 'rgba(15, 23, 42, 0.8)',
+                        background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#ffffff',
                         padding: '4px',
                         borderRadius: '10px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        gap: '4px'
+                        border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1',
+                        gap: '4px',
+                        boxShadow: isDark ? 'none' : '0 1px 3px rgba(15, 23, 42, 0.06)'
                       }}>
-                        <button
-                          type="button"
-                          onClick={() => setAssignStatusFilter('ALL')}
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '7px',
-                            border: 'none',
-                            background: assignStatusFilter === 'ALL' ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.95))' : 'transparent',
-                            color: assignStatusFilter === 'ALL' ? '#ffffff' : '#94a3b8',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {lang === 'vi' ? 'Tất cả trạng thái' : 'All status'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAssignStatusFilter('UNSUBMITTED')}
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '7px',
-                            border: 'none',
-                            background: assignStatusFilter === 'UNSUBMITTED' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
-                            color: assignStatusFilter === 'UNSUBMITTED' ? '#fbbf24' : '#94a3b8',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {lang === 'vi' ? 'Chưa nộp' : 'Pending'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAssignStatusFilter('SUBMITTED')}
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '7px',
-                            border: 'none',
-                            background: assignStatusFilter === 'SUBMITTED' ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
-                            color: assignStatusFilter === 'SUBMITTED' ? '#34d399' : '#94a3b8',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {lang === 'vi' ? 'Đã nộp bài' : 'Submitted'}
-                        </button>
+                        {([
+                          {
+                            id: 'ALL' as const,
+                            label: lang === 'vi' ? 'Tất cả trạng thái' : 'All status',
+                            activeBg: 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(185, 28, 28, 0.95))',
+                            activeColor: '#ffffff'
+                          },
+                          {
+                            id: 'UNSUBMITTED' as const,
+                            label: lang === 'vi' ? 'Chưa nộp' : 'Pending',
+                            activeBg: isDark ? 'rgba(245, 158, 11, 0.25)' : '#fef3c7',
+                            activeColor: isDark ? '#fbbf24' : '#b45309'
+                          },
+                          {
+                            id: 'SUBMITTED' as const,
+                            label: lang === 'vi' ? 'Đã nộp bài' : 'Submitted',
+                            activeBg: isDark ? 'rgba(16, 185, 129, 0.25)' : '#dcfce7',
+                            activeColor: isDark ? '#34d399' : '#15803d'
+                          }
+                        ]).map(st => {
+                          const isActive = assignStatusFilter === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => setAssignStatusFilter(st.id)}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: '7px',
+                                border: 'none',
+                                background: isActive ? st.activeBg : 'transparent',
+                                color: isActive ? st.activeColor : (isDark ? '#94a3b8' : '#475569'),
+                                fontSize: '0.78rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              {st.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -3848,12 +3841,12 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           padding: '2.5rem 2rem',
                           textAlign: 'center',
                           borderRadius: '16px',
-                          background: 'rgba(15, 23, 42, 0.7)',
-                          border: '1px dashed rgba(255, 255, 255, 0.15)'
+                          background: isDark ? 'rgba(15, 23, 42, 0.7)' : '#ffffff',
+                          border: isDark ? '1px dashed rgba(255, 255, 255, 0.15)' : '1px dashed #cbd5e1'
                         }}
                       >
                         <div style={{ color: '#94a3b8', fontSize: '1.8rem', marginBottom: '8px' }}>📂</div>
-                        <h4 style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 700, margin: '0 0 6px 0' }}>
+                        <h4 style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '1rem', fontWeight: 700, margin: '0 0 6px 0' }}>
                           {lang === 'vi' ? 'Không tìm thấy đề bài phù hợp' : 'No assignments found'}
                         </h4>
                         <p style={{ color: '#64748b', fontSize: '0.84rem', margin: '0 0 16px 0' }}>
@@ -3897,7 +3890,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'space-between',
-                                boxShadow: isSelectedInRunner ? '0 12px 30px rgba(124, 58, 237, 0.25)' : '0 8px 24px rgba(0, 0, 0, 0.25)',
+                                boxShadow: isSelectedInRunner ? '0 12px 30px rgba(124, 58, 237, 0.2)' : (isDark ? '0 8px 24px rgba(0, 0, 0, 0.25)' : '0 4px 16px rgba(15, 23, 42, 0.06)'),
                                 transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                                 position: 'relative'
                               }}
@@ -3906,8 +3899,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 {/* Top Row: EXAM/ASSIGNMENT Badge + Khung giờ Due Date (Chuẩn Giảng Viên) */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                                   <span style={{
-                                    background: isExam ? 'rgba(239, 68, 68, 0.18)' : 'rgba(249, 115, 22, 0.18)',
-                                    color: isExam ? '#fca5a5' : '#fdba74',
+                                    background: isExam ? (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fef2f2') : (isDark ? 'rgba(249, 115, 22, 0.18)' : '#fff7ed'),
+                                    color: isExam ? (isDark ? '#fca5a5' : '#dc2626') : (isDark ? '#fdba74' : '#ea580c'),
                                     border: `1px solid ${isExam ? 'rgba(239, 68, 68, 0.35)' : 'rgba(249, 115, 22, 0.35)'}`,
                                     borderRadius: '6px',
                                     padding: '3px 9px',
@@ -3918,8 +3911,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     {isExam ? 'EXAM' : 'ASSIGNMENT'}
                                   </span>
 
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>
-                                    <Clock size={13} style={{ color: '#94a3b8' }} />
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600 }}>
+                                    <Clock size={13} style={{ color: isDark ? '#94a3b8' : '#64748b' }} />
                                     <span>{fmtDate(dueDate)}</span>
                                   </div>
                                 </div>
@@ -3946,10 +3939,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 paddingTop: '12px',
-                                borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+                                borderTop: isDark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #f1f5f9',
                                 marginTop: 'auto'
                               }}>
-                                <div style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <div style={{ fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#64748b', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                   <span>{lang === 'vi' ? 'Hình thức:' : 'Format:'}</span>
                                   <strong style={{ color: isDark ? '#e2e8f0' : '#1e1b4b' }}>ZIP</strong>
                                   {(() => {
@@ -4021,9 +4014,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       display: 'flex',
                                       alignItems: 'center',
                                       borderRadius: '8px',
-                                      background: 'rgba(255, 255, 255, 0.04)',
-                                      borderColor: 'rgba(255, 255, 255, 0.15)',
-                                      color: '#e2e8f0',
+                                      background: isDark ? 'rgba(255, 255, 255, 0.04)' : '#ffffff',
+                                      borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#cbd5e1',
+                                      color: isDark ? '#e2e8f0' : '#334155',
                                       fontWeight: 600,
                                       cursor: 'pointer',
                                       transition: 'all 0.2s ease'
