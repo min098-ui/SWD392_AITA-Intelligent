@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
   --bg-primary: #0a0e17;
@@ -21,7 +21,7 @@
   --text-muted: #9ca3af;
   --text-dim: #6b7280;
 
-  --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-main: 'Be Vietnam Pro', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   --shadow-subtle: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
@@ -66,8 +66,7 @@ html[data-theme="light"] header {
 html[data-theme="light"] .glass-card,
 html[data-theme="light"] .student-course-card,
 html[data-theme="light"] .student-submit-card,
-html[data-theme="light"] .student-empty-card,
-html[data-theme="light"] .halo-card {
+html[data-theme="light"] .student-empty-card {
   background: #ffffff !important;
   border: 1px solid rgba(0, 0, 0, 0.09) !important;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
@@ -151,6 +150,63 @@ html[data-theme="light"] select option {
 html[data-theme="light"] input::placeholder,
 html[data-theme="light"] textarea::placeholder {
   color: #94a3b8 !important;
+}
+
+/* =============================================================================
+   LANDING PAGE (HOME): High-contrast Dark Luxury Glassmorphism Protection
+   Đảm bảo toàn bộ tiêu đề (h1, h2, h3), phụ đề (p) và visual widgets trên
+   trang chủ luôn hiển thị sắc nét, sáng rõ rệt, không bao giờ bị chìm chữ
+   trong bất kỳ chế độ sáng (light) hay tối (dark).
+   ============================================================================= */
+.landing-page-root .landing-dark-card,
+.landing-page-root .halo-card,
+.landing-page-root #overview > div,
+.landing-page-root #demo > div,
+.landing-page-root #cta > div {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(10, 14, 23, 0.98) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.25) !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="light"] .landing-page-root .landing-dark-card h1,
+html[data-theme="light"] .landing-page-root .landing-dark-card h2,
+html[data-theme="light"] .landing-page-root .landing-dark-card h3,
+html[data-theme="light"] .landing-page-root .landing-dark-card h4,
+html[data-theme="light"] .landing-page-root .halo-card h1,
+html[data-theme="light"] .landing-page-root .halo-card h2,
+html[data-theme="light"] .landing-page-root .halo-card h3,
+html[data-theme="light"] .landing-page-root .halo-card h4,
+html[data-theme="light"] .landing-page-root #overview h1,
+html[data-theme="light"] .landing-page-root #demo h2,
+html[data-theme="light"] .landing-page-root #cta h2 {
+  color: #ffffff !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6) !important;
+}
+
+html[data-theme="light"] .landing-page-root .landing-dark-card p,
+html[data-theme="light"] .landing-page-root .halo-card p,
+html[data-theme="light"] .landing-page-root #overview p,
+html[data-theme="light"] .landing-page-root #demo p,
+html[data-theme="light"] .landing-page-root #cta p {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="light"] .landing-page-root .landing-dark-card strong,
+html[data-theme="light"] .landing-page-root .halo-card strong,
+html[data-theme="light"] .landing-page-root #overview strong,
+html[data-theme="light"] .landing-page-root #demo strong,
+html[data-theme="light"] .landing-page-root #cta strong {
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .landing-page-root .landing-dark-card pre,
+html[data-theme="light"] .landing-page-root #demo pre {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="light"] .landing-page-root span:not(.pill-btn-white *):not(.pill-btn-dark *):not([style*="color"]) {
+  color: inherit;
 }
 
 /* Light Mode: Buttons */
@@ -268,6 +324,10 @@ html[data-theme="light"] code {
   padding: 0;
 }
 
+input, select, textarea, button {
+  font-family: var(--font-main);
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--bg-primary);
@@ -275,6 +335,9 @@ body {
   min-height: 100vh;
   line-height: 1.6;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   background-image: 
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.12) 0px, transparent 50%);
@@ -328,25 +391,160 @@ a {
 }
 
 /* =============================================================================
-   LECTURER THEME - ROYAL VIOLET & INDIGO AI ACCENT (ROLE 2: FACULTY)
+   LECTURER THEME - DUAL MODE (LIGHT LAVENDER GLASS / DARK CYBER VIOLET)
    ============================================================================= */
 .lecturer-theme {
-  --accent-lecturer: #8b5cf6;
-  --accent-lecturer-light: #c4b5fd;
-  --accent-lecturer-dark: #6366f1;
-  --accent-lecturer-glow: rgba(124, 58, 237, 0.35);
+  --accent-lecturer: #7c3aed;
+  --accent-lecturer-light: #8b5cf6;
+  --accent-lecturer-dark: #6d28d9;
+  --accent-lecturer-glow: rgba(124, 58, 237, 0.25);
+  font-family: var(--font-main);
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Light Mode (Default) */
+html[data-theme="light"] .lecturer-theme,
+.lecturer-theme.light-mode {
+  --bg-main: #f8f9ff;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --border-color: rgba(226, 232, 240, 0.9);
+  --text-main: #1e1b4b;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+
+  background: linear-gradient(135deg, #f8f9ff 0%, #ede9fe 40%, #f5f3ff 100%) !important;
+  color: #1e1b4b !important;
+}
+
+html[data-theme="light"] .lecturer-theme .glass-card,
+.lecturer-theme.light-mode .glass-card {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.06), 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+  color: #1e1b4b !important;
+}
+
+html[data-theme="light"] .lecturer-theme .btn-secondary,
+.lecturer-theme.light-mode .btn-secondary {
+  background: #ffffff !important;
+  border: 1px solid rgba(203, 213, 225, 0.9) !important;
+  color: #475569 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-theme="light"] .lecturer-theme .btn-secondary:hover,
+.lecturer-theme.light-mode .btn-secondary:hover {
+  background: #f8fafc !important;
+  color: #1e1b4b !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* =============================================================================
+   DARK MODE FOR LECTURER THEME
+   ============================================================================= */
+html[data-theme="dark"] .lecturer-theme,
+.lecturer-theme.dark-mode {
+  --bg-main: #0a0e17;
+  --bg-card: rgba(17, 24, 39, 0.88);
+  --border-color: rgba(139, 92, 246, 0.22);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+
+  background: linear-gradient(135deg, #070913 0%, #0d1124 50%, #090d1a 100%) !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .lecturer-theme aside,
+.lecturer-theme.dark-mode aside {
+  background: rgba(10, 14, 26, 0.96) !important;
+  border-right: 1px solid rgba(139, 92, 246, 0.18) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-theme="dark"] .lecturer-theme header,
+.lecturer-theme.dark-mode header {
+  background: rgba(10, 14, 26, 0.92) !important;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.18) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+html[data-theme="dark"] .lecturer-theme .glass-card,
+.lecturer-theme.dark-mode .glass-card {
+  background: linear-gradient(145deg, rgba(17, 24, 39, 0.88) 0%, rgba(13, 18, 32, 0.94) 100%) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(139, 92, 246, 0.22) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px -5px rgba(124, 58, 237, 0.15) !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .lecturer-theme h1,
+html[data-theme="dark"] .lecturer-theme h2,
+html[data-theme="dark"] .lecturer-theme h3,
+html[data-theme="dark"] .lecturer-theme h4,
+.lecturer-theme.dark-mode h1,
+.lecturer-theme.dark-mode h2,
+.lecturer-theme.dark-mode h3,
+.lecturer-theme.dark-mode h4 {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .lecturer-theme p,
+.lecturer-theme.dark-mode p {
+  color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] .lecturer-theme .btn-secondary,
+.lecturer-theme.dark-mode .btn-secondary {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  color: #c4b5fd !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+html[data-theme="dark"] .lecturer-theme .btn-secondary:hover,
+.lecturer-theme.dark-mode .btn-secondary:hover {
+  background: rgba(139, 92, 246, 0.2) !important;
+  color: #ffffff !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+}
+
+html[data-theme="dark"] .lecturer-theme input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not(.btn-primary),
+html[data-theme="dark"] .lecturer-theme select,
+html[data-theme="dark"] .lecturer-theme textarea,
+.lecturer-theme.dark-mode input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not(.btn-primary),
+.lecturer-theme.dark-mode select,
+.lecturer-theme.dark-mode textarea {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border: 1px solid rgba(139, 92, 246, 0.25) !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .lecturer-theme input::placeholder,
+html[data-theme="dark"] .lecturer-theme textarea::placeholder,
+.lecturer-theme.dark-mode input::placeholder,
+.lecturer-theme.dark-mode textarea::placeholder {
+  color: #64748b !important;
 }
 
 .lecturer-theme .btn-primary {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #8b5cf6 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.28) !important;
-  box-shadow: 0 4px 16px -1px rgba(124, 58, 237, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 4px 16px -1px rgba(109, 40, 217, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
   color: #ffffff !important;
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: all 0.2s ease;
 }
 
 .lecturer-theme .btn-primary:hover {
-  background: linear-gradient(135deg, #4338ca 0%, #6366f1 40%, #8b5cf6 75%, #a78bfa 100%) !important;
-  box-shadow: 0 6px 22px -2px rgba(139, 92, 246, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%) !important;
+  box-shadow: 0 6px 20px -2px rgba(109, 40, 217, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
   transform: translateY(-1.5px) !important;
   color: #ffffff !important;
 }
@@ -354,7 +552,7 @@ a {
 /* Responsive Grid for Lecturer Rubrics & Config */
 .lecturer-config-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -366,8 +564,6 @@ a {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-main);
   font-weight: 500;
   padding: 10px 18px;
   border-radius: var(--radius-md);
