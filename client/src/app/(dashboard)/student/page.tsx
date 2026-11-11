@@ -5566,7 +5566,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 }}
                               >
                                 <Edit3 size={15} color={isDark ? '#c084fc' : '#7c3aed'} />
-                                <span>{lang === 'vi' ? '✏️ Chỉnh Sửa Đề Tài / Kho Lưu Trữ (Nộp Lại)' : 'Edit Submission'}</span>
+                                <span>{lang === 'vi' ? 'Chỉnh Sửa Đề Tài / Kho Lưu Trữ (Nộp Lại)' : 'Edit Submission'}</span>
                               </button>
                             </div>
 
