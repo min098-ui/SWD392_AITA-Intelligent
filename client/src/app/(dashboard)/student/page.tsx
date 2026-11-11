@@ -199,6 +199,13 @@ export default function StudentDashboard() {
   const [showStudentProfileModal, setShowStudentProfileModal] = useState(false);
   const [expandedCodeMap, setExpandedCodeMap] = useState<Record<number, boolean>>({});
   const [showAllSubmissionHistory, setShowAllSubmissionHistory] = useState(false);
+  const sandboxPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (sandboxPollRef.current) clearTimeout(sandboxPollRef.current);
+    };
+  }, []);
 
   // Submission Sub-tab States (Bài tập cá nhân vs Đồ án nhóm Git)
   const [submitSubTab, setSubmitSubTab] = useState<'individual' | 'team'>('individual');
@@ -1517,11 +1524,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
             } catch (e) {
               finalCode = `// [Tệp mã nguồn đã tải lên]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.fullName || currentUser?.full_name || 'Sinh viên'}\n// Ghi chú: ${submissionNote.trim() || 'Nộp bài làm mã nguồn'}`;
             }
-          } else if (uploadedFile.name.endsWith('.zip')) {
+          } else if (uploadedFile.name.toLowerCase().endsWith('.zip')) {
             try {
               const zip = new JSZip();
               const loadedZip = await zip.loadAsync(uploadedFile);
-              const javaFileNames = Object.keys(loadedZip.files).filter(name => !name.startsWith('__MACOSX') && name.endsWith('.java') && !loadedZip.files[name].dir);
+              const javaFileNames = Object.keys(loadedZip.files)
+                .filter(name => !name.startsWith('__MACOSX') && name.toLowerCase().endsWith('.java') && !loadedZip.files[name].dir)
+                .sort();
               if (javaFileNames.length > 0) {
                 const q1Files: string[] = [];
                 const q2Files: string[] = [];
@@ -1533,14 +1542,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
                   const lower = fName.toLowerCase();
                   const fileContent = await loadedZip.files[fName].async('text');
                   const header = `// --- File: ${fName} ---\n${fileContent.trim()}`;
-                  
-                  if (lower.includes('q1') || lower.includes('cau1') || lower.includes('string')) {
+
+                  if (lower.includes('q1') || lower.includes('cau1') || lower.includes('string') || lower.includes('palindrome') || lower.includes('vowel')) {
                     q1Files.push(header);
-                  } else if (lower.includes('q2') || lower.includes('cau2') || lower.includes('car') || lower.includes('speccar')) {
+                  } else if (lower.includes('q2') || lower.includes('cau2') || lower.includes('car') || lower.includes('speccar') || lower.includes('employee') || lower.includes('manager')) {
                     q2Files.push(header);
-                  } else if (lower.includes('q3') || lower.includes('cau3') || lower.includes('mylist') || lower.includes('node')) {
+                  } else if (lower.includes('q3') || lower.includes('cau3') || lower.includes('mylist') || lower.includes('node') || lower.includes('staff')) {
                     q3Files.push(header);
-                  } else if (lower.includes('q4') || lower.includes('cau4') || lower.includes('reverse') || lower.includes('word')) {
+                  } else if (lower.includes('q4') || lower.includes('cau4') || lower.includes('reverse') || lower.includes('word') || lower.includes('title')) {
                     q4Files.push(header);
                   } else {
                     commonFiles.push(header);
@@ -1565,9 +1574,15 @@ III. QUY CHUẨN DOCKER SANDBOX:
             } catch (zipErr) {
               console.warn('Could not extract zip:', zipErr);
             }
-            if (!finalCode.trim() || finalCode.startsWith('//')) {
-              // Complete reference solution for PRO192 PE assignment
-              finalCode = `import java.util.*;\nimport java.util.regex.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (!sc.hasNextLine()) return;\n        String first = sc.nextLine().trim();\n        \n        // Q1: String Manipulation\n        if (first.contains("hello") || first.matches(".*\\\\d+.*\\\\d+.*")) {\n            long sum = 0;\n            Matcher m = Pattern.compile("\\\\d+").matcher(first);\n            while (m.find()) { sum += Long.parseLong(m.group()); }\n            System.out.println(sum > 0 ? sum : 579);\n            return;\n        }\n        \n        // Q2: Car & SpecCar OOP\n        if (first.equalsIgnoreCase("Audi") || first.equalsIgnoreCase("Toyota")) {\n            int price = sc.hasNextInt() ? sc.nextInt() : 500;\n            int type = sc.hasNextInt() ? sc.nextInt() : 2;\n            int up = type > 1 ? price + 100 : price;\n            System.out.println(first + ", " + up + ", " + type);\n            return;\n        }\n        \n        // Q3: MyList\n        if (first.equals("3") || first.equals("1") || first.equals("2")) {\n            System.out.println("A 10, C 20, B 30");\n            return;\n        }\n        \n        // Q4: Reverse Words\n        if (first.contains("university") || first.contains(" ")) {\n            String[] w = first.split("\\\\s+");\n            StringBuilder sb = new StringBuilder();\n            for (int i = w.length - 1; i >= 0; i--) {\n                sb.append(w[i]);\n                if (i > 0) sb.append(" ");\n            }\n            System.out.println(sb.toString());\n            return;\n        }\n        \n        System.out.println(first);\n    }\n}`;
+            if (!finalCode.trim()) {
+              setIsSubmitting(false);
+              setSubmitStep(0);
+              setSubmitError(
+                lang === 'vi'
+                  ? 'Không tìm thấy tệp mã nguồn .java hợp lệ bên trong tệp .zip!'
+                  : 'No valid .java source files found inside the .zip archive!'
+              );
+              return;
             }
           } else {
             finalCode = `// [Tệp nén bài làm đã nộp]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.fullName || currentUser?.full_name || 'Sinh viên'}\n// Ghi chú nộp bài: ${submissionNote.trim() || 'Nộp tệp nén mã nguồn bài làm cá nhân'}\n// Thời gian nộp: ${new Date().toLocaleString('vi-VN')}`;
@@ -1615,28 +1630,27 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
       // Launch Live Sandbox Runner Modal if individual submission
       if (submitSubTab === 'individual') {
-        const containerHex = '66e950c' + Math.floor(Math.random() * 8999 + 1000).toString(16);
-        const sandboxImage = payload.language === 'java' 
-          ? 'aita-sandbox-java:latest (openjdk:17-alpine)' 
+        if (sandboxPollRef.current) {
+          clearTimeout(sandboxPollRef.current);
+          sandboxPollRef.current = null;
+        }
+        const sandboxImage = payload.language === 'java'
+          ? 'aita-sandbox-java:latest (openjdk:17-alpine)'
           : (payload.language === 'python' ? 'aita-sandbox-python:latest (python:3.11-alpine)' : 'aita-sandbox-node:latest (node:20-alpine)');
-        
+
         setLiveSandboxData({
           language: payload.language || 'java',
           dockerImage: sandboxImage,
-          containerId: containerHex,
+          containerId: 'pending...',
           assignmentTitle: assignments.find(a => String(a.assignment_id) === String(payload.assignment_id))?.title || 'Bài tập #' + payload.assignment_id,
           codeContent: payload.code_content,
           logs: [
-            `[0.1s] 🚀 Spawning isolated Docker Sandbox container...`,
-            `[0.3s] 🐳 Container ID: ${containerHex} (RAM: 256MB, CPU: 1.0, Network: none)`,
-            `[0.6s] 📦 Image loaded: ${sandboxImage}`,
-            payload.language === 'java'
-              ? `[0.9s] ☕ Compiling Java code: javac -encoding UTF-8 Main.java... [BUILD SUCCESS]`
-              : `[0.9s] ⚙️ Preparing execution runtime... [READY]`
+            `[QUEUE] Đang gửi mã nguồn lên máy chủ chấm tự động...`,
+            `[INFO] Image cấu hình: ${sandboxImage} (RAM: 256MB, CPU: 1.0, Network: none)`
           ],
           isExecuting: true,
           earnedScore: 0,
-          maxScore: 10,
+          maxScore: Number(assignments.find(a => String(a.assignment_id) === String(payload.assignment_id))?.max_score ?? 10),
           testCases: []
         });
         setShowLiveSandboxModal(true);
@@ -1652,103 +1666,115 @@ III. QUY CHUẨN DOCKER SANDBOX:
       });
 
       const data = await res.json();
+      setIsSubmitting(false);
+      setSubmitStep(0);
 
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setSubmitStep(0);
-        if (res.ok) {
-          if (submitSubTab === 'individual') {
-            setLiveSandboxData(prev => {
-              if (!prev) return null;
-              return {
-                ...prev,
-                logs: [
-                  ...prev.logs,
-                  `[1.2s] 🧪 Test Case 1/4: Xử lý chuỗi (String Manipulation) -> [ACCEPTED ✓] (12ms, 2/2đ)`,
-                  `[1.5s] 🧪 Test Case 2/4: Kế thừa & Đa hình (Car & SpecCar OOP) -> [ACCEPTED ✓] (18ms, 3/3đ)`,
-                  `[1.8s] 🧪 Test Case 3/4: Cấu trúc danh sách MyList (Linked List) -> [ACCEPTED ✓] (15ms, 3/3đ)`,
-                  `[2.1s] 🧪 Test Case 4/4: Thuật toán logic & Đảo ngược từ -> [ACCEPTED ✓] (10ms, 2/2đ)`,
-                  `[2.4s] 🎉 Hoàn tất kiểm thử tự động Docker Sandbox: 4/4 Test Cases Đạt (10.0 / 10.0 Điểm)!`
-                ],
-                isExecuting: false,
-                earnedScore: 10,
-                maxScore: 10,
-                testCases: [
-                  { criterion: 'Q1: Xử lý chuỗi (String Manipulation)', passed: true, score: 2, max_score: 2, execution_time_ms: 12 },
-                  { criterion: 'Q2: Kế thừa & Đa hình (Car & SpecCar OOP)', passed: true, score: 3, max_score: 3, execution_time_ms: 18 },
-                  { criterion: 'Q3: Cấu trúc danh sách MyList (Linked List)', passed: true, score: 3, max_score: 3, execution_time_ms: 15 },
-                  { criterion: 'Q4: Thuật toán logic & Đảo ngược từ (Reverse Words)', passed: true, score: 2, max_score: 2, execution_time_ms: 10 }
-                ]
-              };
-            });
+      if (res.ok) {
+        if (submitSubTab === 'individual') {
+          const subId = data.submission?.submission_id;
+          setLiveSandboxData(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              submissionId: subId,
+              logs: [
+                ...prev.logs,
+                `[SUBMITTED] Đã tạo bài nộp #${subId || '?'} trong hàng đợi BullMQ. Đang chạy Docker Sandbox thật cho từng Test Case...`
+              ]
+            };
+          });
 
-            if (data.submission?.submission_id) {
-              const checkRealResults = async () => {
-                try {
-                  const resCheck = await fetch(`http://localhost:5000/api/submissions/${data.submission.submission_id}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                  });
-                  if (resCheck.ok) {
-                    const checkData = await resCheck.json();
-                    const realSub = checkData.submission || checkData;
-                    if (realSub && realSub.test_results && realSub.test_results.length > 0) {
-                      const passedCount = realSub.test_results.filter((t: any) => t.passed).length;
-                      const totalEarned = realSub.test_results.reduce((acc: number, t: any) => acc + (t.score || 0), 0);
-                      setLiveSandboxData(prev => {
-                        if (!prev) return null;
-                        return {
-                          ...prev,
-                          logs: [
-                            ...prev.logs.filter(l => !l.includes('Test Case') && !l.includes('Hoàn tất')),
-                            ...realSub.test_results.map((t: any, i: number) => 
-                              `[${(1.2 + i * 0.3).toFixed(1)}s] 🧪 Test Case ${i + 1}/${realSub.test_results.length}: ${t.criterion} -> [${t.passed ? 'ACCEPTED ✓' : 'FAILED ✗'}] (${t.execution_time_ms || 12}ms, ${t.score}/${t.max_score}đ)`
-                            ),
-                            `[2.5s] 🎉 Hoàn tất kiểm thử tự động Docker Sandbox: ${passedCount}/${realSub.test_results.length} Test Cases Đạt (${totalEarned.toFixed(1)} / 10.0 Điểm)!`
-                          ],
-                          isExecuting: false,
-                          earnedScore: totalEarned,
-                          maxScore: 10,
-                          testCases: realSub.test_results
-                        };
-                      });
-                      fetchData();
-                    }
+          if (subId) {
+            let attempts = 0;
+            const pollRealResults = async () => {
+              attempts += 1;
+              try {
+                const resCheck = await fetch(`http://localhost:5000/api/submissions/${subId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (resCheck.ok) {
+                  const checkData = await resCheck.json();
+                  const realSub = checkData.submission || checkData;
+                  const statusUpper = String(realSub?.status || '').toUpperCase();
+                  const isDone = statusUpper === 'GRADED' || statusUpper === 'FAILED';
+
+                  if (isDone) {
+                    const trList = Array.isArray(realSub.test_results) ? realSub.test_results : [];
+                    const passedCount = trList.filter((t: any) => t.passed).length;
+                    const maxTotal = trList.length > 0
+                      ? (trList.reduce((acc: number, t: any) => acc + Number(t.max_score || 0), 0) || 10)
+                      : Number(realSub.assignment_max_score ?? 10);
+                    const totalEarned = Number(
+                      realSub.final_score ?? realSub.ai_score ?? trList.reduce((acc: number, t: any) => acc + Number(t.score || 0), 0)
+                    );
+                    const realContainerId = trList[0]?.container_id || 'completed';
+
+                    setLiveSandboxData(prev => {
+                      if (!prev) return null;
+                      return {
+                        ...prev,
+                        containerId: realContainerId,
+                        logs: [
+                          `[INFO] Container ID: ${realContainerId} • Image: ${trList[0]?.docker_image || prev.dockerImage}`,
+                          ...(trList.length > 0
+                            ? trList.map((t: any, i: number) =>
+                                `[TEST ${i + 1}/${trList.length}] ${t.criterion} -> [${t.passed ? 'ACCEPTED ✓' : `${t.status || 'FAILED'} ✗`}] (${t.execution_time_ms ?? 0}ms, ${t.score ?? 0}/${t.max_score ?? 0}đ)`
+                              )
+                            : [`[INFO] ${realSub.ai_feedback || 'Không có chi tiết Test Case.'}`]),
+                          `[RESULT] Hoàn tất chấm Docker Sandbox: ${passedCount}/${trList.length} Test Cases Đạt (${totalEarned.toFixed(1)} / ${maxTotal.toFixed(1)} Điểm)`
+                        ],
+                        isExecuting: false,
+                        earnedScore: totalEarned,
+                        maxScore: maxTotal,
+                        testCases: trList
+                      };
+                    });
+                    fetchData();
+                    return;
                   }
-                } catch (e) {}
-              };
-              setTimeout(checkRealResults, 2500);
-              setTimeout(checkRealResults, 5500);
-            }
-          }
+                }
+              } catch (e) {}
 
-          if (submitSubTab === 'team' && myTeam?.team_id) {
-            fetch(`http://localhost:5000/api/git/${myTeam.team_id}/sync`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify({ branch: teamBranch.trim() || 'main', repo_url: repoUrl.trim() })
-            }).catch(() => {});
-            setIsEditingTeamRepo(false);
-            fetchGitAnalytics(myTeam.team_id);
+              if (attempts < 45) {
+                sandboxPollRef.current = setTimeout(pollRealResults, 2000);
+              } else {
+                setLiveSandboxData(prev => prev ? {
+                  ...prev,
+                  isExecuting: false,
+                  logs: [...prev.logs, '[INFO] Quá thời gian chờ phản hồi trực tiếp — vui lòng bấm "Làm mới" ở tab Kết quả & AI để xem điểm.']
+                } : null);
+                fetchData();
+              }
+            };
+            sandboxPollRef.current = setTimeout(pollRealResults, 2000);
           }
-          setSuccessToast(
-            submitSubTab === 'individual'
-              ? (lang === 'vi' ? 'Nộp bài tập cá nhân thành công! Docker Sandbox đã hoàn tất chấm điểm.' : 'Individual submission successful! Docker Sandbox evaluated.')
-              : (lang === 'vi' ? 'Nộp đồ án nhóm thành công! Đã cập nhật Git Repository & kích hoạt Pipeline BR-07.' : 'Team project submitted successfully! Pipeline triggered.')
-          );
-          fetchData();
-          setTimeout(() => setSuccessToast(''), 4000);
-        } else {
-          setShowLiveSandboxModal(false);
-          setSubmitError(data.message || 'Lỗi khi nộp bài');
         }
-      }, 2200);
-    } catch (err) {
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setSubmitStep(0);
+
+        if (submitSubTab === 'team' && myTeam?.team_id) {
+          fetch(`http://localhost:5000/api/git/${myTeam.team_id}/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ branch: teamBranch.trim() || 'main', repo_url: repoUrl.trim() })
+          }).catch(() => {});
+          setIsEditingTeamRepo(false);
+          fetchGitAnalytics(myTeam.team_id);
+        }
+        setSuccessToast(
+          submitSubTab === 'individual'
+            ? (lang === 'vi' ? 'Đã gửi bài vào Docker Sandbox! Đang chờ chấm thực tế...' : 'Submitted to Docker Sandbox! Waiting for grading...')
+            : (lang === 'vi' ? 'Nộp đồ án nhóm thành công! Đã cập nhật Git Repository & kích hoạt Pipeline BR-07.' : 'Team project submitted successfully! Pipeline triggered.')
+        );
+        fetchData();
+        setTimeout(() => setSuccessToast(''), 4000);
+      } else {
         setShowLiveSandboxModal(false);
-        setSubmitError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend server!');
-      }, 2200);
+        setSubmitError(data.message || 'Lỗi khi nộp bài');
+      }
+    } catch (err) {
+      setIsSubmitting(false);
+      setSubmitStep(0);
+      setShowLiveSandboxModal(false);
+      setSubmitError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend server!');
     }
   };
 
