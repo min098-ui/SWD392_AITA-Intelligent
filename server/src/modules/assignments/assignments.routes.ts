@@ -895,12 +895,12 @@ router.post('/:id/regrade', authenticateJWT, requireRole('LECTURER', 'ADMIN'), a
       const codeToRun = sub.code_content.trim();
 
       // 3.2 Strict Validation: Must have valid language (NEVER default to javascript)
-      if (!sub.language || !['python', 'javascript', 'nodejs'].includes(sub.language.toLowerCase())) {
+      if (!sub.language || !['python', 'javascript', 'nodejs', 'java'].includes(sub.language.toLowerCase())) {
         skippedCount++;
         skippedReasons.push(`Bài #${sub.submission_id}: Ngôn ngữ không hợp lệ (${sub.language || 'trống'})`);
         continue;
       }
-      const cleanLang = sub.language.toLowerCase() === 'python' ? 'python' : 'javascript';
+      const cleanLang: 'python' | 'javascript' | 'java' = sub.language.toLowerCase() === 'python' ? 'python' : (sub.language.toLowerCase() === 'java' ? 'java' : 'javascript');
 
       // 3.3 Concurrency check: Skip if already QUEUED or PROCESSING to avoid duplicate jobs
       const activeJobRes = await pool.query(
@@ -948,7 +948,7 @@ router.post('/:id/regrade', authenticateJWT, requireRole('LECTURER', 'ADMIN'), a
         artifact_url: sub.artifact_url || '',
         git_commit_hash: sub.git_commit_hash || 'DIRECT_SUBMIT',
         code_content: codeToRun,
-        language: cleanLang as 'python' | 'javascript',
+        language: cleanLang as 'python' | 'javascript' | 'java',
         priority: 1
       });
 
