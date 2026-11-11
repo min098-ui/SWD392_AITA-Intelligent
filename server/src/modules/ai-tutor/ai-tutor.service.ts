@@ -104,6 +104,59 @@ export class AiTutorService {
     );
   }
 
+  private isMockKey(rawKey: string): boolean {
+    return (
+      !rawKey ||
+      rawKey.startsWith('MOCK_') ||
+      rawKey.startsWith('enc_') ||
+      rawKey.includes('mock_value')
+    );
+  }
+
+  private async getCandidateGeminiKeys(): Promise<ActiveKeyResult[]> {
+    const result = await pool.query(
+      `SELECT ai_api_key_id, provider, key_value_encrypted, api_key_encrypted, status, usage_count 
+       FROM ai_api_keys 
+       WHERE status = 'ACTIVE' 
+       ORDER BY usage_count ASC, ai_api_key_id ASC`
+    );
+
+    const candidates: ActiveKeyResult[] = [];
+    const seen = new Set<string>();
+
+    for (const row of result.rows) {
+      if (!String(row.provider || '').toLowerCase().includes('gemini')) continue;
+      const cipher = row.key_value_encrypted || row.api_key_encrypted;
+      let rawKey = '';
+      try {
+        rawKey = decryptApiKey(cipher);
+      } catch {
+        rawKey = cipher;
+      }
+      if (!this.isMockKey(rawKey) && !seen.has(rawKey)) {
+        seen.add(rawKey);
+        candidates.push({
+          id: row.ai_api_key_id,
+          provider: row.provider,
+          rawKey,
+          usageCount: row.usage_count || 0,
+        });
+      }
+    }
+
+    const envKey = process.env.GEMINI_API_KEY?.trim();
+    if (envKey && !this.isMockKey(envKey) && !seen.has(envKey)) {
+      candidates.push({
+        id: 0,
+        provider: 'Google-Gemini',
+        rawKey: envKey,
+        usageCount: 0,
+      });
+    }
+
+    return candidates;
+  }
+
   /**
    * Generate Socratic response using Google Gemini SDK with automatic key rotation on HTTP 429
    */
@@ -129,54 +182,28 @@ ${basePrompt}
 
 === SOCRATIC METHOD CONSTRAINTS (STRICT) ===
 1. You are a Socratic tutor. Dẫn dắt tư duy của sinh viên bằng câu hỏi gợi mở và phân tích logic.
-2. TUYỆT ĐỐI KHÔNG đưa ra code giải sẵn hay đáp án hoàn chỉnh trực tiếp.
-3. Hướng dẫn sinh viên tự kiểm tra các trường hợp biên (edge cases, null, mảng rỗng, giá trị âm, off-by-one).
-4. Khuyến khích tối ưu hóa độ phức tạp thuật toán (Big-O time/space complexity).
-5. Trả lời bằng tiếng Việt thân thiện, khích lệ sinh viên tự tin suy nghĩ và giải quyết bài toán.
+2. TUYỆT ĐỐI KHÔNG đưa ra code giải sẵn hay đáp án hoàn chỉnh trực tiếp. Nếu sinh viên xin code giải hoàn chỉnh hoặc đáp án làm bài, hãy từ chối khéo léo theo phương pháp Socratic và chỉ gợi ý hướng tư duy từng bước.
+3. Nếu sinh viên hỏi khái niệm lý thuyết (ví dụ: kiến trúc phần mềm, Clean Code, OOP, Design Pattern), hãy giải thích ngắn gọn, dễ hiểu đúng trọng tâm câu hỏi rồi đặt 1-2 câu hỏi gợi mở liên hệ bài làm.
+4. Khi phân tích bài tập/thuật toán, nhắc kiểm tra các trường hợp biên (edge cases, null, mảng rỗng, giá trị âm, off-by-one) và tối ưu độ phức tạp (Big-O).
+5. Trả lời bằng tiếng Việt thân thiện, rõ ràng, súc tích.
 ${context?.assignmentTitle ? `Bài tập liên quan: "${context.assignmentTitle}".` : ''}
 ${context?.codeSnippet ? `Đoạn mã sinh viên đang làm:\n\`\`\`\n${context.codeSnippet}\n\`\`\`` : ''}
     `.trim();
 
     let rotated = false;
-    const maxRetries = 3;
-    let aiResponseText = '';
-    let selectedKey: ActiveKeyResult | null = null;
+    const candidates = await this.getCandidateGeminiKeys();
+    const promptInput = `Sinh viên hỏi: "${studentQuestion}"\nHãy phản hồi đúng trọng tâm theo phương pháp Socratic.`;
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const activeKey = await this.getNextActiveApiKey();
-      if (!activeKey) {
-        break;
-      }
-      selectedKey = activeKey;
-
+    for (const activeKey of candidates) {
       try {
-        // If simulated/mock key, generate structured Socratic response
-        if (
-          activeKey.rawKey.startsWith('MOCK_') ||
-          activeKey.rawKey.startsWith('enc_') ||
-          activeKey.rawKey.includes('mock_value')
-        ) {
-          aiResponseText = this.generateFallbackSocratic(studentQuestion);
-          if (activeKey.id > 0) {
-            await this.incrementKeyUsage(activeKey.id);
-          }
-          return {
-            aiResponseText,
-            keyInfo: { id: activeKey.id, provider: activeKey.provider, rotated },
-            promptTemplateId,
-          };
-        }
-
-        // Call Google Generative AI SDK
         const genAI = new GoogleGenerativeAI(activeKey.rawKey);
         const model = genAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-2.5-flash',
           systemInstruction: socraticInstruction,
         });
 
-        const promptInput = `Sinh viên hỏi: "${studentQuestion}"\nHãy phản hồi theo đúng phương pháp Socratic.`;
         const apiResult = await model.generateContent(promptInput);
-        aiResponseText = apiResult.response.text();
+        const aiResponseText = apiResult.response.text();
 
         if (activeKey.id > 0) {
           await this.incrementKeyUsage(activeKey.id);
@@ -200,24 +227,14 @@ ${context?.codeSnippet ? `Đoạn mã sinh viên đang làm:\n\`\`\`\n${context.
           console.warn(`[Gemini SDK] 429 Rate limit detected on Key #${activeKey.id}. Rotating to next key...`);
           await this.markKeyRateLimited(activeKey.id);
           rotated = true;
-          continue; // Key rotation retry
+        } else {
+          console.warn(`[Gemini SDK] Key #${activeKey.id} failed (${errorMsg.slice(0, 120)}). Trying next candidate...`);
+          rotated = true;
         }
-
-        console.warn(`[Gemini SDK] Notice: SDK call returned error: ${errorMsg}. Falling back to resilient Socratic guidance.`);
-        aiResponseText = this.generateFallbackSocratic(studentQuestion);
-        if (activeKey.id > 0) {
-          await this.incrementKeyUsage(activeKey.id);
-        }
-
-        return {
-          aiResponseText,
-          keyInfo: { id: activeKey.id, provider: activeKey.provider, rotated },
-          promptTemplateId,
-        };
       }
     }
 
-    // Fallback if no keys in pool
+    // Fallback if no working live key succeeded
     return {
       aiResponseText: this.generateFallbackSocratic(studentQuestion),
       keyInfo: { provider: 'Google-Gemini (Fallback)', rotated },

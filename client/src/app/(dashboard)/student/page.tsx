@@ -1408,8 +1408,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
           {
             sender: 'AI',
             text: lang === 'vi'
-              ? `💡 **Phản hồi từ AI Tutor:** Về thắc mắc "${userText}":\nTrong hàm xử lý tính toán, bạn đang sử dụng 2 vòng lặp lồng nhau với độ phức tạp O(N²). Khi khối lượng kiểm thử tăng cao, bạn nên cân nhắc chuyển sang kỹ thuật Two Pointers hoặc Bảng băm (Hash Map) để giảm độ phức tạp xuống còn O(N) nhé!`
-              : `💡 **AI Tutor Feedback:** Regarding your question "${userText}":\nIn the matrix calculation routine, you are currently using nested loops with O(N²) complexity. Consider using Two Pointers or Hash Map indexing to reduce complexity to O(N)!`
+              ? `⚠️ **Không thể kết nối AI Tutor:** ${data.message || 'Vui lòng thử gửi lại câu hỏi sau giây lát.'}`
+              : `⚠️ **AI Tutor unavailable:** ${data.message || 'Please try again in a moment.'}`
           }
         ]);
       }
@@ -1419,8 +1419,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
         {
           sender: 'AI',
           text: lang === 'vi'
-            ? `💡 **Phản hồi từ AI Tutor (Resilient Mode):** Về thắc mắc "${userText}":\nTrong cấu trúc Clean Architecture của nhóm, bạn nên tách biệt tầng Controller và Use Case. Đảm bảo Business Logic không phụ thuộc trực tiếp vào DB layer nhé!`
-            : `💡 **AI Tutor Guidance:** Make sure your Use Case layer is decoupled from DB persistence.`
+            ? `⚠️ **Mất kết nối tới máy chủ AI Tutor:** Vui lòng kiểm tra kết nối backend (cổng 5000) và thử lại.`
+            : `⚠️ **Connection lost to AI Tutor server:** Please check backend connection and try again.`
         }
       ]);
     } finally {

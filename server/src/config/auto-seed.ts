@@ -85,7 +85,7 @@ export async function ensureDatabaseSeeded(): Promise<void> {
         message_id SERIAL PRIMARY KEY,
         session_id INT,
         user_id INT NOT NULL,
-        submission_id INT NOT NULL,
+        submission_id INT,
         prompt_template_id INT,
         ai_api_key_id INT,
         sender_type VARCHAR(20) NOT NULL,
@@ -95,6 +95,7 @@ export async function ensureDatabaseSeeded(): Promise<void> {
       );
       ALTER TABLE tutor_chat_messages ADD COLUMN IF NOT EXISTS session_id INT;
       ALTER TABLE tutor_chat_messages ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE tutor_chat_messages ALTER COLUMN submission_id DROP NOT NULL;
 
       ALTER TABLE prompt_templates ADD COLUMN IF NOT EXISTS template_name VARCHAR(100);
       ALTER TABLE prompt_templates ADD COLUMN IF NOT EXISTS name VARCHAR(100);

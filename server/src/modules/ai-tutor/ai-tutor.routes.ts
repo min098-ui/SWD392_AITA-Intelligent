@@ -57,7 +57,7 @@ router.get('/history', authenticateJWT, async (req: Request, res: Response) => {
 // POST /api/ai-tutor/chat - Quick Chat endpoint for Student Dashboard
 router.post('/chat', authenticateJWT, async (req: Request, res: Response) => {
   const user = req.user!;
-  const { content, message, session_id } = req.body;
+  const { content, message, session_id, submission_id } = req.body;
   const userQuestion = content || message;
 
   if (!userQuestion || !userQuestion.trim()) {
@@ -86,18 +86,23 @@ router.post('/chat', authenticateJWT, async (req: Request, res: Response) => {
       }
     }
 
+    const parsedSubmissionId = submission_id ? parseInt(String(submission_id), 10) : null;
+
     // Call Socratic AI engine with key rotation on HTTP 429
-    const socraticResult = await aiTutorService.generateSocraticResponse(userQuestion.trim());
+    const socraticResult = await aiTutorService.generateSocraticResponse(userQuestion.trim(), {
+      submissionId: Number.isFinite(parsedSubmissionId) ? parsedSubmissionId! : undefined,
+    });
 
     // 1. Record student message
     const studentMsgRes = await client.query(
       `INSERT INTO tutor_chat_messages 
-       (session_id, user_id, prompt_template_id, ai_api_key_id, sender_type, content)
-       VALUES ($1, $2, $3, $4, 'STUDENT', $5) 
+       (session_id, user_id, submission_id, prompt_template_id, ai_api_key_id, sender_type, content)
+       VALUES ($1, $2, $3, $4, $5, 'STUDENT', $6) 
        RETURNING *`,
       [
         activeSessionId,
         user.userId,
+        Number.isFinite(parsedSubmissionId) ? parsedSubmissionId : null,
         socraticResult.promptTemplateId || null,
         socraticResult.keyInfo?.id || null,
         userQuestion.trim(),
@@ -107,12 +112,13 @@ router.post('/chat', authenticateJWT, async (req: Request, res: Response) => {
     // 2. Record AI response
     const aiMsgRes = await client.query(
       `INSERT INTO tutor_chat_messages 
-       (session_id, user_id, prompt_template_id, ai_api_key_id, sender_type, content)
-       VALUES ($1, $2, $3, $4, 'AI', $5) 
+       (session_id, user_id, submission_id, prompt_template_id, ai_api_key_id, sender_type, content)
+       VALUES ($1, $2, $3, $4, $5, 'AI', $6) 
        RETURNING *`,
       [
         activeSessionId,
         user.userId,
+        Number.isFinite(parsedSubmissionId) ? parsedSubmissionId : null,
         socraticResult.promptTemplateId || null,
         socraticResult.keyInfo?.id || null,
         socraticResult.aiResponseText,
