@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, Sun, Moon, Shield, GraduationCap, School } from 'lucide-react';
+import { LogOut, Sun, Moon, Shield, GraduationCap, School, User } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { VietnamFlag, UKFlag } from './LanguageSwitcher';
+import StudentProfileModal from './StudentProfileModal';
 
 interface UserProfileMenuProps {
   user: {
@@ -11,13 +12,25 @@ interface UserProfileMenuProps {
     full_name?: string;
     email?: string;
     role?: string;
+    studentCode?: string;
+    student_code?: string;
+    major?: string;
+    campus?: string;
   } | null;
   onLogout: (e: React.MouseEvent) => void;
+  scoreData?: {
+    hasScore: boolean;
+    score?: number;
+    passedTests?: number;
+    totalTests?: number;
+    statusText?: string;
+  };
 }
 
-export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps) {
+export default function UserProfileMenu({ user, onLogout, scoreData }: UserProfileMenuProps) {
   const { lang, setLang } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const menuRef = useRef<HTMLDivElement>(null);
   const closeTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -80,15 +93,16 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
   const initial = getInitial();
 
   const getRoleBadge = () => {
+    const isDark = theme === 'dark';
     if (role === 'ADMIN') {
       return (
         <span style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '4px',
-          background: 'rgba(168, 85, 247, 0.2)',
-          color: '#c084fc',
-          border: '1px solid rgba(168, 85, 247, 0.4)',
+          background: isDark ? 'rgba(168, 85, 247, 0.2)' : '#fae8ff',
+          color: isDark ? '#c084fc' : '#86198f',
+          border: isDark ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid #f0abfc',
           borderRadius: '9999px',
           padding: '2px 8px',
           fontSize: '0.72rem',
@@ -105,9 +119,9 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
           display: 'inline-flex',
           alignItems: 'center',
           gap: '4px',
-          background: 'rgba(16, 185, 129, 0.2)',
-          color: '#34d399',
-          border: '1px solid rgba(16, 185, 129, 0.4)',
+          background: isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5',
+          color: isDark ? '#34d399' : '#047857',
+          border: isDark ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #6ee7b7',
           borderRadius: '9999px',
           padding: '2px 8px',
           fontSize: '0.72rem',
@@ -123,9 +137,9 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
         display: 'inline-flex',
         alignItems: 'center',
         gap: '4px',
-        background: 'rgba(139, 92, 246, 0.2)',
-        color: '#c4b5fd',
-        border: '1px solid rgba(139, 92, 246, 0.4)',
+        background: isDark ? 'rgba(139, 92, 246, 0.2)' : '#ede9fe',
+        color: isDark ? '#c4b5fd' : '#6d28d9',
+        border: isDark ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid #c4b5fd',
         borderRadius: '9999px',
         padding: '2px 8px',
         fontSize: '0.72rem',
@@ -240,6 +254,36 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
               <div>{getRoleBadge()}</div>
             </div>
           </div>
+
+          <div style={{ height: '1px', background: theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }} />
+
+          {/* Nút Xem Hồ sơ cá nhân & Cài đặt */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              setShowProfileModal(true);
+            }}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '9px',
+              padding: '9px 12px',
+              borderRadius: '10px',
+              background: theme === 'dark' ? 'rgba(139, 92, 246, 0.15)' : '#f8fafc',
+              border: theme === 'dark' ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid #e2e8f0',
+              color: theme === 'dark' ? '#f8fafc' : '#1e1b4b',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              textAlign: 'left'
+            }}
+          >
+            <User size={15} color="#7c3aed" />
+            <span>{lang === 'vi' ? 'Hồ sơ cá nhân & Cài đặt' : 'Profile & Settings'}</span>
+          </button>
 
           <div style={{ height: '1px', background: theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }} />
 
@@ -371,21 +415,21 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
               gap: '8px',
               padding: '8px 14px',
               borderRadius: '9px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              color: '#f87171',
+              background: theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2',
+              border: theme === 'dark' ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid #fecaca',
+              color: theme === 'dark' ? '#f87171' : '#dc2626',
               fontSize: '0.84rem',
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
               transition: 'all 0.15s'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+              e.currentTarget.style.background = theme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2';
+              e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+              e.currentTarget.style.background = theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2';
+              e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(239, 68, 68, 0.25)' : '#fecaca';
             }}
           >
             <LogOut size={14} />
@@ -393,6 +437,18 @@ export default function UserProfileMenu({ user, onLogout }: UserProfileMenuProps
           </button>
         </div>
       )}
+
+      {/* Modal Hồ Sơ Sinh Viên Kiểu 1: Bento Grid Cột Đứng */}
+      <StudentProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        scoreData={scoreData}
+        onLogout={() => {
+          setShowProfileModal(false);
+          onLogout({} as any);
+        }}
+      />
     </div>
   );
 }
