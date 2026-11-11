@@ -7021,7 +7021,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     )}
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ color: tc.execution_time_ms >= 5000 ? '#f87171' : 'var(--text-muted)', fontSize: '0.76rem', fontWeight: tc.execution_time_ms >= 5000 ? 700 : 400 }}>
+                                    <span style={{ color: !tc.passed && tc.execution_time_ms >= 5000 ? '#f87171' : 'var(--text-muted)', fontSize: '0.76rem', fontWeight: !tc.passed && tc.execution_time_ms >= 5000 ? 700 : 400 }}>
                                       {tc.execution_time_ms}ms
                                     </span>
                                     <span style={{ 

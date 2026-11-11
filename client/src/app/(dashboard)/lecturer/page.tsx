@@ -6733,6 +6733,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
               {selectedSub.code_content && (() => {
                 const code = selectedSub.code_content || '';
                 const extractSection = (qNum: string) => {
+                  if (!code) return '';
+
+                  // 1. Explicit big section headers: // ==================== QUESTION 1 ====================
                   const reg = new RegExp(
                     `(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}[\\s_]*={2,}\\s*\\*\\/)([\\s\\S]*?)(?=(?:\\/\\/\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|\\/\\*\\s*={2,}\\s*(?:QUESTION|CÂU|Q)|$))`,
                     'i'
@@ -6740,12 +6743,31 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                   const m = code.match(reg);
                   if (m && m[1] && m[1].trim()) return m[1].trim();
 
-                  if (qNum === '2' && (code.includes('class Car') || code.includes('class SpecCar'))) {
+                  // 2. Inline question comments in single unified file: // Q1: ... or # Q1: ... up to next question
+                  const inlineReg = new RegExp(
+                    `((?:\\/\\/|\\/\\*|#)\\s*(?:QUESTION|CÂU|Q)[\\s_]*${qNum}\\b[\\s\\S]*?)(?=(?:\\/\\/|\\/\\*|#)\\s*(?:QUESTION|CÂU|Q)[\\s_]*(?!${qNum}\\b)[1-9]|System\\.out\\.println\\(first\\)|\\}\\s*\\}\\s*$|$)`,
+                    'i'
+                  );
+                  const inlineMatch = code.match(inlineReg);
+                  if (inlineMatch && inlineMatch[1] && inlineMatch[1].trim()) {
+                    return inlineMatch[1].trim();
+                  }
+
+                  // 3. Content heuristics for classes across separate files or unified file without section markers
+                  const hasAnyExplicitMarker = /(?:\/\/|\/\*|#)\s*(?:={2,}\s*)?(?:QUESTION|CÂU|Q)[\s_]*[1-4]\b/i.test(code);
+                  if (qNum === '1' && (/(\bQ1\b|C[âa]u\s*1|Question\s*1|String\s*Manipulation|Pattern\.compile)/i.test(code) || !hasAnyExplicitMarker)) {
                     return code;
                   }
-                  if (qNum === '3' && (code.includes('MyList') || code.includes('class Node'))) {
+                  if (qNum === '2' && (/(\bQ2\b|C[âa]u\s*2|Question\s*2|class\s+Car|class\s+SpecCar)/i.test(code) || !hasAnyExplicitMarker)) {
                     return code;
                   }
+                  if (qNum === '3' && (/(\bQ3\b|C[âa]u\s*3|Question\s*3|MyList|class\s+Node)/i.test(code) || !hasAnyExplicitMarker)) {
+                    return code;
+                  }
+                  if (qNum === '4' && (/(\bQ4\b|C[âa]u\s*4|Question\s*4|Reverse\s*Words|Đảo\s*từ)/i.test(code) || !hasAnyExplicitMarker)) {
+                    return code;
+                  }
+
                   return '';
                 };
 
@@ -6892,7 +6914,10 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 const totalTests = trList.length;
                 const totalEarned = trList.reduce((acc, t) => acc + (t.score || 0), 0);
                 const totalMax = trList.reduce((acc, t) => acc + (t.max_score || 0), 0) || 10;
-                const hasTimeout = trList.some(t => t.execution_time_ms >= 5000 || (t.actual_output && t.actual_output.includes('TIMEOUT')));
+                const timeoutLimitMs = selectedSub.language === 'java' ? 15000 : 5000;
+                const timeoutLimitLabel = selectedSub.language === 'java' ? '15s' : '5s';
+                const timeoutLimitMsFormatted = selectedSub.language === 'java' ? '15.000ms' : '5.000ms';
+                const hasTimeout = trList.some(t => !t.passed && (t.status === 'TIME_LIMIT_EXCEEDED' || t.execution_time_ms >= timeoutLimitMs || (t.actual_output && t.actual_output.includes('TIMEOUT'))));
                 const isAllPass = totalTests > 0 && passedCount === totalTests;
 
                 return (
@@ -6933,7 +6958,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                       {hasTimeout && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#b91c1c', background: '#fee2e2', padding: '3px 8px', borderRadius: '6px', border: '1px solid #fecaca', fontWeight: 700 }}>
                           <AlertTriangle size={12} color="#b91c1c" />
-                          {lang === 'vi' ? 'Cảnh báo BR-03: Phát hiện Timeout (>5s)' : 'BR-03: Execution Timeout (>5s)'}
+                          {lang === 'vi' ? `Cảnh báo BR-03: Phát hiện Timeout (>${timeoutLimitLabel})` : `BR-03: Execution Timeout (>${timeoutLimitLabel})`}
                         </span>
                       )}
                     </div>
@@ -6985,8 +7010,8 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                     {totalTests > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                         {trList.map((tc, idx) => {
-                          const tcTimeout = tc.execution_time_ms >= 5000 || (tc.actual_output && tc.actual_output.includes('TIMEOUT'));
-                          const isCompileError = tc.status === 'COMPILATION_ERROR' || (tc.actual_output && (tc.actual_output.includes('error:') || tc.actual_output.includes('javac')));
+                          const tcTimeout = !tc.passed && (tc.status === 'TIME_LIMIT_EXCEEDED' || tc.execution_time_ms >= timeoutLimitMs || (tc.actual_output && tc.actual_output.includes('TIMEOUT')));
+                          const isCompileError = !tc.passed && (tc.status === 'COMPILATION_ERROR' || (tc.actual_output && (tc.actual_output.includes('error:') || tc.actual_output.includes('javac'))));
                           return (
                             <div 
                               key={idx}
@@ -7065,7 +7090,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                               <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed rgba(0, 0, 0, 0.1)' }}>
                                 {tcTimeout && (
                                   <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', color: '#991b1b', fontSize: '0.73rem', marginBottom: '6px', fontWeight: 500 }}>
-                                    <strong>⚠️ Lỗi Thực Thi:</strong> Phát hiện vòng lặp vô tận (Infinite Loop) hoặc thời gian vượt hạn mức 5.000ms. Watchdog (BR-03) đã can thiệp ngắt container an toàn.
+                                    <strong>⚠️ Lỗi Thực Thi:</strong> Phát hiện vòng lặp vô tận (Infinite Loop) hoặc thời gian vượt hạn mức {timeoutLimitMsFormatted}. Watchdog (BR-03) đã can thiệp ngắt container an toàn.
                                   </div>
                                 )}
                                 {isCompileError && (
@@ -7092,7 +7117,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                       {tc.passed ? 'Actual (Khớp 100%):' : 'Actual (Sai lệch/Lỗi):'}
                                     </div>
                                     <code style={{ color: tc.passed ? '#15803d' : '#b91c1c', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontWeight: tc.passed ? 600 : 500 }}>
-                                      {tc.actual_output || (tcTimeout ? '[Killed by Watchdog Timeout 5s]' : '(Không có dữ liệu trả về)')}
+                                      {tc.actual_output || (tcTimeout ? `[Killed by Watchdog Timeout ${timeoutLimitLabel}]` : '(Không có dữ liệu trả về)')}
                                     </code>
                                   </div>
                                 </div>
