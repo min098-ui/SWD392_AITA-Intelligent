@@ -112,7 +112,7 @@ CROSS JOIN (
     -- TV3: Đỗ Trần Đăng Khoa (Phần 3)
     ('dotrandangkhoa17@gmail.com', 'AI Engine, Socratic Tutor & Key Rotation', 'MEMBER'),
     -- TV4: Đinh Gia Huy (Trưởng nhóm / Leader)
-    ('dinhgiahuylol12345@gmail.com', 'Git Analytics, Noise Filter & Peer Audit', 'LEADER'),
+    ('dinhgiahuylol12345@gmail.com', 'Git Analytics & Noise Filter', 'LEADER'),
     -- TV5: Nguyễn Quốc Thanh Phong (Phần 5)
     ('tfongcs05@gmail.com', 'Frontend Web App (Next.js 14) & UI/UX', 'MEMBER')
 ) AS m(email, module, role)
