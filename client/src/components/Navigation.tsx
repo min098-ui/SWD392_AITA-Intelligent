@@ -163,19 +163,21 @@ export default function Navigation({
           ) : null}
         </div>
 
-        {/* Phần Hình 3: Profile Avatar Dropdown (nếu đăng nhập) hoặc Đăng Nhập (nếu chưa và không ở trang login) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
-          {isLoggedIn ? (
-            <UserProfileMenu user={user} onLogout={handleLogout} />
-          ) : !pathname?.startsWith('/login') ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Link href="/login" className="pill-btn-white" style={{ padding: '7px 18px', fontSize: '0.88rem' }}>
-                <span>{lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}</span>
-                <span className="pill-arrow" style={{ width: '18px', height: '18px', fontSize: '0.7rem' }}>→</span>
-              </Link>
-            </div>
-          ) : null}
-        </div>
+        {/* Phần Hình 3: Profile Avatar Dropdown (ẩn trên trang login/register) hoặc Đăng Nhập */}
+        {!pathname?.startsWith('/login') && !pathname?.startsWith('/register') && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+            {isLoggedIn ? (
+              <UserProfileMenu user={user} onLogout={handleLogout} />
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Link href="/login" className="pill-btn-white" style={{ padding: '7px 18px', fontSize: '0.88rem' }}>
+                  <span>{lang === 'vi' ? 'Đăng Nhập' : 'Sign In'}</span>
+                  <span className="pill-arrow" style={{ width: '18px', height: '18px', fontSize: '0.7rem' }}>→</span>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );
