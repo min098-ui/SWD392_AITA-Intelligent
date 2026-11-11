@@ -215,8 +215,8 @@ export async function ensureDatabaseSeeded(): Promise<void> {
       SELECT setval('assignments_assignment_id_seq', (SELECT COALESCE(MAX(assignment_id), 1) FROM assignments));
     `);
 
-    // Ensure PRO192 Java PE Exam (Assignment 70) and Telemetry
-    await seedPeExam();
+    // Ensure PRO192 Java PE Exam (Assignment 70) and Telemetry (Disabled per user request to delete assignment 70)
+    // await seedPeExam();
 
     if (!needSeed) {
       console.log('✅ [Auto-Seed] PostgreSQL ready: Schema safeguards verified & full seed data present.');
