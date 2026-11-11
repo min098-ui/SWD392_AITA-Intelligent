@@ -1,8 +1,9 @@
 import { Worker, Job } from 'bullmq';
+import crypto from 'crypto';
 import { pool } from '../../config/db';
 import { sandboxService } from './sandbox.service';
 import { redisConnection, GRADING_QUEUE_NAME } from './grading.queue';
-import { GradingJobPayload, RubricRuleItem } from './grading.types';
+import { GradingJobPayload, RubricRuleItem, GradingStatus } from './grading.types';
 import { aiTutorService } from '../ai-tutor/ai-tutor.service';
 
 /**
@@ -86,8 +87,9 @@ export class GradingWorkerService {
       const submissionRow = subRes.rows[0];
       const rawCode = job.data.code_content || submissionRow?.code_content || job.data.artifact_url || submissionRow?.artifact_url || '';
       const studentCode = typeof rawCode === 'string' ? rawCode : '';
+      const codeHash = crypto.createHash('sha256').update(studentCode).digest('hex').slice(0, 16);
       const rawLang = (job.data.language || submissionRow?.language || 'javascript').toLowerCase();
-      const language: 'python' | 'javascript' = rawLang === 'python' ? 'python' : 'javascript';
+      const language: 'python' | 'javascript' | 'java' = rawLang === 'java' ? 'java' : (rawLang === 'python' ? 'python' : 'javascript');
       const assignmentMaxScore = Number(submissionRow?.assignment_max_score ?? 10.0);
 
       // 2. Update job & submission status to PROCESSING / GRADING
@@ -169,7 +171,10 @@ export class GradingWorkerService {
         let executionTimeMs = 0;
         let ruleAiFeedback = '';
         let isAiGenerated = false;
-        let testStatus: 'ACCEPTED' | 'WRONG_ANSWER' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'SYSTEM_ERROR' = 'WRONG_ANSWER';
+        let testStatus: GradingStatus = 'WRONG_ANSWER';
+        let testContainerId: string | null = null;
+        let testDockerImage: string | null = null;
+        let testExitCode: number = 0;
 
         if (rule.rule_type === 'AUTOMATED') {
           const sandboxRes = await sandboxService.runCode({
@@ -181,6 +186,9 @@ export class GradingWorkerService {
 
           actualOutput = sandboxRes.stdout || sandboxRes.stderr || '';
           executionTimeMs = sandboxRes.executionTimeMs;
+          testContainerId = sandboxRes.containerId || null;
+          testDockerImage = sandboxRes.dockerImage || null;
+          testExitCode = sandboxRes.exitCode;
 
           if (sandboxRes.error === 'Docker service unavailable' || (!sandboxRes.timedOut && !sandboxRes.memoryExceeded && (sandboxRes.stderr || '').includes('Docker daemon is not reachable'))) {
             testStatus = 'SYSTEM_ERROR';
@@ -196,6 +204,10 @@ export class GradingWorkerService {
             testStatus = 'MEMORY_LIMIT_EXCEEDED';
             actualOutput = sandboxRes.stdout || '';
             ruleAiFeedback = 'Vượt quá giới hạn bộ nhớ (Memory Limit: 256MB Exceeded).';
+          } else if (sandboxRes.error === 'COMPILATION_ERROR' || (sandboxRes.exitCode !== 0 && ((sandboxRes.stderr || '').includes('error:') || (sandboxRes.stderr || '').includes('javac')))) {
+            testStatus = 'COMPILATION_ERROR';
+            actualOutput = (sandboxRes.stderr || sandboxRes.stdout || 'Compilation error occurred').trim();
+            ruleAiFeedback = `Lỗi biên dịch (Compilation Error): ${(sandboxRes.stderr || '').trim()}`;
           } else if (sandboxRes.exitCode !== 0) {
             testStatus = 'RUNTIME_ERROR';
             actualOutput = (sandboxRes.stderr || sandboxRes.stdout || 'Runtime error occurred').trim();
@@ -253,12 +265,12 @@ export class GradingWorkerService {
         totalEarnedScore += score;
         testSummaries.push(`- ${rule.criterion || 'Test Case'}: [${testStatus}] (${score}/${rule.max_score} điểm)`);
 
-        // Record result in grading_results table
+        // Record result in grading_results table with Telemetry
         await pool.query(
           `INSERT INTO grading_results 
-           (grading_job_id, rubric_rule_id, score, actual_output, passed, execution_time_ms, ai_feedback, is_ai_generated, status) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [grading_job_id, rule.rubric_rule_id, score, actualOutput, passed, executionTimeMs, ruleAiFeedback || null, isAiGenerated, testStatus]
+           (grading_job_id, rubric_rule_id, score, actual_output, passed, execution_time_ms, ai_feedback, is_ai_generated, status, container_id, docker_image, exit_code, code_hash) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [grading_job_id, rule.rubric_rule_id, score, actualOutput, passed, executionTimeMs, ruleAiFeedback || null, isAiGenerated, testStatus, testContainerId, testDockerImage, testExitCode, codeHash]
         );
       }
 
