@@ -78,6 +78,7 @@ interface SubmissionResult {
   grading_status?: string;
   score?: number;
   final_score?: number;
+  ai_score?: number;
   reviewer_1_notes?: string;
   reviewer_2_notes?: string;
   consensus_notes?: string;
@@ -492,32 +493,14 @@ main();
       const authHeader: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
       const activeList = teamsList || myTeams;
 
-      if (!teamId || teamId === 'ALL') {
-        if (activeList.length === 0) {
-          setMySubmissions([]);
-          return;
-        }
-        const subPromises = activeList.map(t =>
-          fetch(`http://localhost:5000/api/submissions?team_id=${t.team_id}`, {
-            headers: { ...authHeader }
-          }).then(r => r.ok ? r.json() : { submissions: [] })
-        );
-        const results = await Promise.all(subPromises);
-        const allSubs: SubmissionResult[] = [];
-        results.forEach(r => {
-          if (r.submissions && Array.isArray(r.submissions)) {
-            allSubs.push(...r.submissions);
-          }
-        });
-        allSubs.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
-        setMySubmissions(allSubs);
-      } else {
-        const subRes = await fetch(`http://localhost:5000/api/submissions?team_id=${teamId}`, {
-          headers: { ...authHeader }
-        });
-        if (subRes.ok) {
-          const sData = await subRes.json();
-          setMySubmissions(sData.submissions || []);
+      const subRes = await fetch('http://localhost:5000/api/submissions', {
+        headers: { ...authHeader }
+      });
+      if (subRes.ok) {
+        const sData = await subRes.json();
+        if (sData.submissions && Array.isArray(sData.submissions)) {
+          const allSubs = [...sData.submissions].sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+          setMySubmissions(allSubs);
         }
       }
     } catch (e) {
@@ -1212,7 +1195,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
   const displayedSubmissions = selectedFilter === 'ALL'
     ? mySubmissions
-    : mySubmissions.filter(s => String(s.team_id) === selectedFilter);
+    : mySubmissions.filter(s => String(s.team_id) === selectedFilter || s.team_id === null || s.team_id === undefined);
 
   const targetAnalyticsTeam = selectedFilter === 'ALL'
     ? (myTeam || myTeams[0])
@@ -1681,6 +1664,44 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 ]
               };
             });
+
+            if (data.submission?.submission_id) {
+              const checkRealResults = async () => {
+                try {
+                  const resCheck = await fetch(`http://localhost:5000/api/submissions/${data.submission.submission_id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                  });
+                  if (resCheck.ok) {
+                    const checkData = await resCheck.json();
+                    const realSub = checkData.submission || checkData;
+                    if (realSub && realSub.test_results && realSub.test_results.length > 0) {
+                      const passedCount = realSub.test_results.filter((t: any) => t.passed).length;
+                      const totalEarned = realSub.test_results.reduce((acc: number, t: any) => acc + (t.score || 0), 0);
+                      setLiveSandboxData(prev => {
+                        if (!prev) return null;
+                        return {
+                          ...prev,
+                          logs: [
+                            ...prev.logs.filter(l => !l.includes('Test Case') && !l.includes('Hoàn tất')),
+                            ...realSub.test_results.map((t: any, i: number) => 
+                              `[${(1.2 + i * 0.3).toFixed(1)}s] 🧪 Test Case ${i + 1}/${realSub.test_results.length}: ${t.criterion} -> [${t.passed ? 'ACCEPTED ✓' : 'FAILED ✗'}] (${t.execution_time_ms || 12}ms, ${t.score}/${t.max_score}đ)`
+                            ),
+                            `[2.5s] 🎉 Hoàn tất kiểm thử tự động Docker Sandbox: ${passedCount}/${realSub.test_results.length} Test Cases Đạt (${totalEarned.toFixed(1)} / 10.0 Điểm)!`
+                          ],
+                          isExecuting: false,
+                          earnedScore: totalEarned,
+                          maxScore: 10,
+                          testCases: realSub.test_results
+                        };
+                      });
+                      fetchData();
+                    }
+                  }
+                } catch (e) {}
+              };
+              setTimeout(checkRealResults, 2500);
+              setTimeout(checkRealResults, 5500);
+            }
           }
 
           if (submitSubTab === 'team' && myTeam?.team_id) {
@@ -3810,22 +3831,57 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 borderTop: '1px solid rgba(255, 255, 255, 0.06)',
                                 marginTop: 'auto'
                               }}>
-                                <div style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                   <span>{lang === 'vi' ? 'Hình thức:' : 'Format:'}</span>
-                                  <strong style={{ color: '#e2e8f0' }}>ZIP</strong>
-                                  {info.isSubmitted && (
-                                    <span style={{
-                                      marginLeft: '4px',
-                                      fontSize: '0.72rem',
-                                      color: '#34d399',
-                                      background: 'rgba(52, 211, 153, 0.12)',
-                                      padding: '2px 6px',
-                                      borderRadius: '4px',
-                                      fontWeight: 600
-                                    }}>
-                                      {lang === 'vi' ? 'Đã nộp' : 'Submitted'}
-                                    </span>
-                                  )}
+                                  <strong style={{ color: isDark ? '#e2e8f0' : '#1e1b4b' }}>ZIP</strong>
+                                  {(() => {
+                                    const subForAssign = mySubmissions.find(s => s.assignment_id === a.assignment_id);
+                                    if (!subForAssign) return null;
+                                    const hasScore = subForAssign.final_score !== undefined || subForAssign.score !== undefined || subForAssign.ai_score !== undefined;
+                                    const scoreNum = Number(subForAssign.final_score ?? subForAssign.score ?? subForAssign.ai_score ?? 0);
+                                    const isGrading = subForAssign.status === 'GRADING' || subForAssign.status === 'QUEUED';
+
+                                    return (
+                                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                        <span style={{
+                                          fontSize: '0.72rem',
+                                          color: '#15803d',
+                                          background: '#dcfce7',
+                                          border: '1px solid #86efac',
+                                          padding: '2px 7px',
+                                          borderRadius: '5px',
+                                          fontWeight: 700
+                                        }}>
+                                          ✓ {lang === 'vi' ? 'Đã nộp' : 'Submitted'}
+                                        </span>
+                                        {isGrading ? (
+                                          <span style={{
+                                            fontSize: '0.72rem',
+                                            color: '#b45309',
+                                            background: '#fef3c7',
+                                            border: '1px solid #fde68a',
+                                            padding: '2px 7px',
+                                            borderRadius: '5px',
+                                            fontWeight: 700
+                                          }}>
+                                            ⏳ {lang === 'vi' ? 'Đang chấm...' : 'Grading...'}
+                                          </span>
+                                        ) : hasScore ? (
+                                          <span style={{
+                                            fontSize: '0.74rem',
+                                            color: scoreNum >= 5 ? '#15803d' : '#b91c1c',
+                                            background: scoreNum >= 5 ? '#dcfce7' : '#fee2e2',
+                                            border: `1px solid ${scoreNum >= 5 ? '#86efac' : '#fecaca'}`,
+                                            padding: '2px 8px',
+                                            borderRadius: '5px',
+                                            fontWeight: 800
+                                          }}>
+                                            ⭐ {scoreNum.toFixed(1)} / {a.max_score || 10}đ
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -7220,10 +7276,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
           <div style={{
             maxWidth: '780px',
             width: '100%',
-            background: '#090d16',
-            border: '1px solid rgba(139, 92, 246, 0.45)',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
             borderRadius: '20px',
-            boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.95), 0 0 35px rgba(124, 58, 237, 0.25)',
+            boxShadow: '0 25px 60px rgba(15, 23, 42, 0.25)',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column'
@@ -7231,8 +7287,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
             {/* Header */}
             <div style={{
               padding: '16px 20px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-              background: 'rgba(15, 23, 42, 0.85)',
+              borderBottom: '1px solid #e2e8f0',
+              background: '#f8fafc',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -7243,14 +7299,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 <div style={{
                   padding: '8px',
                   borderRadius: '10px',
-                  background: 'rgba(124, 58, 237, 0.2)',
-                  color: '#c4b5fd'
+                  background: '#ede9fe',
+                  color: '#6d28d9'
                 }}>
                   <Terminal size={22} />
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#f8fafc' }}>
+                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
                       Docker Sandbox Runner (Live Execution)
                     </h4>
                     <span style={{
@@ -7258,14 +7314,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       padding: '2px 8px',
                       borderRadius: '6px',
                       fontWeight: 700,
-                      background: liveSandboxData.language === 'java' ? 'rgba(239, 68, 68, 0.18)' : liveSandboxData.language === 'python' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                      color: liveSandboxData.language === 'java' ? '#f87171' : liveSandboxData.language === 'python' ? '#a78bfa' : '#fbbf24',
-                      border: `1px solid ${liveSandboxData.language === 'java' ? 'rgba(239, 68, 68, 0.4)' : liveSandboxData.language === 'python' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                      background: liveSandboxData.language === 'java' ? '#fee2e2' : liveSandboxData.language === 'python' ? '#ede9fe' : '#fef3c7',
+                      color: liveSandboxData.language === 'java' ? '#b91c1c' : liveSandboxData.language === 'python' ? '#6d28d9' : '#b45309',
+                      border: `1px solid ${liveSandboxData.language === 'java' ? '#fca5a5' : liveSandboxData.language === 'python' ? '#c4b5fd' : '#fde68a'}`
                     }}>
                       {liveSandboxData.language === 'java' ? '☕ Java (OpenJDK 17)' : liveSandboxData.language === 'python' ? '🐍 Python 3.11' : '🟨 Node.js 20'}
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', fontWeight: 600 }}>
                     {liveSandboxData.assignmentTitle}
                   </div>
                 </div>
@@ -7277,7 +7333,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#94a3b8',
+                  color: '#64748b',
                   cursor: 'pointer',
                   padding: '6px',
                   borderRadius: '6px'
@@ -7293,26 +7349,26 @@ III. QUY CHUẨN DOCKER SANDBOX:
               gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
               gap: '10px',
               padding: '12px 20px',
-              background: 'rgba(0, 0, 0, 0.5)',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+              background: '#ffffff',
+              borderBottom: '1px solid #e2e8f0',
               fontSize: '0.76rem'
             }}>
               <div>
                 <span style={{ color: '#64748b' }}>🐳 Container ID: </span>
-                <code style={{ color: '#38bdf8', fontWeight: 700 }}>{liveSandboxData.containerId}</code>
+                <code style={{ color: '#0284c7', fontWeight: 700 }}>{liveSandboxData.containerId}</code>
               </div>
               <div>
                 <span style={{ color: '#64748b' }}>📦 Image: </span>
-                <span style={{ color: '#c084fc', fontWeight: 600 }}>{liveSandboxData.dockerImage.split(' ')[0]}</span>
+                <span style={{ color: '#6d28d9', fontWeight: 600 }}>{liveSandboxData.dockerImage.split(' ')[0]}</span>
               </div>
               <div>
                 <span style={{ color: '#64748b' }}>🛡️ Giới hạn: </span>
-                <span style={{ color: '#34d399', fontWeight: 600 }}>RAM 256MB • CPU 1.0</span>
+                <span style={{ color: '#15803d', fontWeight: 600 }}>RAM 256MB • CPU 1.0</span>
               </div>
               <div>
                 <span style={{ color: '#64748b' }}>Trạng thái: </span>
                 <span style={{
-                  color: liveSandboxData.isExecuting ? '#fbbf24' : '#34d399',
+                  color: liveSandboxData.isExecuting ? '#b45309' : '#15803d',
                   fontWeight: 700,
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -7330,7 +7386,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
             {/* Terminal Output */}
             <div style={{
               padding: '16px 20px',
-              background: '#040711',
+              background: '#0f172a',
               fontFamily: 'Consolas, Monaco, "Courier New", monospace',
               fontSize: '0.82rem',
               color: '#e2e8f0',
@@ -7344,14 +7400,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
               {liveSandboxData.logs.map((log, idx) => (
                 <div key={idx} style={{
                   color: log.includes('PASSED') || log.includes('ACCEPTED') || log.includes('BUILD SUCCESS')
-                    ? '#34d399'
+                    ? '#4ade80'
                     : log.includes('FAILED')
                     ? '#f87171'
                     : log.includes('Compiling') || log.includes('Container ID')
                     ? '#38bdf8'
                     : log.includes('Hoàn tất') || log.includes('RESULT')
                     ? '#fbbf24'
-                    : '#94a3b8'
+                    : '#cbd5e1'
                 }}>
                   {log}
                 </div>
@@ -7367,8 +7423,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
             {/* Footer */}
             <div style={{
               padding: '14px 20px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              background: 'rgba(15, 23, 42, 0.85)',
+              borderTop: '1px solid #e2e8f0',
+              background: '#f8fafc',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -7376,15 +7432,15 @@ III. QUY CHUẨN DOCKER SANDBOX:
               gap: '10px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Điểm kiểm thử Docker:</span>
+                <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>Điểm kiểm thử Docker:</span>
                 <span style={{
                   fontSize: '0.95rem',
                   fontWeight: 800,
                   padding: '3px 10px',
                   borderRadius: '8px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  color: '#34d399',
-                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                  background: '#dcfce7',
+                  color: '#15803d',
+                  border: '1px solid #86efac'
                 }}>
                   ★ {liveSandboxData.earnedScore.toFixed(1)} / 10.0
                 </span>
@@ -7394,8 +7450,16 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 <button
                   type="button"
                   onClick={() => setShowLiveSandboxModal(false)}
-                  className="btn-secondary"
-                  style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: '10px' }}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '0.82rem',
+                    borderRadius: '10px',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    color: '#334155',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
                 >
                   Đóng cửa sổ
                 </button>

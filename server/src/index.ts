@@ -78,7 +78,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
-// Initialize Background BullMQ Grading Worker
+// Initialize Background BullMQ Grading Worker (Java Sandbox timeout 15s)
 gradingWorkerService.initWorker();
 
 if (process.env.NODE_ENV !== 'test') {

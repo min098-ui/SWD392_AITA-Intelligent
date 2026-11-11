@@ -230,7 +230,8 @@ function extractQuestionCode(fullCode: string, ruleCriterion: string): string {
             testStatus = 'TIME_LIMIT_EXCEEDED';
             hasTimeout = true;
             actualOutput = sandboxRes.stdout || '';
-            ruleAiFeedback = '[BR-03] Quá thời gian thực thi (Time Limit Exceeded: 5000ms). Container đã bị ngắt an toàn.';
+            const limitMs = language === 'java' ? 15000 : 5000;
+            ruleAiFeedback = `[BR-03] Quá thời gian thực thi (Time Limit Exceeded: ${limitMs}ms). Container đã bị ngắt an toàn.`;
           } else if (sandboxRes.memoryExceeded) {
             testStatus = 'MEMORY_LIMIT_EXCEEDED';
             actualOutput = sandboxRes.stdout || '';
@@ -338,7 +339,8 @@ function extractQuestionCode(fullCode: string, ruleCriterion: string): string {
       const submissionFinalStatus = 'GRADED';
       let finalAiFeedback = '';
       if (hasTimeout) {
-        finalAiFeedback = `Cảnh báo BR-03: Phát hiện vòng lặp vô hạn hoặc thời gian xử lý vượt quá giới hạn 5,000ms. Watchdog đã can thiệp ngắt container an toàn.\nPassed: ${passCount}, Failed: ${failCount}\n` + testSummaries.join('\n');
+        const limitMs = language === 'java' ? 15000 : 5000;
+        finalAiFeedback = `Cảnh báo BR-03: Phát hiện vòng lặp vô hạn hoặc thời gian xử lý vượt quá giới hạn ${limitMs.toLocaleString()}ms. Watchdog đã can thiệp ngắt container an toàn.\nPassed: ${passCount}, Failed: ${failCount}\n` + testSummaries.join('\n');
       } else if (accumulatedAiFeedbacks.length > 0) {
         finalAiFeedback = accumulatedAiFeedbacks.join('\n\n---\n\n') + `\n\nPassed: ${passCount}, Failed: ${failCount}\n` + testSummaries.join('\n');
       } else {
