@@ -6,17 +6,18 @@ import { useLanguage } from '../context/LanguageContext';
 
 export default function ThemeToggle() {
   const { lang } = useLanguage();
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    const saved = (localStorage.getItem('aita_theme') as 'dark' | 'light') || 'dark';
+    const docTheme = document.documentElement.getAttribute('data-theme') as 'dark' | 'light' | null;
+    const saved = (localStorage.getItem('aita_theme') as 'dark' | 'light') || docTheme || 'light';
     setTheme(saved);
     document.documentElement.setAttribute('data-theme', saved);
 
     const handleThemeChange = () => {
-      const current = (localStorage.getItem('aita_theme') as 'dark' | 'light') || 'dark';
+      const current = (localStorage.getItem('aita_theme') as 'dark' | 'light') || document.documentElement.getAttribute('data-theme') as 'dark' | 'light' || 'light';
       setTheme(current);
     };
 
