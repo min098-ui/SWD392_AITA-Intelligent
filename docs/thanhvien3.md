@@ -264,7 +264,6 @@ Bộ kiểm thử tự động toàn diện được phát triển riêng trong 
 * **Trả lời:** Trong `ai-tutor.service.ts`, em đã xây dựng cơ chế **Graceful Fallback & Circuit Breaker**: Nếu toàn bộ các key trong CSDL đều rơi vào trạng thái `RATE_LIMITED` hoặc hết quota, hệ thống sẽ tự động kích hoạt bộ sinh phản hồi nội bộ (`generateFallbackSocratic`), cung cấp các hướng dẫn tư duy cơ bản mà không làm sập ứng dụng (zero-crash policy). Đồng thời hệ thống ghi log cảnh báo để Quản trị viên bổ sung key mới qua API `/api/ai-tutor/admin/keys`.
 
 ---
-
 ## 9. Ma Trận Minh Chứng & Đóng Góp Kỹ Thuật (Contribution Proofs)
 
 | Hạng Mục | File Mã Nguồn / Tài Liệu | Trách Nhiệm Kỹ Thuật | Trạng Thái |

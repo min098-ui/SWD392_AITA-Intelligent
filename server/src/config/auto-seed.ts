@@ -1,7 +1,6 @@
 import { pool } from './db';
 import path from 'path';
 import fs from 'fs';
-import { seedPeExam } from '../scripts/seed-pe-exam';
 
 function findSqlFile(filename: string): string | null {
   const candidates = [
@@ -186,9 +185,10 @@ export async function ensureDatabaseSeeded(): Promise<void> {
         role = 'LECTURER',
         status = 'ACTIVE';
 
-      -- Ensure 14 unassigned demo students exist
+      -- Ensure demo students exist
       INSERT INTO users (full_name, email, password_hash, role, status)
       VALUES
+        ('Min Jin', 'minanhzong@gmail.com', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
         ('Trần Bảo Nam', 'namtbqe180101@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
         ('Hoàng Minh Quân', 'quanhmqe180102@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
         ('Phan Thảo Vy', 'vyptqe180103@fpt.edu.vn', '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', 'STUDENT', 'ACTIVE'),
@@ -215,8 +215,15 @@ export async function ensureDatabaseSeeded(): Promise<void> {
       SELECT setval('assignments_assignment_id_seq', (SELECT COALESCE(MAX(assignment_id), 1) FROM assignments));
     `);
 
-    // Ensure PRO192 Java PE Exam (Assignment 70) and Telemetry
-    await seedPeExam();
+    // Clean up PRO192 course and exam data if exists
+    await client.query(`
+      DELETE FROM rubric_rules WHERE assignment_id IN (SELECT assignment_id FROM assignments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192') OR assignment_id = 70);
+      DELETE FROM grading_results WHERE submission_id IN (SELECT submission_id FROM submissions WHERE assignment_id IN (SELECT assignment_id FROM assignments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192') OR assignment_id = 70));
+      DELETE FROM submissions WHERE assignment_id IN (SELECT assignment_id FROM assignments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192') OR assignment_id = 70);
+      DELETE FROM assignments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192') OR assignment_id = 70;
+      DELETE FROM course_enrollments WHERE course_id IN (SELECT course_id FROM courses WHERE course_code = 'PRO192');
+      DELETE FROM courses WHERE course_code = 'PRO192';
+    `);
 
     if (!needSeed) {
       console.log('✅ [Auto-Seed] PostgreSQL ready: Schema safeguards verified & full seed data present.');

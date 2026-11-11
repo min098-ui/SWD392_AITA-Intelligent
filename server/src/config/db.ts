@@ -402,6 +402,7 @@ const mockUsers: MockUser[] = [
     status: 'ACTIVE',
     created_at: new Date(),
   },
+  { user_id: 100, full_name: 'Min Jin', email: 'minanhzong@gmail.com', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
   { user_id: 101, full_name: 'Trần Bảo Nam', email: 'namtbqe180101@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
   { user_id: 102, full_name: 'Hoàng Minh Quân', email: 'quanhmqe180102@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },
   { user_id: 103, full_name: 'Phan Thảo Vy', email: 'vyptqe180103@fpt.edu.vn', password_hash: '$2a$10$fUyXvogZImWkD34ItWppmenaSNAgzilb7Ml7ZQ5DCx0OvRo3.RfX2', role: 'STUDENT', status: 'ACTIVE', created_at: new Date() },

@@ -42,6 +42,19 @@ async function runReset() {
       );
       ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
 
+      -- Courses safeguards & foreign key fix
+      CREATE TABLE IF NOT EXISTS courses (
+        course_id SERIAL PRIMARY KEY,
+        course_code VARCHAR(50) UNIQUE NOT NULL,
+        course_name VARCHAR(150) NOT NULL,
+        semester VARCHAR(20) NOT NULL,
+        lecturer_id INT,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+      ALTER TABLE courses ALTER COLUMN lecturer_id DROP NOT NULL;
+      ALTER TABLE courses DROP CONSTRAINT IF EXISTS courses_lecturer_id_fkey;
+      ALTER TABLE courses ADD CONSTRAINT courses_lecturer_id_fkey FOREIGN KEY (lecturer_id) REFERENCES users(user_id) ON DELETE SET NULL;
+
       -- Team Members table safeguards
       CREATE TABLE IF NOT EXISTS team_members (
         team_member_id SERIAL PRIMARY KEY,
@@ -95,14 +108,36 @@ async function runReset() {
       -- Assignments safeguards
       ALTER TABLE assignments ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
       ALTER TABLE assignments ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS close_date TIMESTAMPTZ;
       ALTER TABLE assignments ADD COLUMN IF NOT EXISTS deadline TIMESTAMPTZ;
       ALTER TABLE assignments ADD COLUMN IF NOT EXISTS max_score FLOAT NOT NULL DEFAULT 10.0;
       ALTER TABLE assignments ADD COLUMN IF NOT EXISTS submission_type VARCHAR(20) NOT NULL DEFAULT 'TEAM';
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS target_type VARCHAR(20) NOT NULL DEFAULT 'ALL';
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS allowed_language VARCHAR(20) NOT NULL DEFAULT 'ALL';
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED';
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS allow_late_submission BOOLEAN NOT NULL DEFAULT TRUE;
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS max_submissions INT DEFAULT 5;
+      ALTER TABLE assignments ADD COLUMN IF NOT EXISTS allow_resubmission BOOLEAN NOT NULL DEFAULT TRUE;
+
+      CREATE TABLE IF NOT EXISTS assignment_target_teams (
+        assignment_id INT NOT NULL,
+        team_id INT NOT NULL,
+        assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (assignment_id, team_id)
+      );
+
+      ALTER TABLE rubric_rules ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Active';
+      ALTER TABLE rubric_rules ADD COLUMN IF NOT EXISTS order_index INT DEFAULT 0;
+      ALTER TABLE rubric_rules ADD COLUMN IF NOT EXISTS description TEXT;
 
       -- Submissions safeguards (BR-09 & Tracking)
       ALTER TABLE submissions ALTER COLUMN status TYPE VARCHAR(50);
       ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_status_check;
       ALTER TABLE submissions ADD CONSTRAINT submissions_status_check CHECK (status IN ('SUBMITTED', 'QUEUED', 'GRADING', 'GRADED', 'FAILED', 'AI_PREGRADED', 'FIRST_REVIEWED', 'PENDING_SECOND_REVIEW', 'FINALIZED'));
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS code_content TEXT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS language VARCHAR(20) DEFAULT 'javascript';
+      ALTER TABLE submissions ALTER COLUMN artifact_url DROP NOT NULL;
+      ALTER TABLE submissions ALTER COLUMN git_commit_hash DROP NOT NULL;
       ALTER TABLE submissions ADD COLUMN IF NOT EXISTS submitted_by_user_id INT;
       ALTER TABLE submissions ADD COLUMN IF NOT EXISTS ai_score FLOAT;
       ALTER TABLE submissions ADD COLUMN IF NOT EXISTS ai_feedback TEXT;
@@ -115,12 +150,21 @@ async function runReset() {
       ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reviewer_2_notes TEXT;
       ALTER TABLE submissions ADD COLUMN IF NOT EXISTS consensus_notes TEXT;
       ALTER TABLE submissions ADD COLUMN IF NOT EXISTS final_score FLOAT;
+      ALTER TABLE submissions ADD COLUMN IF NOT EXISTS code_hash VARCHAR(64);
 
       -- Git Commits & Peer Audits safeguards (Member 4)
       ALTER TABLE git_commits ADD COLUMN IF NOT EXISTS commit_message TEXT;
       ALTER TABLE git_commits ADD COLUMN IF NOT EXISTS assignment_id INT;
       ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS assignment_id INT;
       ALTER TABLE peer_audits ADD COLUMN IF NOT EXISTS evaluated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS status VARCHAR(50);
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS container_id VARCHAR(50);
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS docker_image VARCHAR(100);
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS exit_code INT DEFAULT 0;
+      ALTER TABLE grading_results ADD COLUMN IF NOT EXISTS code_hash VARCHAR(64);
+      ALTER TABLE grading_jobs ADD COLUMN IF NOT EXISTS container_id VARCHAR(50);
+      ALTER TABLE grading_jobs ADD COLUMN IF NOT EXISTS docker_image VARCHAR(100);
+      ALTER TABLE grading_jobs ADD COLUMN IF NOT EXISTS code_hash VARCHAR(64);
     `);
 
     // Run schema.sql

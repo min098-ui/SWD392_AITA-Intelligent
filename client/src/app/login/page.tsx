@@ -575,7 +575,7 @@ function LoginContent() {
             </div>
           )}
 
-          {/* Dòng ghi chú chân trang & nút bật hộp xác nhận Google nhanh */}
+          {/* Dòng ghi chú chân trang */}
           <div style={{
             marginTop: '1.6rem',
             fontSize: '0.78rem',
@@ -588,23 +588,6 @@ function LoginContent() {
             gap: '8px'
           }}>
             <p>{currentT.footerNotice}</p>
-            {!showGoogleConfirm && (
-              <button
-                type="button"
-                onClick={() => setShowGoogleConfirm(true)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--accent-primary, #7c3aed)',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  textDecoration: 'underline',
-                  cursor: 'pointer'
-                }}
-              >
-                Gặp sự cố kết nối Google Cloud? Bấm để chọn email xác nhận nhanh
-              </button>
-            )}
           </div>
         </div>
       </main>
