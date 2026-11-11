@@ -4002,15 +4002,6 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                     }}>
                       {cleanTitle}
                     </h4>
-
-                    <p style={{
-                      fontSize: '0.83rem',
-                      color: '#64748b',
-                      lineHeight: 1.45,
-                      marginBottom: '16px'
-                    }}>
-                      {a.description || (lang === 'vi' ? 'Đề thi thực hành PE chuẩn 4 câu hỏi.' : 'Practical exam.')}
-                    </p>
                   </div>
 
                   <div style={{

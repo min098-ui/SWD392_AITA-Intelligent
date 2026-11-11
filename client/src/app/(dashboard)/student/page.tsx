@@ -3763,21 +3763,6 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 }}>
                                   {cleanTitle}
                                 </h4>
-
-                                {/* Description Excerpt */}
-                                <p style={{
-                                  fontSize: '0.83rem',
-                                  color: 'var(--text-muted)',
-                                  lineHeight: 1.45,
-                                  marginBottom: '16px',
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                  minHeight: '2.4rem'
-                                }}>
-                                  {a.description || (lang === 'vi' ? 'Chưa có mô tả chi tiết cho bài tập này.' : 'No description provided.')}
-                                </p>
                               </div>
 
                               {/* Card Footer: Hình thức bên trái, Chi Tiết & Nộp Bài bên phải (Gọn gàng như Giảng Viên) */}
