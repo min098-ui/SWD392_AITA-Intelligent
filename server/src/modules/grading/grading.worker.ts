@@ -181,7 +181,7 @@ export class GradingWorkerService {
             code: studentCode,
             language: language,
             inputData: rule.input_data || '',
-            timeoutMs: 5000, // 5s execution limit per test case (BR-03)
+            timeoutMs: language === 'java' ? 10000 : 5000, // 10s for Java (JVM warm-up & compilation), 5s for others (BR-03)
           });
 
           actualOutput = sandboxRes.stdout || sandboxRes.stderr || '';

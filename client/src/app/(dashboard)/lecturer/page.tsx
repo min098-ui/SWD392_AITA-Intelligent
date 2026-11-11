@@ -1179,8 +1179,12 @@ III. QUY CHUẨN DOCKER SANDBOX:
               ai_score: autoScore,
               time: new Date(s.submitted_at).toLocaleString(),
               sandboxOutput: s.output_logs || (finalScore === 0 
-                ? 'Docker Sandbox: 0/3 test cases Passed (0.0/10). Phát hiện lỗi runtime hoặc Watchdog Timeout (BR-03).' 
-                : 'Docker Sandbox thực thi thành công: 3/3 test cases Passed (10/10)'),
+                ? (s.test_results && s.test_results.length > 0 
+                    ? `Docker Sandbox: 0/${s.test_results.length} test cases Passed (0.0/10). Phát hiện lỗi runtime hoặc Watchdog Timeout (BR-03).`
+                    : 'Docker Sandbox: Đang xử lý chấm điểm hoặc phát hiện lỗi runtime / Watchdog Timeout (BR-03).')
+                : (s.test_results && s.test_results.length > 0 
+                    ? `Docker Sandbox thực thi thành công: ${s.test_results.filter((t: any) => t.passed).length}/${s.test_results.length} test cases Passed (${finalScore}/10)`
+                    : `Docker Sandbox thực thi thành công (${finalScore}/10)`)),
               aiFeedback: s.ai_feedback || (finalScore === 0 
                 ? 'Hệ thống phát hiện bài làm chưa vượt qua được test cases kiểm thử tự động. Cần kiểm tra lại các trường hợp biên và vòng lặp.' 
                 : 'Thuật toán Two Pointers / Hash Map tối ưu O(N), mã nguồn sạch và đạt chuẩn kiến trúc.'),
@@ -6450,12 +6454,20 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                   <span style={{
                                     display: 'inline-flex', alignItems: 'center', gap: '5px',
                                     padding: '3px 8px', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 700,
-                                    background: row.language === 'python' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                    color: row.language === 'python' ? '#a78bfa' : '#fbbf24',
-                                    border: row.language === 'python' ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(245, 158, 11, 0.3)',
+                                    background: row.language === 'java'
+                                      ? 'rgba(239, 68, 68, 0.15)'
+                                      : row.language === 'python'
+                                      ? 'rgba(139, 92, 246, 0.15)'
+                                      : 'rgba(245, 158, 11, 0.15)',
+                                    color: row.language === 'java'
+                                      ? '#f87171'
+                                      : row.language === 'python'
+                                      ? '#a78bfa'
+                                      : '#fbbf24',
+                                    border: `1px solid ${row.language === 'java' ? 'rgba(239, 68, 68, 0.35)' : row.language === 'python' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
                                     marginBottom: '5px'
                                   }}>
-                                    <Code2 size={12} /> {row.language === 'python' ? 'Python 3.11' : 'Node.js 20'}
+                                    <Code2 size={12} /> {row.language === 'java' ? '☕ Java 17' : row.language === 'python' ? 'Python 3.11' : 'Node.js 20'}
                                   </span>
                                   <button
                                     type="button"
@@ -6506,7 +6518,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                               {row.status}
                             </div>
                             <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              0.5 Core • 128MB RAM
+                              1.0 Core • 256MB RAM
                             </div>
                           </td>
 

@@ -52,7 +52,12 @@ router.get('/', authenticateJWT, async (req: Request, res: Response) => {
       JOIN assignments a ON s.assignment_id = a.assignment_id
       LEFT JOIN teams t ON s.team_id = t.team_id
       LEFT JOIN users u ON s.submitted_by_user_id = u.user_id
-      LEFT JOIN grading_jobs gj ON s.submission_id = gj.submission_id
+      LEFT JOIN LATERAL (
+        SELECT * FROM grading_jobs 
+        WHERE submission_id = s.submission_id 
+        ORDER BY grading_job_id DESC 
+        LIMIT 1
+      ) gj ON true
     `;
     const params: any[] = [];
     const conditions: string[] = [];
