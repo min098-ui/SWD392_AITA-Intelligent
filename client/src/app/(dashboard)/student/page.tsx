@@ -1754,13 +1754,33 @@ III. QUY CHUẨN DOCKER SANDBOX:
     }
   };
 
+  const getSandboxContainerTag = (sub: any) =>
+    sub?.test_results?.[0]?.container_id ||
+    ('66e9' + (((Number(sub?.submission_id) || 1) * 2654435761) >>> 0).toString(16).slice(0, 6).padStart(6, '0'));
+
+  const getSandboxImageName = (sub: any) => {
+    const isJava = sub?.language === 'java';
+    const isPython = sub?.language === 'python';
+    return (
+      sub?.test_results?.[0]?.docker_image ||
+      (isJava
+        ? 'aita-sandbox-java:latest (openjdk:17-alpine)'
+        : isPython
+        ? 'aita-sandbox-python:latest (python:3.11-alpine)'
+        : 'aita-sandbox-node:latest (node:20-alpine)')
+    );
+  };
+
   const openLiveSandboxModalForSub = (sub: any) => {
     const isJava = sub.language === 'java';
-    const isPython = sub.language === 'python';
-    const containerHex = sub.test_results?.[0]?.container_id || ('66e950c' + Math.floor(Math.random() * 8999 + 1000).toString(16));
-    const img = sub.test_results?.[0]?.docker_image || (isJava ? 'aita-sandbox-java:latest (openjdk:17-alpine)' : isPython ? 'aita-sandbox-python:latest (python:3.11-alpine)' : 'aita-sandbox-node:latest (node:20-alpine)');
+    const containerHex = getSandboxContainerTag(sub);
+    const img = getSandboxImageName(sub);
     const trList = sub.test_results || [];
-    const earned = Number(sub.final_score ?? sub.score ?? 0);
+    const earned = Number(sub.final_score ?? sub.score ?? sub.ai_score ?? 0);
+    const maxTotal =
+      trList.length > 0
+        ? trList.reduce((acc: number, t: any) => acc + Number(t.max_score || 0), 0) || 10
+        : 10;
 
     const generatedLogs = [
       `[INFO] Attached to Docker Sandbox Session (Container ID: ${containerHex})`,
@@ -1770,12 +1790,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
       ...(trList.length > 0 ? trList.map((t: any, idx: number) => 
         `[TEST ${idx + 1}/${trList.length}] ${t.criterion} -> [${t.passed ? 'ACCEPTED ✓' : 'FAILED ✗'}] (${t.execution_time_ms || 15}ms, ${t.score || 0}/${t.max_score || 0}đ)`
       ) : [
-        `[TEST 1/4] Q1: Xử lý chuỗi (String Manipulation) -> [ACCEPTED ✓] (12ms, 2/2đ)`,
-        `[TEST 2/4] Q2: Kế thừa & Đa hình (Car & SpecCar OOP) -> [ACCEPTED ✓] (18ms, 3/3đ)`,
-        `[TEST 3/4] Q3: Cấu trúc danh sách MyList (Linked List) -> [ACCEPTED ✓] (15ms, 3/3đ)`,
-        `[TEST 4/4] Q4: Thuật toán logic & Đảo ngược từ -> [ACCEPTED ✓] (10ms, 2/2đ)`
+        `[INFO] Chưa có dữ liệu log chi tiết từng test case cho bài nộp này.`
       ]),
-      `[RESULT] Completed evaluation with status: ${sub.status || 'GRADED'} (Total Score: ${earned.toFixed(1)}/10.0)`
+      `[RESULT] Completed evaluation with status: ${sub.status || 'GRADED'} (Total Score: ${earned.toFixed(1)}/${maxTotal.toFixed(1)})`
     ];
 
     setLiveSandboxData({
@@ -1787,8 +1804,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
       codeContent: sub.code_content,
       logs: generatedLogs,
       isExecuting: false,
-      earnedScore: earned || 10,
-      maxScore: 10,
+      earnedScore: earned,
+      maxScore: maxTotal,
       testCases: trList
     });
     setShowLiveSandboxModal(true);
@@ -7167,6 +7184,65 @@ III. QUY CHUẨN DOCKER SANDBOX:
                         </div>
                       )}
 
+                      {/* Compact Docker Sandbox Runner Bar (reopen terminal summary modal) */}
+                      {(() => {
+                        const shortImg = getSandboxImageName(sub).split(' ')[0];
+                        const containerTag = getSandboxContainerTag(sub);
+                        const totalMs = (sub.test_results || []).reduce((acc, tc) => acc + Number(tc.execution_time_ms || 0), 0);
+                        return (
+                          <div style={{
+                            marginTop: '0.85rem',
+                            padding: '8px 14px',
+                            borderRadius: '10px',
+                            background: isDark ? 'rgba(15, 23, 42, 0.55)' : '#f8fafc',
+                            border: `1px solid ${isDark ? 'rgba(148, 163, 184, 0.2)' : '#e2e8f0'}`,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '8px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.76rem', color: isDark ? '#94a3b8' : '#475569' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 700, color: isDark ? '#c4b5fd' : '#6d28d9' }}>
+                                <Terminal size={13} /> Docker Sandbox
+                              </span>
+                              <span style={{ color: isDark ? '#64748b' : '#cbd5e1' }}>•</span>
+                              <span>Container: <code style={{ color: isDark ? '#38bdf8' : '#0284c7', fontWeight: 700 }}>{containerTag}</code></span>
+                              <span style={{ color: isDark ? '#64748b' : '#cbd5e1' }}>•</span>
+                              <span>Image: <strong style={{ color: isDark ? '#e2e8f0' : '#334155', fontWeight: 600 }}>{shortImg}</strong></span>
+                              {totalMs > 0 && (
+                                <>
+                                  <span style={{ color: isDark ? '#64748b' : '#cbd5e1' }}>•</span>
+                                  <span>{lang === 'vi' ? 'Tổng thời gian:' : 'Runtime:'} <strong style={{ color: isDark ? '#34d399' : '#15803d' }}>{totalMs}ms</strong></span>
+                                </>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => openLiveSandboxModalForSub(sub)}
+                              style={{
+                                background: isDark ? 'rgba(15, 23, 42, 0.9)' : '#ffffff',
+                                border: `1px solid ${isDark ? 'rgba(139, 92, 246, 0.4)' : '#cbd5e1'}`,
+                                color: isDark ? '#e2e8f0' : '#334155',
+                                padding: '5px 12px',
+                                borderRadius: '7px',
+                                fontSize: '0.76rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                boxShadow: isDark ? 'none' : '0 1px 2px rgba(15, 23, 42, 0.05)'
+                              }}
+                            >
+                              <Terminal size={13} color={isDark ? '#a78bfa' : '#6d28d9'} />
+                              <span>{lang === 'vi' ? 'Xem Terminal Log' : 'View Terminal Log'}</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
+
                       {/* Submitted Code Viewer & Artifact Link */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.85rem' }}>
                         {sub.code_content && (
@@ -7513,17 +7589,22 @@ III. QUY CHUẨN DOCKER SANDBOX:
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>Điểm kiểm thử Docker:</span>
-                <span style={{
-                  fontSize: '0.95rem',
-                  fontWeight: 800,
-                  padding: '3px 10px',
-                  borderRadius: '8px',
-                  background: '#dcfce7',
-                  color: '#15803d',
-                  border: '1px solid #86efac'
-                }}>
-                  ★ {liveSandboxData.earnedScore.toFixed(1)} / 10.0
-                </span>
+                {(() => {
+                  const isModalFailed = !liveSandboxData.isExecuting && liveSandboxData.earnedScore < 5;
+                  return (
+                    <span style={{
+                      fontSize: '0.95rem',
+                      fontWeight: 800,
+                      padding: '3px 10px',
+                      borderRadius: '8px',
+                      background: liveSandboxData.isExecuting ? '#fef3c7' : isModalFailed ? '#fee2e2' : '#dcfce7',
+                      color: liveSandboxData.isExecuting ? '#b45309' : isModalFailed ? '#b91c1c' : '#15803d',
+                      border: `1px solid ${liveSandboxData.isExecuting ? '#fcd34d' : isModalFailed ? '#fca5a5' : '#86efac'}`
+                    }}>
+                      ★ {liveSandboxData.earnedScore.toFixed(1)} / {liveSandboxData.maxScore.toFixed(1)}
+                    </span>
+                  );
+                })()}
               </div>
 
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -7561,7 +7642,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                   }}
                 >
                   <CheckCircle2 size={14} />
-                  <span>Xem chi tiết tại Tab Kết quả & AI</span>
+                  <span>{activeTab === 'results' ? 'Đóng & Xem Bảng điểm' : 'Xem chi tiết tại Tab Kết quả & AI'}</span>
                 </button>
               </div>
             </div>
