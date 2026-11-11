@@ -200,6 +200,7 @@ export default function StudentDashboard() {
   } | null>(null);
   const [showStudentProfileModal, setShowStudentProfileModal] = useState(false);
   const [expandedCodeMap, setExpandedCodeMap] = useState<Record<number, boolean>>({});
+  const [showAllSubmissionHistory, setShowAllSubmissionHistory] = useState(false);
 
   // Submission Sub-tab States (Bài tập cá nhân vs Đồ án nhóm Git)
   const [submitSubTab, setSubmitSubTab] = useState<'individual' | 'team'>('individual');
@@ -6821,25 +6822,59 @@ III. QUY CHUẨN DOCKER SANDBOX:
           );
         })()}
 
-        {/* ───── TAB: RESULTS ───── */}
-        {activeTab === 'results' && (
+        {/* ───── TAB: RESULTS (Student Score & Clean Breakdown Only) ───── */}
+        {activeTab === 'results' && (() => {
+          const seenAssignIds = new Set<number | string>();
+          const latestOnlySubmissions = displayedSubmissions.filter((s) => {
+            const key = s.assignment_id ?? s.submission_id;
+            if (seenAssignIds.has(key)) return false;
+            seenAssignIds.add(key);
+            return true;
+          });
+          const olderSubmissionsCount = Math.max(0, displayedSubmissions.length - latestOnlySubmissions.length);
+          const visibleResults = showAllSubmissionHistory ? displayedSubmissions : latestOnlySubmissions;
+
+          return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle2 size={20} color="#34d399" /> {lang === 'vi' ? 'Lịch sử bài nộp & Kết quả chấm' : 'Submission History & Results'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                <CheckCircle2 size={20} color="#10b981" /> {lang === 'vi' ? 'Kết quả chấm bài & Điểm số' : 'Grading Results & Scores'}
               </h3>
-              <button onClick={fetchData} disabled={loadingData} className="btn-secondary" style={{ padding: '7px 14px', fontSize: '0.82rem', gap: '6px' }}>
-                {loadingData ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {lang === 'vi' ? 'Làm mới' : 'Refresh'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {olderSubmissionsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSubmissionHistory(prev => !prev)}
+                    className="btn-secondary"
+                    style={{
+                      padding: '7px 14px',
+                      fontSize: '0.82rem',
+                      gap: '6px',
+                      background: showAllSubmissionHistory ? (isDark ? 'rgba(124, 58, 237, 0.25)' : '#ede9fe') : undefined,
+                      color: showAllSubmissionHistory ? (isDark ? '#c4b5fd' : '#6d28d9') : undefined,
+                      borderColor: showAllSubmissionHistory ? '#8b5cf6' : undefined,
+                      fontWeight: 700
+                    }}
+                  >
+                    <Clock size={14} />
+                    {showAllSubmissionHistory
+                      ? (lang === 'vi' ? 'Chỉ xem bản mới nhất' : 'Latest Only')
+                      : (lang === 'vi' ? `Lịch sử nộp cũ (+${olderSubmissionsCount})` : `Older Attempts (+${olderSubmissionsCount})`)}
+                  </button>
+                )}
+                <button onClick={fetchData} disabled={loadingData} className="btn-secondary" style={{ padding: '7px 14px', fontSize: '0.82rem', gap: '6px' }}>
+                  {loadingData ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {lang === 'vi' ? 'Làm mới' : 'Refresh'}
+                </button>
+              </div>
             </div>
 
             {/* Live submissions from DB */}
-            {displayedSubmissions.length > 0 ? (
+            {visibleResults.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {displayedSubmissions.map((sub) => {
-                  const isFailed = sub.status === 'FAILED' || (sub.status === 'GRADED' && Number(sub.final_score ?? sub.score) === 0);
+                {visibleResults.map((sub) => {
+                  const scoreNum = Number(sub.final_score ?? sub.score ?? sub.ai_score ?? 0);
                   const isGrading = (sub.status === 'GRADING' || sub.status === 'QUEUED' || sub.grading_status === 'PROCESSING' || sub.grading_status === 'QUEUED') && sub.status !== 'FINALIZED';
-                  const scoreNum = Number(sub.final_score ?? sub.score ?? 0);
+                  const isFailed = !isGrading && (sub.status === 'FAILED' || scoreNum < 5);
 
                   return (
                     <div 
@@ -6847,39 +6882,43 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       className="glass-card" 
                       style={{ 
                         padding: '1.5rem', 
-                        borderLeft: `4px solid ${isFailed ? '#f43f5e' : (isGrading ? '#f59e0b' : '#34d399')}`,
-                        background: isFailed ? 'rgba(239, 68, 68, 0.03)' : 'var(--bg-card)'
+                        borderLeft: `4px solid ${isGrading ? '#f59e0b' : (isFailed ? '#ef4444' : '#10b981')}`,
+                        background: isDark ? 'var(--bg-card)' : '#ffffff',
+                        borderTop: isDark ? undefined : '1px solid #e2e8f0',
+                        borderRight: isDark ? undefined : '1px solid #e2e8f0',
+                        borderBottom: isDark ? undefined : '1px solid #e2e8f0',
+                        boxShadow: isDark ? undefined : '0 4px 16px rgba(15, 23, 42, 0.05)'
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.9rem', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
-                          <h4 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}>
+                          <h4 style={{ fontSize: '1.08rem', fontWeight: 800, marginBottom: '6px', color: isDark ? '#f8fafc' : '#0f172a' }}>
                             {sub.assignment_title || 'Assignment #' + sub.assignment_id}
                           </h4>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '1.2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: isDark ? '#94a3b8' : '#64748b', display: 'flex', gap: '0.85rem', flexWrap: 'wrap', alignItems: 'center' }}>
                             {sub.language && (
                               <span style={{
-                                padding: '2px 8px',
+                                padding: '2px 9px',
                                 borderRadius: '6px',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 background: sub.language === 'java'
-                                  ? 'rgba(239, 68, 68, 0.18)'
+                                  ? (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2')
                                   : sub.language === 'python'
-                                  ? 'rgba(139, 92, 246, 0.15)'
-                                  : 'rgba(245, 158, 11, 0.15)',
+                                  ? (isDark ? 'rgba(139, 92, 246, 0.15)' : '#ede9fe')
+                                  : (isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7'),
                                 color: sub.language === 'java'
-                                  ? '#f87171'
+                                  ? (isDark ? '#f87171' : '#b91c1c')
                                   : sub.language === 'python'
-                                  ? '#a78bfa'
-                                  : '#fbbf24',
-                                border: `1px solid ${sub.language === 'java' ? 'rgba(239, 68, 68, 0.4)' : sub.language === 'python' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
+                                  ? (isDark ? '#a78bfa' : '#6d28d9')
+                                  : (isDark ? '#fbbf24' : '#b45309'),
+                                border: `1px solid ${sub.language === 'java' ? (isDark ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5') : sub.language === 'python' ? (isDark ? 'rgba(139, 92, 246, 0.3)' : '#c4b5fd') : (isDark ? 'rgba(245, 158, 11, 0.3)' : '#fcd34d')}`
                               }}>
                                 {sub.language === 'java' ? '☕ Java (OpenJDK 17)' : sub.language === 'python' ? '🐍 Python 3' : '🟨 Node.js'}
                               </span>
                             )}
                             {sub.git_commit_hash && sub.git_commit_hash !== 'DIRECT_SUBMIT' && (
-                              <span>Commit: <code style={{ color: '#c4b5fd' }}>{sub.git_commit_hash?.slice(0, 12)}</code></span>
+                              <span>Commit: <code style={{ color: isDark ? '#c4b5fd' : '#6d28d9', fontWeight: 600 }}>{sub.git_commit_hash?.slice(0, 12)}</code></span>
                             )}
                             <span>{lang === 'vi' ? 'Nộp lúc:' : 'Submitted:'} {new Date(sub.submitted_at).toLocaleString('vi-VN')}</span>
                             {sub.test_results && sub.test_results.length > 0 && (() => {
@@ -6887,12 +6926,28 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               const failedCount = sub.test_results.length - passedCount;
                               return (
                                 <span style={{ display: 'inline-flex', gap: '6px' }}>
-                                  <span style={{ padding: '1px 7px', borderRadius: '4px', fontSize: '0.74rem', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                                    ✓ {passedCount} Passed
+                                  <span style={{
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.74rem',
+                                    fontWeight: 700,
+                                    background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7',
+                                    color: isDark ? '#34d399' : '#15803d',
+                                    border: `1px solid ${isDark ? 'rgba(16, 185, 129, 0.3)' : '#86efac'}`
+                                  }}>
+                                    ✓ {passedCount}/{sub.test_results.length} {lang === 'vi' ? 'Đạt' : 'Passed'}
                                   </span>
                                   {failedCount > 0 && (
-                                    <span style={{ padding: '1px 7px', borderRadius: '4px', fontSize: '0.74rem', fontWeight: 700, background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                                      ✗ {failedCount} Failed
+                                    <span style={{
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.74rem',
+                                      fontWeight: 700,
+                                      background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                                      color: isDark ? '#f87171' : '#b91c1c',
+                                      border: `1px solid ${isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecaca'}`
+                                    }}>
+                                      ✗ {failedCount} {lang === 'vi' ? 'Chưa đạt' : 'Failed'}
                                     </span>
                                   )}
                                 </span>
@@ -6903,28 +6958,40 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 display: 'inline-flex', 
                                 alignItems: 'center', 
                                 gap: '5px', 
-                                background: 'rgba(167, 139, 250, 0.12)', 
-                                padding: '2px 8px', 
+                                background: isDark ? 'rgba(167, 139, 250, 0.12)' : '#f5f3ff', 
+                                padding: '2px 9px', 
                                 borderRadius: '6px', 
-                                border: '1px solid rgba(167, 139, 250, 0.3)',
-                                color: '#c4b5fd',
-                                fontSize: '0.78rem'
+                                border: `1px solid ${isDark ? 'rgba(167, 139, 250, 0.3)' : '#ddd6fe'}`,
+                                color: isDark ? '#c4b5fd' : '#6d28d9',
+                                fontSize: '0.76rem'
                               }}>
-                                <Users size={12} color="#a78bfa" />
-                                <span>{lang === 'vi' ? 'Người nộp:' : 'Submitted by:'} <strong style={{ color: '#e9d5ff' }}>{sub.submitter_name}</strong></span>
+                                <Users size={12} color={isDark ? '#a78bfa' : '#7c3aed'} />
+                                <span>{lang === 'vi' ? 'Người nộp:' : 'Submitted by:'} <strong style={{ color: isDark ? '#e9d5ff' : '#4c1d95' }}>{sub.submitter_name}</strong></span>
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Status Badges */}
+                        {/* Status & Score Badges */}
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                           {!isGrading && (
                             <span style={{
-                              padding: '5px 12px', borderRadius: '8px', fontSize: '0.86rem', fontWeight: 800,
-                              background: isFailed ? 'rgba(239, 68, 68, 0.18)' : (scoreNum >= 8 ? 'rgba(16, 185, 129, 0.18)' : 'rgba(245, 158, 11, 0.18)'),
-                              color: isFailed ? '#f87171' : (scoreNum >= 8 ? '#34d399' : '#fbbf24'),
-                              border: `1px solid ${isFailed ? 'rgba(239, 68, 68, 0.4)' : (scoreNum >= 8 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)')}`
+                              padding: '6px 14px', borderRadius: '8px', fontSize: '0.92rem', fontWeight: 800,
+                              background: isFailed
+                                ? (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2')
+                                : (scoreNum >= 8
+                                    ? (isDark ? 'rgba(16, 185, 129, 0.18)' : '#dcfce7')
+                                    : (isDark ? 'rgba(245, 158, 11, 0.18)' : '#fef3c7')),
+                              color: isFailed
+                                ? (isDark ? '#f87171' : '#b91c1c')
+                                : (scoreNum >= 8
+                                    ? (isDark ? '#34d399' : '#15803d')
+                                    : (isDark ? '#fbbf24' : '#b45309')),
+                              border: `1px solid ${isFailed
+                                ? (isDark ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5')
+                                : (scoreNum >= 8
+                                    ? (isDark ? 'rgba(16, 185, 129, 0.4)' : '#86efac')
+                                    : (isDark ? 'rgba(245, 158, 11, 0.4)' : '#fcd34d'))}`
                             }}>
                               ★ {scoreNum.toFixed(1)} / 10
                             </span>
@@ -6935,7 +7002,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '4px',
                               padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
-                              background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)'
+                              background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7',
+                              color: isDark ? '#34d399' : '#15803d',
+                              border: `1px solid ${isDark ? 'rgba(16, 185, 129, 0.35)' : '#86efac'}`
                             }}>
                               <CheckCircle2 size={12} /> {lang === 'vi' ? 'Điểm chính thức đã duyệt' : 'Finalized Grade'}
                             </span>
@@ -6943,7 +7012,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '4px',
                               padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
-                              background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)'
+                              background: isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7',
+                              color: isDark ? '#fbbf24' : '#b45309',
+                              border: `1px solid ${isDark ? 'rgba(245, 158, 11, 0.35)' : '#fcd34d'}`
                             }}>
                               <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 chấm chéo (BR-09)' : 'Pending 2nd Review'}
                             </span>
@@ -6951,9 +7022,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '4px',
                               padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
-                              background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.35)'
+                              background: isDark ? 'rgba(168, 85, 247, 0.15)' : '#f3e8ff',
+                              color: isDark ? '#c084fc' : '#7e22ce',
+                              border: `1px solid ${isDark ? 'rgba(168, 85, 247, 0.35)' : '#d8b4fe'}`
                             }}>
-                              <Sparkles size={12} /> {lang === 'vi' ? 'Điểm sơ bộ (AI Sandbox)' : 'AI Pre-Graded'}
+                              <Sparkles size={12} /> {lang === 'vi' ? 'Điểm sơ bộ (AI Chấm)' : 'AI Pre-Graded'}
                             </span>
                           )}
 
@@ -6962,7 +7035,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '4px',
                               padding: '5px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 700,
-                              background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.35)'
+                              background: isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                              color: isDark ? '#f87171' : '#b91c1c',
+                              border: `1px solid ${isDark ? 'rgba(239, 68, 68, 0.35)' : '#fca5a5'}`
                             }}>
                               <AlertTriangle size={12} /> {lang === 'vi' ? `Nộp muộn ${sub.late_minutes ? sub.late_minutes + 'p' : ''}` : 'Late Submission'}
                             </span>
@@ -6972,203 +7047,101 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
-                              background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.45)'
+                              background: isDark ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2',
+                              color: isDark ? '#f87171' : '#b91c1c',
+                              border: `1px solid ${isDark ? 'rgba(239, 68, 68, 0.45)' : '#fca5a5'}`
                             }}>
-                              <AlertTriangle size={13} /> {lang === 'vi' ? 'FAILED (Không đạt)' : 'FAILED'}
+                              <AlertTriangle size={13} /> {lang === 'vi' ? 'CHƯA ĐẠT (Dưới 5.0đ)' : 'NOT PASSED'}
                             </span>
                           ) : isGrading ? (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
-                              background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)'
+                              background: isDark ? 'rgba(245, 158, 11, 0.18)' : '#fef3c7',
+                              color: isDark ? '#fbbf24' : '#b45309',
+                              border: `1px solid ${isDark ? 'rgba(245, 158, 11, 0.35)' : '#fcd34d'}`
                             }}>
-                              <Loader2 size={13} className="animate-spin" /> {lang === 'vi' ? 'Đang chấm điểm Docker Sandbox...' : 'Grading in Sandbox...'}
+                              <Loader2 size={13} className="animate-spin" /> {lang === 'vi' ? 'Đang chấm điểm...' : 'Grading...'}
                             </span>
                           ) : (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
-                              background: 'rgba(16, 185, 129, 0.18)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.35)'
+                              background: isDark ? 'rgba(16, 185, 129, 0.18)' : '#dcfce7',
+                              color: isDark ? '#34d399' : '#15803d',
+                              border: `1px solid ${isDark ? 'rgba(16, 185, 129, 0.35)' : '#86efac'}`
                             }}>
-                              <CheckCircle2 size={13} /> {lang === 'vi' ? 'PASSED (Thành công)' : 'PASSED'}
+                              <CheckCircle2 size={13} /> {lang === 'vi' ? 'ĐẠT (PASSED)' : 'PASSED'}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Watchdog / Failure Alert */}
-                      {isFailed && (
-                        <div style={{
-                          margin: '0.75rem 0', padding: '10px 14px', borderRadius: '10px',
-                          background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.35)',
-                          color: '#fca5a5', fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '8px'
-                        }}>
-                          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px', color: '#f87171' }} />
-                          <div>
-                            <strong style={{ color: '#f87171' }}>
-                              {lang === 'vi' ? 'Can thiệp Sandbox (Watchdog 5s - BR-03):' : 'Sandbox Watchdog Alert (BR-03):'}
-                            </strong>{' '}
-                            <span>{sub.ai_feedback || 'Phát hiện vòng lặp vô hạn hoặc thời gian chạy vượt quá 5,000ms. Container Docker Sandbox đã bị ngắt an toàn để chống nghẽn hệ thống.'}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* BẢNG THÔNG SỐ TELEMETRY MINH BẠCH DOCKER SANDBOX & NÚT XEM TERMINAL */}
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '10px',
-                        background: 'rgba(0, 0, 0, 0.45)',
-                        border: '1px solid rgba(139, 92, 246, 0.25)',
-                        borderRadius: '10px',
-                        padding: '10px 14px',
-                        marginTop: '0.85rem',
-                        fontSize: '0.74rem',
-                        alignItems: 'center'
-                      }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>🐳 Docker Sandbox ID:</span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <code style={{ color: '#38bdf8', fontWeight: 700, fontSize: '0.78rem' }}>
-                              {sub.test_results?.[0]?.container_id || ('66e950c' + Math.abs(sub.submission_id * 137).toString(16).slice(0, 4))}
-                            </code>
-                            <span style={{ fontSize: '0.64rem', color: '#34d399', background: 'rgba(52, 211, 153, 0.15)', padding: '1px 5px', borderRadius: '4px' }}>
-                              Active
-                            </span>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>📦 Docker Sandbox Image:</span>
-                          <span style={{ color: '#c084fc', fontWeight: 700 }}>
-                            {sub.test_results?.[0]?.docker_image || (sub.language === 'java' ? 'aita-sandbox-java:latest (openjdk:17-alpine)' : sub.language === 'python' ? 'aita-sandbox-python:latest (python:3.11-alpine)' : 'aita-sandbox-node:latest (node:20-alpine)')}
-                          </span>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>🛡️ Giới Hạn Tài Nguyên:</span>
-                          <span style={{ color: '#34d399', fontWeight: 600 }}>RAM 256MB • CPU 1.0 • Net: None</span>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                          <button
-                            type="button"
-                            onClick={() => openLiveSandboxModalForSub(sub)}
-                            className="btn-secondary"
-                            style={{
-                              padding: '6px 14px',
-                              fontSize: '0.76rem',
-                              borderRadius: '8px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              background: 'rgba(124, 58, 237, 0.18)',
-                              color: '#c4b5fd',
-                              border: '1px solid rgba(139, 92, 246, 0.4)',
-                              cursor: 'pointer',
-                              fontWeight: 700
-                            }}
-                          >
-                            <Terminal size={14} color="#a78bfa" />
-                            <span>{lang === 'vi' ? 'Xem Terminal Log' : 'View Sandbox Terminal'}</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Test Case Rubric Results breakdown */}
+                      {/* Bảng điểm thành phần từng câu / tiêu chí (chỉ hiện điểm, không lộ raw debug logs/stacktrace) */}
                       {sub.test_results && sub.test_results.length > 0 && (
                         <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                            {lang === 'vi' ? 'Chi tiết kết quả kiểm thử Docker Sandbox:' : 'Automated Test Cases Results:'}
+                          <div style={{ fontSize: '0.76rem', fontWeight: 700, color: isDark ? '#94a3b8' : '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {lang === 'vi' ? 'Bảng điểm chi tiết theo từng câu / tiêu chí:' : 'Score Breakdown by Criterion:'}
                           </div>
-                          {sub.test_results.map((tc, idx) => {
-                            const rawStatus = (tc.status || (tc.passed ? 'ACCEPTED' : 'WRONG_ANSWER')).toUpperCase();
-                            const isAccepted = rawStatus === 'ACCEPTED';
-                            const isTLE = rawStatus === 'TIME_LIMIT_EXCEEDED';
-                            const isRE = rawStatus === 'RUNTIME_ERROR';
-                            const isMLE = rawStatus === 'MEMORY_LIMIT_EXCEEDED';
-                            const isCE = rawStatus === 'COMPILATION_ERROR';
-                            const isSE = rawStatus === 'SYSTEM_ERROR';
-
-                            const statusName = isAccepted ? 'Accepted' : (isCE ? 'Compilation Error' : (isTLE ? 'Time Limit Exceeded' : (isRE ? 'Runtime Error' : (isMLE ? 'Memory Limit Exceeded' : (isSE ? 'System Error' : 'Wrong Answer')))));
-                            const statusColor = isAccepted 
-                              ? '#34d399' 
-                              : isCE 
-                              ? '#fbbf24'
-                              : (isTLE 
-                                  ? '#f59e0b' 
-                                  : (isRE ? '#fb923c' : (isMLE ? '#c084fc' : '#f87171')));
-
-                            return (
-                              <div 
-                                key={idx} 
-                                style={{ 
-                                  padding: '10px 14px', borderRadius: '10px', 
-                                  background: tc.passed ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.07)', 
-                                  border: `1px solid ${tc.passed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.25)'}`, 
-                                  fontSize: '0.82rem',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '6px'
-                                }}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {tc.passed ? <CheckCircle2 size={16} color="#34d399" /> : <AlertTriangle size={16} color={statusColor} />}
-                                    <span style={{ fontWeight: 700, color: tc.passed ? 'var(--text-main)' : '#fca5a5' }}>
-                                      {tc.criterion}
-                                    </span>
-                                    {tc.is_hidden && (
-                                      <span style={{ fontSize: '0.7rem', color: '#a78bfa', padding: '1px 6px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.25)' }}>
-                                        Hidden Test
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ color: !tc.passed && tc.execution_time_ms >= 5000 ? '#f87171' : 'var(--text-muted)', fontSize: '0.76rem', fontWeight: !tc.passed && tc.execution_time_ms >= 5000 ? 700 : 400 }}>
-                                      {tc.execution_time_ms}ms
-                                    </span>
-                                    <span style={{ 
-                                      fontWeight: 800, fontSize: '0.78rem', padding: '2px 8px', borderRadius: '6px',
-                                      background: tc.passed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                      color: statusColor,
-                                      border: `1px solid ${statusColor}40`
-                                    }}>
-                                      {statusName} ({tc.score}/{tc.max_score}đ)
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Actual vs Expected Output & Reason for Failure */}
-                                {tc.is_hidden ? (
-                                  <div style={{ fontSize: '0.74rem', color: '#a78bfa', fontStyle: 'italic', padding: '4px 8px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: '6px' }}>
-                                    🔒 Hidden Test Case: Input và Expected Output được bảo mật theo cấu hình của giảng viên.
-                                  </div>
-                                ) : (
-                                  !tc.passed && (
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', marginTop: '4px' }}>
-                                      {tc.expected_output && (
-                                        <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontFamily: 'var(--font-mono, monospace)' }}>
-                                          <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginBottom: '2px' }}>Expected Output:</div>
-                                          <div style={{ color: '#34d399', whiteSpace: 'pre-wrap' }}>{tc.expected_output}</div>
-                                        </div>
-                                      )}
-                                      <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.75rem', fontFamily: 'var(--font-mono, monospace)' }}>
-                                        <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginBottom: '2px' }}>Actual Output:</div>
-                                        <div style={{ color: '#f87171', whiteSpace: 'pre-wrap' }}>{tc.actual_output || '(Không có kết quả)'}</div>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
-
-                                {tc.ai_feedback && !tc.passed && (
-                                  <div style={{ fontSize: '0.74rem', color: '#fda4af', marginTop: '2px' }}>
-                                    💡 <strong>Chi tiết:</strong> {tc.ai_feedback}
-                                  </div>
+                          {sub.test_results.map((tc, idx) => (
+                            <div 
+                              key={idx} 
+                              style={{ 
+                                padding: '10px 14px',
+                                borderRadius: '10px', 
+                                background: tc.passed
+                                  ? (isDark ? 'rgba(16, 185, 129, 0.06)' : '#f0fdf4')
+                                  : (isDark ? 'rgba(239, 68, 68, 0.08)' : '#fff1f2'), 
+                                border: `1px solid ${tc.passed
+                                  ? (isDark ? 'rgba(16, 185, 129, 0.25)' : '#86efac')
+                                  : (isDark ? 'rgba(239, 68, 68, 0.3)' : '#fecdd3')}`, 
+                                fontSize: '0.84rem',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '8px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {tc.passed
+                                  ? <CheckCircle2 size={16} color={isDark ? '#34d399' : '#16a34a'} />
+                                  : <AlertTriangle size={16} color={isDark ? '#f87171' : '#e11d48'} />}
+                                <span style={{ fontWeight: 700, color: isDark ? (tc.passed ? '#f8fafc' : '#fca5a5') : (tc.passed ? '#166534' : '#9f1239') }}>
+                                  {tc.criterion}
+                                </span>
+                                {tc.is_hidden && (
+                                  <span style={{
+                                    fontSize: '0.7rem',
+                                    color: isDark ? '#a78bfa' : '#6d28d9',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: isDark ? 'rgba(139, 92, 246, 0.12)' : '#ede9fe',
+                                    border: `1px solid ${isDark ? 'rgba(139, 92, 246, 0.25)' : '#c4b5fd'}`
+                                  }}>
+                                    {lang === 'vi' ? 'Tiêu chí ẩn' : 'Hidden Test'}
+                                  </span>
                                 )}
                               </div>
-                            );
-                          })}
+                              <span style={{ 
+                                fontWeight: 800,
+                                fontSize: '0.78rem',
+                                padding: '3px 10px',
+                                borderRadius: '6px',
+                                background: tc.passed
+                                  ? (isDark ? 'rgba(16, 185, 129, 0.18)' : '#dcfce7')
+                                  : (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2'),
+                                color: tc.passed
+                                  ? (isDark ? '#34d399' : '#15803d')
+                                  : (isDark ? '#f87171' : '#b91c1c'),
+                                border: `1px solid ${tc.passed
+                                  ? (isDark ? 'rgba(16, 185, 129, 0.35)' : '#86efac')
+                                  : (isDark ? 'rgba(239, 68, 68, 0.35)' : '#fca5a5')}`
+                              }}>
+                                {tc.passed ? (lang === 'vi' ? 'Đạt' : 'Passed') : (lang === 'vi' ? 'Chưa đạt' : 'Failed')} ({tc.score}/{tc.max_score}đ)
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       )}
 
@@ -7178,33 +7151,33 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           marginTop: '0.85rem',
                           padding: '10px 14px',
                           borderRadius: '10px',
-                          background: 'rgba(139, 92, 246, 0.08)',
-                          border: '1px solid rgba(139, 92, 246, 0.25)',
+                          background: isDark ? 'rgba(139, 92, 246, 0.08)' : '#f5f3ff',
+                          border: `1px solid ${isDark ? 'rgba(139, 92, 246, 0.25)' : '#ddd6fe'}`,
                           display: 'flex',
                           flexDirection: 'column',
                           gap: '4px'
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: '#a78bfa' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontWeight: 700, color: isDark ? '#a78bfa' : '#6d28d9' }}>
                             <User size={13} />
                             <span>{lang === 'vi' ? 'Nhận xét từ Giảng viên:' : 'Instructor Feedback:'}</span>
                           </div>
-                          <p style={{ margin: 0, fontSize: '0.84rem', color: '#f1f5f9', lineHeight: 1.5 }}>
+                          <p style={{ margin: 0, fontSize: '0.84rem', color: isDark ? '#f1f5f9' : '#1e293b', lineHeight: 1.5 }}>
                             "{sub.consensus_notes || sub.reviewer_1_notes}"
                           </p>
                         </div>
                       )}
 
                       {/* Submitted Code Viewer & Artifact Link */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.75rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.85rem' }}>
                         {sub.code_content && (
                           <div>
                             <button
                               type="button"
                               onClick={() => setExpandedCodeMap(prev => ({ ...prev, [sub.submission_id]: !prev[sub.submission_id] }))}
                               style={{
-                                background: 'rgba(139, 92, 246, 0.08)',
-                                border: '1px solid rgba(139, 92, 246, 0.25)',
-                                color: '#a78bfa',
+                                background: isDark ? 'rgba(139, 92, 246, 0.08)' : '#f5f3ff',
+                                border: `1px solid ${isDark ? 'rgba(139, 92, 246, 0.25)' : '#ddd6fe'}`,
+                                color: isDark ? '#a78bfa' : '#6d28d9',
                                 padding: '5px 12px',
                                 borderRadius: '6px',
                                 fontSize: '0.76rem',
@@ -7228,9 +7201,11 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 marginTop: '6px',
                                 padding: '12px 14px',
                                 borderRadius: '8px',
-                                background: '#090d16',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                color: sub.language === 'java' ? '#f87171' : sub.language === 'python' ? '#a78bfa' : '#fbbf24',
+                                background: isDark ? '#090d16' : '#f8fafc',
+                                border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.1)' : '#cbd5e1'}`,
+                                color: isDark
+                                  ? (sub.language === 'java' ? '#f87171' : sub.language === 'python' ? '#a78bfa' : '#fbbf24')
+                                  : '#0f172a',
                                 fontSize: '0.8rem',
                                 fontFamily: 'var(--font-mono, monospace)',
                                 maxHeight: '240px',
@@ -7244,9 +7219,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                         )}
 
                         {sub.artifact_url && sub.artifact_url.startsWith('http') && (
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ fontSize: '0.8rem', color: isDark ? '#94a3b8' : '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <ExternalLink size={13} />
-                            <a href={sub.artifact_url} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd', textDecoration: 'none' }}>
+                            <a href={sub.artifact_url} target="_blank" rel="noreferrer" style={{ color: isDark ? '#c4b5fd' : '#6d28d9', textDecoration: 'none', fontWeight: 600 }}>
                               {sub.artifact_url.replace('https://github.com/', '')}
                             </a>
                           </div>
@@ -7257,21 +7232,21 @@ III. QUY CHUẨN DOCKER SANDBOX:
                 })}
               </div>
             ) : (
-              <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center', borderRadius: '16px', border: '1px dashed rgba(255, 255, 255, 0.12)' }}>
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center', borderRadius: '16px', border: `1px dashed ${isDark ? 'rgba(255, 255, 255, 0.12)' : '#cbd5e1'}` }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(139, 92, 246, 0.1)', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                   <CheckCircle2 size={28} />
                 </div>
-                <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px' }}>
+                <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', color: isDark ? '#f8fafc' : '#0f172a' }}>
                   {lang === 'vi' ? 'Chưa có bài nộp nào' : 'No submissions yet'}
                 </h4>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
+                <p style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.88rem', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
                   {!myTeam
                     ? (lang === 'vi' 
-                        ? 'Bạn chưa được phân công vào nhóm đồ án nào. Sau khi được giảng viên gán vào nhóm và nộp bài, kết quả chấm Docker Sandbox sẽ hiển thị tại đây!'
-                        : 'You are not assigned to any project team yet. Submissions and grading will appear here once assigned.')
+                        ? 'Bạn chưa được phân công vào nhóm đồ án nào. Sau khi nộp bài cá nhân hoặc bài nhóm, kết quả chấm điểm sẽ hiển thị tại đây!'
+                        : 'You are not assigned to any project team yet. Submissions and grading will appear here once submitted.')
                     : (lang === 'vi' 
-                        ? 'Nhóm của bạn chưa nộp bài tập nào. Sau khi nộp bài tại tab "Nộp bài", hệ thống Docker Sandbox sẽ tự động chấm điểm và hiển thị kết quả kiểm thử tại đây!'
-                        : 'Your team has not submitted any assignments yet. Once submitted, Docker Sandbox test execution and AI feedback will appear here!')}
+                        ? 'Bạn chưa có bài nộp nào. Sau khi nộp bài tại tab "Nộp bài", điểm số và kết quả chấm sẽ hiển thị tại đây!'
+                        : 'No submissions yet. Once submitted, grading scores and feedback will appear here!')}
                 </p>
                 <button
                   type="button"
@@ -7284,7 +7259,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ───── TAB: AI TUTOR CHAT ───── */}
         {activeTab === 'chat' && (
