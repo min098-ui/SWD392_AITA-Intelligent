@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import JSZip from 'jszip';
 import Navigation from '../../../components/Navigation';
 import AitaLogo from '../../../components/AitaLogo';
@@ -106,6 +107,7 @@ interface SubmissionResult {
 }
 
 export default function StudentDashboard() {
+  const router = useRouter();
   const { lang } = useLanguage();
   const [isMounted, setIsMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
@@ -147,6 +149,22 @@ export default function StudentDashboard() {
   }, []);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'courses' | 'submit' | 'results' | 'chat' | 'analytics'>('courses');
+
+  const handleNavigatePrevious = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/');
+    }
+  };
+
+  const handleGoBack = () => {
+    if (activeTab !== 'courses') {
+      setActiveTab('courses');
+    } else {
+      handleNavigatePrevious();
+    }
+  };
   
   // Live DB data
   const [myTeams, setMyTeams] = useState<TeamInfo[]>([]);
@@ -969,10 +987,10 @@ main();
 
   const handleDownloadExamDoc = (assign: Assignment | any) => {
     if (!assign) return;
-    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
+    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA');
     const course = availableCourses.find(c => c.course_id === assign.course_id);
-    const courseCode = assign.course_code || course?.course_code || (isJava ? 'PRO192' : 'CSD201');
-    const courseName = assign.course_name || course?.course_name || (isJava ? 'Lập trình Hướng đối tượng Java (Java OOP)' : 'Cấu trúc dữ liệu & Giải thuật');
+    const courseCode = assign.course_code || course?.course_code || 'CSD201';
+    const courseName = assign.course_name || course?.course_name || 'Cấu trúc dữ liệu & Giải thuật';
     
     const content = `<!DOCTYPE html>
 <html>
@@ -1095,9 +1113,9 @@ ${q.sampleOutput}</pre>
 
   const handleCopyExamText = (assign: Assignment | any) => {
     if (!assign) return;
-    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA' || assign.title?.includes('PRO192'));
+    const isJava = Boolean(assign.title?.includes('PE') || assign.allowed_language?.toUpperCase() === 'JAVA');
     const course = availableCourses.find(c => c.course_id === assign.course_id);
-    const courseCode = assign.course_code || course?.course_code || (isJava ? 'PRO192' : 'CSD201');
+    const courseCode = assign.course_code || course?.course_code || 'CSD201';
     const text = `==========================================================
 TRƯỜNG ĐẠI HỌC FPT QUY NHƠN • CƠ SỞ QUY NHƠN
 KHOA CÔNG NGHỆ THÔNG TIN — BỘ MÔN KỸ THUẬT PHẦN MỀM
@@ -1239,7 +1257,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
     const activeId = selectedIndividualAssignmentId || selectedAssignment;
     const cur = assignments.find(a => String(a.assignment_id) === String(activeId));
     const langLower = (cur?.allowed_language || '').toLowerCase();
-    if (langLower === 'java' || cur?.title?.includes('PE') || cur?.title?.includes('PRO192')) {
+    if (langLower === 'java' || cur?.title?.includes('PE')) {
       setSelectedLanguage('java');
     } else if (langLower === 'python') {
       setSelectedLanguage('python');
@@ -1970,12 +1988,35 @@ III. QUY CHUẨN DOCKER SANDBOX:
                   </div>
                 )}
 
-                {/* Branch Badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.04)', padding: '5px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Nhánh:' : 'Branch:'}</span>
-                  <span style={{ fontSize: '0.82rem', color: '#a78bfa', fontWeight: 700 }}>
-                    {gitBranch || 'main'}
-                  </span>
+                {/* Branch Selector */}
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  background: isDark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(241, 245, 249, 0.9)', 
+                  padding: '4px 10px', 
+                  borderRadius: '8px', 
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(124,58,237,0.2)'}` 
+                }}>
+                  <GitBranch size={14} color="#a78bfa" />
+                  <span style={{ fontSize: '0.78rem', color: isDark ? '#94a3b8' : '#64748b' }}>{lang === 'vi' ? 'Nhánh:' : 'Branch:'}</span>
+                  <input
+                    type="text"
+                    value={gitBranch}
+                    onChange={(e) => setGitBranch(e.target.value)}
+                    placeholder="main"
+                    title={lang === 'vi' ? 'Nhập tên nhánh GitHub để đồng bộ (vd: main, Khoa)' : 'GitHub branch name'}
+                    style={{
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      color: isDark ? '#c4b5fd' : '#7c3aed',
+                      background: 'transparent',
+                      border: 'none',
+                      outline: 'none',
+                      width: '75px',
+                      padding: '2px 4px'
+                    }}
+                  />
                 </div>
 
                 <button
@@ -2758,7 +2799,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
           zIndex: 40,
           boxShadow: isDark ? '0 2px 12px rgba(0, 0, 0, 0.4)' : '0 2px 12px rgba(124, 58, 237, 0.03)'
         }}>
-          {/* Left: Breadcrumbs */}
+          {/* Left: Breadcrumbs & Back Navigation */}
           <div>
             <div style={{
               display: 'flex',
@@ -2768,27 +2809,110 @@ III. QUY CHUẨN DOCKER SANDBOX:
               letterSpacing: '-0.01em',
               color: isDark ? '#94a3b8' : '#64748b'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* Nút quay lại trang trước */}
+              <button
+                type="button"
+                onClick={handleGoBack}
+                title={lang === 'vi' ? 'Quay lại trang trước' : 'Go back to previous page'}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(124, 58, 237, 0.2)'}`,
+                  background: isDark ? 'rgba(30, 41, 59, 0.7)' : '#ffffff',
+                  color: isDark ? '#c4b5fd' : '#7c3aed',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(124, 58, 237, 0.08)',
+                  marginRight: '2px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateX(-2px)';
+                  e.currentTarget.style.background = isDark ? 'rgba(124, 58, 237, 0.25)' : '#ede9fe';
+                  e.currentTarget.style.borderColor = '#7c3aed';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateX(0)';
+                  e.currentTarget.style.background = isDark ? 'rgba(30, 41, 59, 0.7)' : '#ffffff';
+                  e.currentTarget.style.borderColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(124, 58, 237, 0.2)';
+                }}
+              >
+                <ArrowLeft size={16} />
+              </button>
+
+              {/* Dashboard Breadcrumb Clickable */}
+              <button
+                type="button"
+                onClick={handleNavigatePrevious}
+                title={lang === 'vi' ? 'Quay lại trang trước / Về trang chủ' : 'Go back / Home'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'none',
+                  border: 'none',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  fontSize: '0.88rem',
+                  fontWeight: 500,
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = isDark ? '#c4b5fd' : '#7c3aed';
+                  e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(124, 58, 237, 0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b';
+                  e.currentTarget.style.background = 'none';
+                }}
+              >
                 <Home size={15} color="#7c3aed" style={{ flexShrink: 0 }} />
-                <span style={{ fontWeight: 500, color: isDark ? '#94a3b8' : '#64748b' }}>Dashboard</span>
-              </div>
+                <span>Dashboard</span>
+              </button>
 
               <ChevronRight size={13} style={{ color: isDark ? '#475569' : '#cbd5e1', strokeWidth: 2.2, flexShrink: 0 }} />
 
-              <span style={{
-                color: isDark ? '#c4b5fd' : '#6d28d9',
-                fontWeight: 600,
-                whiteSpace: 'nowrap'
-              }}>
+              {/* Workspace Breadcrumb Clickable */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('courses')}
+                title={lang === 'vi' ? 'Về danh sách học phần' : 'Back to courses'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  color: isDark ? '#c4b5fd' : '#6d28d9',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(124, 58, 237, 0.08)';
+                  e.currentTarget.style.textDecoration = 'underline';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'none';
+                  e.currentTarget.style.textDecoration = 'none';
+                }}
+              >
                 {lang === 'vi' ? 'Không gian Sinh viên' : 'Student Workspace'}
-              </span>
+              </button>
 
               <ChevronRight size={13} style={{ color: isDark ? '#475569' : '#cbd5e1', strokeWidth: 2.2, flexShrink: 0 }} />
 
               <span style={{
                 color: isDark ? '#c4b5fd' : '#6d28d9',
                 fontWeight: 700,
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                padding: '4px 6px'
               }}>
                 {activeTab === 'courses' && (lang === 'vi' ? 'Học phần' : 'My Courses')}
                 {activeTab === 'submit' && (
@@ -3337,11 +3461,6 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           <h3 style={{ margin: 0, fontSize: '1.26rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.3px' }}>
                             {lang === 'vi' ? 'Đề Bài & Bàn Làm Việc Cá Nhân' : 'Individual Tasks & Sandbox'}
                           </h3>
-                          <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
-                            {lang === 'vi' 
-                              ? 'Chọn học phần, tra cứu tiêu chí Rubric (BR-06) và nộp bài kiểm tra tự động qua Docker Sandbox.' 
-                              : 'Select course, review rubric criteria and submit via isolated Docker Sandbox.'}
-                          </p>
                         </div>
                       </div>
 
@@ -3435,12 +3554,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
                     }}>
                       {/* Card 1: Tổng số đề bài */}
                       <div 
-                        className="glass-card"
+                        className="glass-card stat-kpi-card"
                         style={{
                           padding: '14px 18px',
                           borderRadius: '14px',
-                          background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
-                          border: '1px solid rgba(139, 92, 246, 0.25)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '14px',
@@ -3457,42 +3574,39 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#f87171',
+                          color: '#ef4444',
                           flexShrink: 0
                         }}>
                           <BookOpen size={20} />
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                          <div className="stat-card-title" style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', fontWeight: 600 }}>
                             {lang === 'vi' ? 'Tổng số đề bài' : 'Total Tasks'}
                           </div>
-                          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f8fafc', lineHeight: 1.2 }}>
+                          <div className="stat-card-value" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main, #0f172a)', lineHeight: 1.2 }}>
                             {individualStats.total}
                           </div>
-                          <div style={{ fontSize: '0.68rem', color: '#a78bfa', marginTop: '2px' }}>
+                          <div className="stat-card-sub stat-sub-purple" style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 600, marginTop: '2px' }}>
                             • {selectedIndividualCourseId === 'ALL' ? (lang === 'vi' ? 'Đang xem tất cả' : 'All courses') : `${activeIndCourse?.course_code || 'Học phần'}`}
                           </div>
                         </div>
-                        <div style={{ position: 'absolute', top: '10px', right: '10px', width: '7px', height: '7px', borderRadius: '50%', background: '#f87171' }} />
+                        <div style={{ position: 'absolute', top: '10px', right: '10px', width: '7px', height: '7px', borderRadius: '50%', background: '#ef4444' }} />
                       </div>
 
                       {/* Card 2: Đã nộp bài */}
                       <div 
-                        className="glass-card"
+                        className="glass-card stat-kpi-card"
                         onClick={() => setAssignStatusFilter(prev => prev === 'SUBMITTED' ? 'ALL' : 'SUBMITTED')}
                         style={{
                           padding: '14px 18px',
                           borderRadius: '14px',
-                          background: assignStatusFilter === 'SUBMITTED' 
-                            ? 'linear-gradient(145deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.92) 100%)' 
-                            : 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
-                          border: assignStatusFilter === 'SUBMITTED' ? '1px solid rgba(52, 211, 153, 0.65)' : '1px solid rgba(52, 211, 153, 0.25)',
+                          border: assignStatusFilter === 'SUBMITTED' ? '1.5px solid #10b981' : undefined,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '14px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          boxShadow: assignStatusFilter === 'SUBMITTED' ? '0 0 16px rgba(52, 211, 153, 0.25)' : 'none'
+                          boxShadow: assignStatusFilter === 'SUBMITTED' ? '0 0 16px rgba(16, 185, 129, 0.25)' : 'none'
                         }}
                       >
                         <div style={{
@@ -3504,19 +3618,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#34d399',
+                          color: '#10b981',
                           flexShrink: 0
                         }}>
                           <CheckCircle2 size={20} />
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                          <div className="stat-card-title" style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', fontWeight: 600 }}>
                             {lang === 'vi' ? 'Đã nộp bài' : 'Submitted'}
                           </div>
-                          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#34d399', lineHeight: 1.2 }}>
+                          <div className="stat-card-value stat-val-green" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981', lineHeight: 1.2 }}>
                             {individualStats.submitted}
                           </div>
-                          <div style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: '2px' }}>
+                          <div className="stat-card-sub stat-sub-green" style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginTop: '2px' }}>
                             {lang === 'vi' ? 'Nhấn để xem bài đã nộp' : 'Click to filter'}
                           </div>
                         </div>
@@ -3524,21 +3638,18 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                       {/* Card 3: Chưa nộp bài */}
                       <div 
-                        className="glass-card"
+                        className="glass-card stat-kpi-card"
                         onClick={() => setAssignStatusFilter(prev => prev === 'UNSUBMITTED' ? 'ALL' : 'UNSUBMITTED')}
                         style={{
                           padding: '14px 18px',
                           borderRadius: '14px',
-                          background: assignStatusFilter === 'UNSUBMITTED'
-                            ? 'linear-gradient(145deg, rgba(245, 158, 11, 0.22) 0%, rgba(15, 23, 42, 0.92) 100%)'
-                            : 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
-                          border: assignStatusFilter === 'UNSUBMITTED' ? '1px solid rgba(251, 191, 36, 0.65)' : '1px solid rgba(251, 191, 36, 0.25)',
+                          border: assignStatusFilter === 'UNSUBMITTED' ? '1.5px solid #f59e0b' : undefined,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '14px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          boxShadow: assignStatusFilter === 'UNSUBMITTED' ? '0 0 16px rgba(251, 191, 36, 0.25)' : 'none'
+                          boxShadow: assignStatusFilter === 'UNSUBMITTED' ? '0 0 16px rgba(245, 158, 11, 0.25)' : 'none'
                         }}
                       >
                         <div style={{
@@ -3550,19 +3661,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#fbbf24',
+                          color: '#f59e0b',
                           flexShrink: 0
                         }}>
                           <Clock size={20} />
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                          <div className="stat-card-title" style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', fontWeight: 600 }}>
                             {lang === 'vi' ? 'Chưa nộp bài' : 'Pending'}
                           </div>
-                          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#fbbf24', lineHeight: 1.2 }}>
+                          <div className="stat-card-value stat-val-amber" style={{ fontSize: '1.5rem', fontWeight: 800, color: '#d97706', lineHeight: 1.2 }}>
                             {individualStats.unsubmitted}
                           </div>
-                          <div style={{ fontSize: '0.68rem', color: '#fde68a', marginTop: '2px' }}>
+                          <div className="stat-card-sub stat-sub-amber" style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 600, marginTop: '2px' }}>
                             {lang === 'vi' ? 'Nhấn để xem bài cần nộp' : 'Click to filter'}
                           </div>
                         </div>
@@ -3570,12 +3681,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                       {/* Card 4: Hạn nộp gần nhất */}
                       <div 
-                        className="glass-card"
+                        className="glass-card stat-kpi-card"
                         style={{
                           padding: '14px 18px',
                           borderRadius: '14px',
-                          background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.88) 0%, rgba(20, 30, 52, 0.92) 100%)',
-                          border: '1px solid rgba(96, 165, 250, 0.25)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '14px'
@@ -3590,19 +3699,19 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          color: '#60a5fa',
+                          color: '#3b82f6',
                           flexShrink: 0
                         }}>
                           <Calendar size={20} />
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
+                          <div className="stat-card-title" style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', fontWeight: 600 }}>
                             {lang === 'vi' ? 'Hạn nộp gần nhất' : 'Nearest Deadline'}
                           </div>
-                          <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#93c5fd', lineHeight: 1.3 }}>
+                          <div className="stat-card-value stat-val-blue" style={{ fontSize: '1.05rem', fontWeight: 800, color: '#2563eb', lineHeight: 1.3 }}>
                             {individualStats.nearestDeadline ? individualStats.nearestDeadline.toISOString().split('T')[0] : (lang === 'vi' ? 'Không có hạn' : 'None')}
                           </div>
-                          <div style={{ fontSize: '0.68rem', color: '#bfdbfe', marginTop: '2px' }}>
+                          <div className="stat-card-sub stat-sub-blue" style={{ fontSize: '0.72rem', color: '#1d4ed8', fontWeight: 600, marginTop: '2px' }}>
                             {individualStats.nearestCountdown}
                           </div>
                         </div>
@@ -5389,7 +5498,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             {/* Header Section Intro */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                               <div>
-                                <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f8fafc', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#f8fafc', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   <span style={{
                                     background: 'linear-gradient(135deg, #38bdf8 0%, #c084fc 100%)',
                                     WebkitBackgroundClip: 'text',
@@ -5399,11 +5508,6 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     {lang === 'vi' ? 'Trung Tâm Điều Khiển Đồ Án Nhóm (Mission Control Overview)' : 'Team Mission Control Overview'}
                                   </span>
                                 </h3>
-                                <p style={{ color: '#94a3b8', fontSize: '0.88rem', margin: 0 }}>
-                                  {lang === 'vi'
-                                    ? 'Đồ án nhóm của bạn đã được liên kết với Git Telemetry Engine và sẵn sàng cho Giảng viên thẩm định & đánh giá.'
-                                    : 'Your team project is linked with Git Telemetry Engine and ready for faculty assessment.'}
-                                </p>
                               </div>
 
                               <button

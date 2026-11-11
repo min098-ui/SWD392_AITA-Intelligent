@@ -427,5 +427,4 @@ router.put('/:teamId', authenticateJWT, requireRole('ADMIN', 'LECTURER'), async 
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
-
 export default router;
