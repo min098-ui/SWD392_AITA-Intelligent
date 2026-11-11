@@ -5999,7 +5999,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
                         {/* Giảng viên */}
                         <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '1.4rem', minHeight: '1.25rem' }}>
-                          👨‍🏫 Giảng viên: <strong style={{ color: 'var(--text-main)' }}>{course.lecturer_name || currentUser?.fullName || 'Ánh Mai Lê Nguyễn'}</strong>
+                          👨‍🏫 Giảng viên: <strong style={{ color: 'var(--text-main)' }}>{course.lecturer_name || currentUser?.fullName || currentUser?.full_name || (lang === 'vi' ? 'Giảng viên' : 'Lecturer')}</strong>
                         </p>
 
                         {/* Thống kê nhóm & trạng thái: BỎ HỘP VIỀN XÁM, dùng dải nền tinh tế */}

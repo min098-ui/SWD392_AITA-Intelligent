@@ -74,7 +74,7 @@ export default function StudentProfileModal({
 
   // Dữ liệu hiển thị động
   const displayName = user?.fullName || user?.full_name || user?.name || (
-    isLecturer ? 'Yen12 Yen' : (isAdmin ? 'Administrator' : 'Lê Nguyễn Linh Nhi')
+    isLecturer ? 'Yen12 Yen' : (isAdmin ? 'Administrator' : (lang === 'vi' ? 'Sinh viên' : 'Student'))
   );
 
   const displayEmail = user?.email || (

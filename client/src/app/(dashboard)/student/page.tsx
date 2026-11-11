@@ -404,6 +404,10 @@ main();
                   const uObj = u ? JSON.parse(u) : {};
                   uObj.userId = myMem.user_id;
                   uObj.user_id = myMem.user_id;
+                  if (myMem.full_name) {
+                    uObj.fullName = myMem.full_name;
+                    uObj.full_name = myMem.full_name;
+                  }
                   localStorage.setItem('user', JSON.stringify(uObj));
                   setCurrentUser(uObj);
                 } catch (e) {}
@@ -1237,7 +1241,12 @@ III. QUY CHUẨN DOCKER SANDBOX:
   useEffect(() => {
     try {
       const u = localStorage.getItem('user');
-      if (u) setCurrentUser(JSON.parse(u));
+      if (u) {
+        const uObj = JSON.parse(u);
+        if (uObj.fullName && !uObj.full_name) uObj.full_name = uObj.fullName;
+        if (uObj.full_name && !uObj.fullName) uObj.fullName = uObj.full_name;
+        setCurrentUser(uObj);
+      }
     } catch (e) {}
     fetchData();
   }, []);
@@ -1506,7 +1515,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
             try {
               finalCode = await uploadedFile.text();
             } catch (e) {
-              finalCode = `// [Tệp mã nguồn đã tải lên]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.full_name || 'Sinh viên'}\n// Ghi chú: ${submissionNote.trim() || 'Nộp bài làm mã nguồn'}`;
+              finalCode = `// [Tệp mã nguồn đã tải lên]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.fullName || currentUser?.full_name || 'Sinh viên'}\n// Ghi chú: ${submissionNote.trim() || 'Nộp bài làm mã nguồn'}`;
             }
           } else if (uploadedFile.name.endsWith('.zip')) {
             try {
@@ -1525,7 +1534,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
               finalCode = `import java.util.*;\nimport java.util.regex.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (!sc.hasNextLine()) return;\n        String first = sc.nextLine().trim();\n        \n        // Q1: String Manipulation\n        if (first.contains("hello") || first.matches(".*\\\\d+.*\\\\d+.*")) {\n            long sum = 0;\n            Matcher m = Pattern.compile("\\\\d+").matcher(first);\n            while (m.find()) { sum += Long.parseLong(m.group()); }\n            System.out.println(sum > 0 ? sum : 579);\n            return;\n        }\n        \n        // Q2: Car & SpecCar OOP\n        if (first.equalsIgnoreCase("Audi") || first.equalsIgnoreCase("Toyota")) {\n            int price = sc.hasNextInt() ? sc.nextInt() : 500;\n            int type = sc.hasNextInt() ? sc.nextInt() : 2;\n            int up = type > 1 ? price + 100 : price;\n            System.out.println(first + ", " + up + ", " + type);\n            return;\n        }\n        \n        // Q3: MyList\n        if (first.equals("3") || first.equals("1") || first.equals("2")) {\n            System.out.println("A 10, C 20, B 30");\n            return;\n        }\n        \n        // Q4: Reverse Words\n        if (first.contains("university") || first.contains(" ")) {\n            String[] w = first.split("\\\\s+");\n            StringBuilder sb = new StringBuilder();\n            for (int i = w.length - 1; i >= 0; i--) {\n                sb.append(w[i]);\n                if (i > 0) sb.append(" ");\n            }\n            System.out.println(sb.toString());\n            return;\n        }\n        \n        System.out.println(first);\n    }\n}`;
             }
           } else {
-            finalCode = `// [Tệp nén bài làm đã nộp]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.full_name || 'Sinh viên'}\n// Ghi chú nộp bài: ${submissionNote.trim() || 'Nộp tệp nén mã nguồn bài làm cá nhân'}\n// Thời gian nộp: ${new Date().toLocaleString('vi-VN')}`;
+            finalCode = `// [Tệp nén bài làm đã nộp]: ${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB)\n// Sinh viên: ${currentUser?.fullName || currentUser?.full_name || 'Sinh viên'}\n// Ghi chú nộp bài: ${submissionNote.trim() || 'Nộp tệp nén mã nguồn bài làm cá nhân'}\n// Thời gian nộp: ${new Date().toLocaleString('vi-VN')}`;
           }
         } else {
           finalCode = codeContent.trim();
@@ -2512,7 +2521,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px' }}>
                 <div>
                   <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#ffffff' : '#1e1b4b' }}>
-                    {currentUser?.fullName || 'Sinh viên'}
+                    {currentUser?.fullName || currentUser?.full_name || (lang === 'vi' ? 'Sinh viên' : 'Student')}
                   </div>
                   <div style={{
                     display: 'inline-flex',
@@ -2659,7 +2668,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
             </div>
             <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: '0.84rem', fontWeight: 800, color: isDark ? '#ffffff' : '#1e1b4b', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {currentUser?.fullName || (lang === 'vi' ? 'Sinh viên' : 'Student')}
+                {currentUser?.fullName || currentUser?.full_name || (lang === 'vi' ? 'Sinh viên' : 'Student')}
               </div>
               <div style={{ fontSize: '0.72rem', color: '#7c3aed', fontWeight: 600 }}>
                 {lang === 'vi' ? 'Sinh viên' : 'Student'}
@@ -3968,7 +3977,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           </h3>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.78rem', color: '#94a3b8' }}>
-                            <span>👤 {lang === 'vi' ? 'Sinh viên:' : 'Student:'} <strong style={{ color: '#f1f5f9' }}>{currentUser?.full_name || 'Lê Nguyễn Linh Nhi'}</strong></span>
+                            <span>👤 {lang === 'vi' ? 'Sinh viên:' : 'Student:'} <strong style={{ color: '#f1f5f9' }}>{currentUser?.fullName || currentUser?.full_name || currentUser?.name || (lang === 'vi' ? 'Sinh viên' : 'Student')}</strong></span>
                             <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
                             <span>📝 <strong style={{ color: '#a78bfa' }}>{activeIndAssign.title}</strong></span>
                             <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
