@@ -199,6 +199,7 @@ export default function StudentDashboard() {
   const [showStudentProfileModal, setShowStudentProfileModal] = useState(false);
   const [expandedCodeMap, setExpandedCodeMap] = useState<Record<number, boolean>>({});
   const [showAllSubmissionHistory, setShowAllSubmissionHistory] = useState(false);
+  const [resultsSubTab, setResultsSubTab] = useState<'individual' | 'team'>('individual');
   const sandboxPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -218,7 +219,7 @@ export default function StudentDashboard() {
   const [selectedIndividualAssignmentId, setSelectedIndividualAssignmentId] = useState<number | string>('');
   const [selectedTeamAssignmentId, setSelectedTeamAssignmentId] = useState<number | string>('');
   const [teamBranch, setTeamBranch] = useState('main');
-  const [teamActionTab, setTeamActionTab] = useState<'submit' | 'analytics'>('submit');
+  const [teamActionTab, setTeamActionTab] = useState<'submit' | 'analytics' | 'waiting'>('submit');
   const [teamTopicName, setTeamTopicName] = useState<string>('AITA - Nền tảng Đánh giá & Chấm Mã Nguồn Tự Động Kết Hợp Gia Sư Ảo AI');
   const [isEditingTeamRepo, setIsEditingTeamRepo] = useState<boolean>(false);
   const [copiedRepoUrl, setCopiedRepoUrl] = useState<boolean>(false);
@@ -231,6 +232,7 @@ export default function StudentDashboard() {
   const [loadingAssignDetail, setLoadingAssignDetail] = useState(false);
   const [assignDetailActiveTab, setAssignDetailActiveTab] = useState<'details' | 'rubric'>('details');
   const [isSubmitMenuOpen, setIsSubmitMenuOpen] = useState(true);
+  const [isResultsMenuOpen, setIsResultsMenuOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const STARTER_CODE = {
@@ -572,6 +574,24 @@ main();
 
   const handleSelectTeam = (teamId: number, targetAssignId?: string | number) => {
     handleFilterChange(String(teamId), targetAssignId);
+  };
+
+  /** Switches active team across State A/B, persists selection across refreshes, and reloads telemetry. */
+  const handleSwitchTeam = (selectedId: number) => {
+    const chosen = myTeams.find(t => t.team_id === selectedId);
+    if (!chosen) return;
+    setMyTeam(chosen);
+    setSelectedFilter(String(chosen.team_id));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aita_student_selected_team_id', String(chosen.team_id));
+    }
+    setRepoUrl(chosen.repo_url || '');
+    setCustomGitRepo('');
+    setIsEditingGitRepo(false);
+    setIsEditingTeamRepo(false);
+    setSubmitError('');
+    setGitAnalytics(null);
+    fetchGitAnalytics(chosen.team_id);
   };
 
   const currentFilterTeam = selectedFilter === 'ALL'
@@ -1361,6 +1381,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
         const syncData = await res.json();
         setIsEditingGitRepo(false);
         setHasSyncedGit(true);
+        if (effectiveRepo) {
+          setMyTeams(prev => prev.map(t => t.team_id === targetAnalyticsTeam.team_id ? { ...t, repo_url: effectiveRepo } : t));
+          if (myTeam?.team_id === targetAnalyticsTeam.team_id) {
+            setMyTeam(prev => prev ? { ...prev, repo_url: effectiveRepo } : prev);
+          }
+          setRepoUrl(effectiveRepo);
+          setCustomGitRepo('');
+        }
         setSuccessToast(lang === 'vi' 
           ? `Bóc tách thành công ${syncData.synced_commits_count || 0} commits từ nhánh "${syncData.branch || effectiveBranch}"!` 
           : `Git commit telemetry synced on branch "${syncData.branch || effectiveBranch}" from GitHub!`);
@@ -1776,12 +1804,17 @@ III. QUY CHUẨN DOCKER SANDBOX:
         }
 
         if (submitSubTab === 'team' && myTeam?.team_id) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('aita_student_selected_team_id', String(myTeam.team_id));
+          }
+          setSelectedFilter(String(myTeam.team_id));
           fetch(`http://localhost:5000/api/git/${myTeam.team_id}/sync`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ branch: teamBranch.trim() || 'main', repo_url: repoUrl.trim() })
           }).catch(() => {});
           setIsEditingTeamRepo(false);
+          setTeamActionTab('waiting');
           fetchGitAnalytics(myTeam.team_id);
         }
         setSuccessToast(
@@ -1818,6 +1851,51 @@ III. QUY CHUẨN DOCKER SANDBOX:
         ? 'aita-sandbox-python:latest (python:3.11-alpine)'
         : 'aita-sandbox-node:latest (node:20-alpine)')
     );
+  };
+
+  /** Identifies team Git repository submissions vs individual sandbox code submissions. */
+  const isTeamGitSubmission = (sub?: Partial<SubmissionResult> | null) =>
+    Boolean(sub && (sub.team_id || sub.assignment_submission_type === 'TEAM'));
+
+  /** Deduplicates submissions keeping only the newest attempt per assignment. */
+  const getLatestSubmissionsPerAssignment = (list: SubmissionResult[]) => {
+    const seenAssignIds = new Set<number | string>();
+    return list.filter((s) => {
+      const key = s.assignment_id ?? s.submission_id;
+      if (seenAssignIds.has(key)) return false;
+      seenAssignIds.add(key);
+      return true;
+    });
+  };
+
+  /** Computes unified evaluation status metadata for a team Git submission. */
+  const getTeamProjectStatusMeta = (sub?: Partial<SubmissionResult> | null, gitData?: any) => {
+    const rawScore = sub?.final_score ?? sub?.score ?? sub?.ai_score;
+    const hasNumericScore = rawScore !== null && rawScore !== undefined && !Number.isNaN(Number(rawScore));
+    const scoreNum = hasNumericScore ? Number(rawScore) : null;
+    const isFinalized = sub?.status === 'FINALIZED';
+    const isSecondReview = sub?.status === 'PENDING_SECOND_REVIEW';
+    const isFailed = sub?.status === 'FAILED';
+    const isAwaitingReview = !isFinalized && !isSecondReview && !isFailed && (!hasNumericScore || sub?.status === 'SUBMITTED');
+    const isGitSynced = Boolean(gitData && Number(gitData.team_total_commits || 0) > 0);
+    const feedbackNote = sub?.consensus_notes || sub?.reviewer_1_notes || sub?.reviewer_2_notes || '';
+    return {
+      scoreNum,
+      hasNumericScore,
+      isFinalized,
+      isSecondReview,
+      isFailed,
+      isAwaitingReview,
+      isGitSynced,
+      feedbackNote
+    };
+  };
+
+  /** Extracts project topic title from stored team submission summary if available. */
+  const extractTeamTopicFromSubmission = (sub?: Partial<SubmissionResult> | null) => {
+    const content = sub?.code_content || '';
+    const match = content.match(/Đề tài đồ án:\s*(.+)/);
+    return match ? match[1].trim() : '';
   };
 
   const openLiveSandboxModalForSub = (sub: any) => {
@@ -2027,15 +2105,93 @@ III. QUY CHUẨN DOCKER SANDBOX:
                     {targetAnalyticsTeam?.team_name}
                   </h4>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
-                  <a 
-                    href={customGitRepo || targetAnalyticsTeam?.repo_url} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: isDark ? '#a78bfa' : '#4338ca', fontWeight: 600, textDecoration: 'none' }}
-                  >
-                    <ExternalLink size={13} /> {customGitRepo || targetAnalyticsTeam?.repo_url}
-                  </a>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  {isEditingGitRepo ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <input
+                        type="url"
+                        value={customGitRepo}
+                        onChange={(e) => setCustomGitRepo(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSyncGit(); }}
+                        placeholder="https://github.com/..."
+                        style={{
+                          minWidth: '280px',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          border: isDark ? '1px solid rgba(167, 139, 250, 0.45)' : '1px solid #8b5cf6',
+                          background: isDark ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+                          color: isDark ? '#f8fafc' : '#0f172a',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          outline: 'none'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSyncGit}
+                        disabled={isSyncingGit}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '7px',
+                          border: 'none',
+                          background: '#6d28d9',
+                          color: '#ffffff',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {lang === 'vi' ? 'Lưu & Đồng bộ' : 'Save & Sync'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsEditingGitRepo(false); setCustomGitRepo(''); }}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: '7px',
+                          border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid #cbd5e1',
+                          background: 'transparent',
+                          color: isDark ? '#cbd5e1' : '#475569',
+                          fontSize: '0.76rem',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {lang === 'vi' ? 'Hủy' : 'Cancel'}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <a 
+                        href={customGitRepo || targetAnalyticsTeam?.repo_url} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', color: isDark ? '#a78bfa' : '#4338ca', fontWeight: 600, textDecoration: 'none' }}
+                      >
+                        <ExternalLink size={13} /> {customGitRepo || targetAnalyticsTeam?.repo_url}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => { setCustomGitRepo(targetAnalyticsTeam?.repo_url || ''); setIsEditingGitRepo(true); }}
+                        title={lang === 'vi' ? 'Đổi link GitHub repository' : 'Edit GitHub repository URL'}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          border: isDark ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid #c4b5fd',
+                          background: isDark ? 'rgba(139, 92, 246, 0.12)' : '#f5f3ff',
+                          color: isDark ? '#c4b5fd' : '#5b21b6',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Edit3 size={11} /> {lang === 'vi' ? 'Đổi link' : 'Edit'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -2585,37 +2741,168 @@ III. QUY CHUẨN DOCKER SANDBOX:
             )}
           </div>
 
-          {/* Item 3: Kết quả & AI */}
-          <button
-            type="button"
-            onClick={() => setActiveTab('results')}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 12px',
-              borderRadius: '12px',
-              border: activeTab === 'results' ? (isDark ? '1px solid #7c3aed' : '1px solid #ddd6fe') : '1px solid transparent',
-              background: activeTab === 'results' 
-                ? (isDark ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.25) 100%)' : '#ede9fe')
-                : 'transparent',
-              boxShadow: activeTab === 'results' ? (isDark ? '0 2px 10px rgba(124, 58, 237, 0.2)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
-              color: activeTab === 'results' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
-              fontSize: '0.9rem',
-              fontWeight: activeTab === 'results' ? 700 : 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              outline: 'none',
-              textAlign: 'left'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <CheckCircle2 size={18} color={activeTab === 'results' ? (isDark ? '#c4b5fd' : '#6d28d9') : '#64748b'} />
-              <span>{lang === 'vi' ? 'Kết quả & AI' : 'Results & AI'}</span>
-            </div>
-            {activeTab === 'results' && <ChevronRight size={15} color={isDark ? '#c4b5fd' : '#6d28d9'} />}
-          </button>
+          {/* Item 3: Kết quả & AI (Parent item + 2 sub-items: Bài tập cá nhân vs Đồ án nhóm Git) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTab !== 'results') {
+                  setActiveTab('results');
+                  setIsResultsMenuOpen(true);
+                } else {
+                  setIsResultsMenuOpen(prev => !prev);
+                }
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                borderRadius: '12px',
+                border: activeTab === 'results' ? (isDark ? '1px solid #7c3aed' : '1px solid #ddd6fe') : '1px solid transparent',
+                background: activeTab === 'results' 
+                  ? (isDark ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.25) 100%)' : '#ede9fe')
+                  : 'transparent',
+                boxShadow: activeTab === 'results' ? (isDark ? '0 2px 10px rgba(124, 58, 237, 0.2)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+                color: activeTab === 'results' ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+                fontSize: '0.9rem',
+                fontWeight: activeTab === 'results' ? 700 : 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <CheckCircle2 size={18} color={activeTab === 'results' ? (isDark ? '#c4b5fd' : '#6d28d9') : '#64748b'} />
+                <span>{lang === 'vi' ? 'Kết quả & AI' : 'Results & AI'}</span>
+              </div>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (activeTab !== 'results') {
+                    setActiveTab('results');
+                    setIsResultsMenuOpen(true);
+                  } else {
+                    setIsResultsMenuOpen(prev => !prev);
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3px',
+                  borderRadius: '5px',
+                  transition: 'background 0.15s ease'
+                }}
+                title={isResultsMenuOpen && activeTab === 'results' ? (lang === 'vi' ? 'Thu gọn' : 'Collapse') : (lang === 'vi' ? 'Mở rộng' : 'Expand')}
+              >
+                <ChevronDown
+                  size={15}
+                  color={activeTab === 'results' ? (isDark ? '#c4b5fd' : '#6d28d9') : 'currentColor'}
+                  style={{
+                    transform: (isResultsMenuOpen && activeTab === 'results') ? 'rotate(0deg)' : 'rotate(-90deg)',
+                    transition: 'transform 0.2s ease'
+                  }}
+                />
+              </div>
+            </button>
+
+            {/* Submenu: 2 mục điểm (Bài tập cá nhân vs Đồ án nhóm Git) */}
+            {activeTab === 'results' && isResultsMenuOpen && (() => {
+              const indResultsCount = getLatestSubmissionsPerAssignment(displayedSubmissions.filter(s => !isTeamGitSubmission(s))).length;
+              const teamResultsCount = getLatestSubmissionsPerAssignment(displayedSubmissions.filter(s => isTeamGitSubmission(s))).length;
+              const sidebarResultItems = [
+                {
+                  id: 'individual' as const,
+                  Icon: FileCode,
+                  title: lang === 'vi' ? 'Bài tập cá nhân' : 'Individual Scores',
+                  sub: `${indResultsCount} ${lang === 'vi' ? 'bài chấm' : 'graded'}`,
+                  count: indResultsCount,
+                  darkBg: 'linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(14, 165, 233, 0.2) 100%)',
+                  darkAccent: '#38bdf8'
+                },
+                {
+                  id: 'team' as const,
+                  Icon: Users,
+                  title: lang === 'vi' ? 'Đồ án nhóm (Git)' : 'Team Project Scores',
+                  sub: `${teamResultsCount} ${lang === 'vi' ? 'đồ án' : 'projects'}`,
+                  count: teamResultsCount,
+                  darkBg: 'linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(124, 58, 237, 0.2) 100%)',
+                  darkAccent: '#c084fc'
+                }
+              ];
+
+              return (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  marginLeft: '10px',
+                  paddingLeft: '10px',
+                  borderLeft: isDark ? '2px solid rgba(139, 92, 246, 0.35)' : '2px solid #ddd6fe',
+                  paddingTop: '3px',
+                  paddingBottom: '3px'
+                }}>
+                  {sidebarResultItems.map(({ id, Icon, title, sub, count, darkBg, darkAccent }) => {
+                    const isSubActive = resultsSubTab === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTab('results');
+                          setResultsSubTab(id);
+                          setShowAllSubmissionHistory(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          borderRadius: '10px',
+                          border: isSubActive ? (isDark ? '1px solid rgba(167, 139, 250, 0.5)' : '1px solid #c4b5fd') : '1px solid transparent',
+                          background: isSubActive ? (isDark ? darkBg : '#ede9fe') : 'transparent',
+                          boxShadow: isSubActive ? (isDark ? '0 2px 8px rgba(124, 58, 237, 0.15)' : '0 2px 8px rgba(109, 40, 217, 0.08)') : 'none',
+                          color: isSubActive ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#94a3b8' : '#475569'),
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                          <Icon size={15} color={isSubActive ? (isDark ? darkAccent : '#7c3aed') : '#64748b'} style={{ flexShrink: 0 }} />
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.25 }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: isSubActive ? 700 : 500, color: isSubActive ? (isDark ? '#ffffff' : '#6d28d9') : (isDark ? '#f8fafc' : '#1e1b4b'), whiteSpace: 'nowrap' }}>
+                              {title}
+                            </span>
+                            <span style={{ fontSize: '0.67rem', color: isSubActive ? (isDark ? darkAccent : '#7c3aed') : '#94a3b8', fontWeight: 500 }}>
+                              {sub}
+                            </span>
+                          </div>
+                        </div>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          padding: '2px 7px',
+                          borderRadius: '999px',
+                          background: isSubActive ? (isDark ? 'rgba(139, 92, 246, 0.35)' : '#7c3aed') : (isDark ? 'rgba(139, 92, 246, 0.15)' : '#f1f5f9'),
+                          color: isSubActive ? '#ffffff' : '#64748b',
+                          flexShrink: 0,
+                          marginLeft: '4px'
+                        }}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Item 4: AI Tutor Chat */}
           <button
@@ -5415,14 +5702,26 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       <RefreshCw size={15} /> {lang === 'vi' ? 'Kiểm tra & Làm mới' : 'Check & Refresh'}
                     </button>
                   </div>
-                ) : (
+                ) : (() => {
+                  const submittedTeams = myTeams.filter(t => mySubmissions.some(s => s.team_id === t.team_id));
+                  const pendingWaitingCount = submittedTeams.filter(t => {
+                    const sub = mySubmissions.find(s => s.team_id === t.team_id);
+                    return !getTeamProjectStatusMeta(sub).isFinalized;
+                  }).length;
+                  const currentTeamSub = mySubmissions.find(s => s.team_id === myTeam?.team_id);
+                  const activeWaitingTeam = submittedTeams.find(t => t.team_id === myTeam?.team_id) || submittedTeams[0] || null;
+
+                  return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {/* Top sub-navigation pills (Cyberpunk Dark Glassmorphism) */}
+                    {/* Top sub-navigation pills */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <button
                           type="button"
-                          onClick={() => setTeamActionTab('submit')}
+                          onClick={() => {
+                            setIsEditingTeamRepo(false);
+                            setTeamActionTab('submit');
+                          }}
                           style={{
                             padding: '8px 18px',
                             borderRadius: '10px',
@@ -5480,9 +5779,63 @@ III. QUY CHUẨN DOCKER SANDBOX:
                           <BarChart2 size={16} color={teamActionTab === 'analytics' ? '#ffffff' : (isDark ? '#a78bfa' : '#7c3aed')} />
                           <span>2. {lang === 'vi' ? 'Báo Cáo Đóng Góp & Radar Free-Rider (BR-07)' : 'Contribution & Free-Rider Report'}</span>
                         </button>
+
+                        {/* Compact waiting-for-lecturer pill — ONLY rendered when at least one team confirmed submission */}
+                        {submittedTeams.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!currentTeamSub && submittedTeams.length > 0) {
+                                handleSwitchTeam(submittedTeams[0].team_id);
+                              }
+                              setIsEditingTeamRepo(false);
+                              setTeamActionTab('waiting');
+                            }}
+                            style={{
+                              padding: '7px 14px',
+                              borderRadius: '10px',
+                              background: teamActionTab === 'waiting'
+                                ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)'
+                                : (isDark ? 'rgba(139, 92, 246, 0.14)' : '#f5f3ff'),
+                              border: teamActionTab === 'waiting'
+                                ? '1px solid rgba(192, 132, 252, 0.6)'
+                                : (isDark ? '1px solid rgba(167, 139, 250, 0.38)' : '1px solid #c4b5fd'),
+                              color: teamActionTab === 'waiting' ? '#ffffff' : (isDark ? '#d8b4fe' : '#6d28d9'),
+                              fontWeight: 700,
+                              fontSize: '0.8rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '7px',
+                              cursor: 'pointer',
+                              boxShadow: teamActionTab === 'waiting'
+                                ? '0 4px 14px rgba(124, 58, 237, 0.35)'
+                                : (isDark ? 'none' : '0 1px 4px rgba(109, 40, 217, 0.1)'),
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            <Clock size={14} />
+                            <span>
+                              {pendingWaitingCount > 0
+                                ? (lang === 'vi' ? 'Chờ Giảng Viên Chấm' : 'Pending Lecturer Review')
+                                : (lang === 'vi' ? 'Trạng Thái Đã Chấm' : 'Finalized Status')}
+                            </span>
+                            <span style={{
+                              padding: '1px 7px',
+                              borderRadius: '9999px',
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              background: teamActionTab === 'waiting'
+                                ? 'rgba(255, 255, 255, 0.22)'
+                                : (isDark ? 'rgba(168, 85, 247, 0.35)' : '#ddd6fe'),
+                              color: teamActionTab === 'waiting' ? '#ffffff' : (isDark ? '#f3e8ff' : '#5b21b6')
+                            }}>
+                              {pendingWaitingCount > 0 ? pendingWaitingCount : submittedTeams.length}
+                            </span>
+                          </button>
+                        )}
                       </div>
 
-                      {/* Quick Fill Button & Edit Switcher */}
+                      {/* Quick Fill Button (shown on submission form tab) */}
                       {teamActionTab === 'submit' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <button
@@ -5517,16 +5870,18 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       )}
                     </div>
 
-                    {teamActionTab === 'submit' ? (() => {
-                      // Tính toán trạng thái hiển thị
-                      const latestTeamSub = mySubmissions.find(s => s.team_id === myTeam?.team_id);
-                      const hasSubmittedTeamRepo = Boolean((myTeam?.repo_url && myTeam.repo_url.trim() !== '') || latestTeamSub);
-                      const isShowingStateB = hasSubmittedTeamRepo && !isEditingTeamRepo;
-                      const effectiveRepoUrl = myTeam?.repo_url || latestTeamSub?.artifact_url || repoUrl || 'https://github.com/min098-ui/SWD392_AITA-Intelligent.git';
+                    {teamActionTab !== 'analytics' ? (() => {
+                      const waitingTeam = activeWaitingTeam || myTeam;
+                      const latestTeamSub = mySubmissions.find(s => s.team_id === (teamActionTab === 'waiting' ? waitingTeam.team_id : myTeam.team_id));
+                      const teamStatus = getTeamProjectStatusMeta(latestTeamSub, gitAnalytics);
+                      const isShowingStateB = teamActionTab === 'waiting';
+                      const effectiveRepoUrl = latestTeamSub?.artifact_url || waitingTeam.repo_url || repoUrl || 'https://github.com/min098-ui/SWD392_AITA-Intelligent.git';
                       const effectiveBranch = teamBranch || 'main';
+                      const resolvedTopicName = extractTeamTopicFromSubmission(latestTeamSub) || teamTopicName || latestTeamSub?.assignment_title || waitingTeam.team_name;
 
                       // Đội ngũ phát triển (5 thành viên nhóm)
-                      const displayMembers: TeamMember[] = (myTeam.members && myTeam.members.length > 0) ? myTeam.members : [
+                      const rosterSource = teamActionTab === 'waiting' ? waitingTeam : myTeam;
+                      const displayMembers: TeamMember[] = (rosterSource.members && rosterSource.members.length > 0) ? rosterSource.members : [
                         { team_member_id: 1, user_id: 1, full_name: 'Đinh Gia Huy', email: 'dinhgiahuylol12345@gmail.com', role: 'LEADER', assigned_module: 'Architecture, Backend & Core Sandbox' },
                         { team_member_id: 2, user_id: 2, full_name: 'Nguyễn Quốc Thanh Phong', email: 'tfongcs05@gmail.com', role: 'MEMBER', assigned_module: 'Frontend Lead & UI/UX' },
                         { team_member_id: 3, user_id: 3, full_name: 'Lương Thị Kim Yến', email: 'yenltk@fpt.edu.vn', role: 'MEMBER', assigned_module: 'AI Tutor & Prompt Engineering' },
@@ -5557,13 +5912,42 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       };
 
                       // =========================================================================
-                      // TRẠNG THÁI B: MISSION CONTROL OVERVIEW DASHBOARD (KHI ĐÃ NỘP THÀNH CÔNG)
+                      // TRẠNG THÁI B: MỤC CHỜ GIẢNG VIÊN CHẤM (CHỈ HIỆN NHÓM ĐÃ XÁC NHẬN NỘP)
                       // =========================================================================
                       if (isShowingStateB) {
+                        if (!activeWaitingTeam) {
+                          return (
+                            <div
+                              className="glass-card"
+                              style={{
+                                padding: '2.5rem 2rem',
+                                textAlign: 'center',
+                                borderRadius: '20px',
+                                background: isDark ? 'rgba(15, 23, 42, 0.92)' : '#ffffff',
+                                border: isDark ? '1px solid rgba(167, 139, 250, 0.3)' : '1px solid #ddd6fe'
+                              }}
+                            >
+                              <p style={{ color: isDark ? '#cbd5e1' : '#475569', fontSize: '0.92rem', marginBottom: '1rem' }}>
+                                {lang === 'vi'
+                                  ? 'Hiện chưa có nhóm nào xác nhận nộp bài đồ án.'
+                                  : 'No team has confirmed a project submission yet.'}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setTeamActionTab('submit')}
+                                className="btn-primary"
+                                style={{ padding: '8px 18px', fontSize: '0.84rem' }}
+                              >
+                                {lang === 'vi' ? '← Về Cổng Nộp Đồ Án Nhóm' : '← Back to Team Submission'}
+                              </button>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                            {/* Header Section Intro */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                            {/* Header Section Intro + Controls */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                               <div>
                                 <h3 style={{ fontSize: '1.45rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                   <span style={{
@@ -5572,33 +5956,90 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                     WebkitTextFillColor: 'transparent',
                                     fontWeight: 900
                                   }}>
-                                    {lang === 'vi' ? 'Trung Tâm Điều Khiển Đồ Án Nhóm (Mission Control Overview)' : 'Team Mission Control Overview'}
+                                    {lang === 'vi' ? 'Theo Dõi Đồ Án Nhóm & Chờ Giảng Viên Chấm' : 'Team Project Status & Lecturer Review'}
                                   </span>
                                 </h3>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => setIsEditingTeamRepo(true)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '9px 18px',
-                                  borderRadius: '12px',
-                                  background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
-                                  border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1',
-                                  color: isDark ? '#cbd5e1' : '#334155',
-                                  fontSize: '0.84rem',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s ease',
-                                  boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.2)' : '0 2px 8px rgba(15, 23, 42, 0.06)'
-                                }}
-                              >
-                                <Edit3 size={15} color={isDark ? '#c084fc' : '#7c3aed'} />
-                                <span>{lang === 'vi' ? 'Chỉnh Sửa Đề Tài / Kho Lưu Trữ (Nộp Lại)' : 'Edit Submission'}</span>
-                              </button>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                {submittedTeams.length > 1 && (
+                                  <select
+                                    value={waitingTeam.team_id}
+                                    onChange={e => handleSwitchTeam(Number(e.target.value))}
+                                    style={{
+                                      padding: '8px 12px',
+                                      borderRadius: '10px',
+                                      background: isDark ? 'rgba(15, 23, 42, 0.85)' : '#f5f3ff',
+                                      border: isDark ? '1px solid rgba(168, 85, 247, 0.45)' : '1px solid #c4b5fd',
+                                      color: isDark ? '#d8b4fe' : '#6d28d9',
+                                      fontSize: '0.82rem',
+                                      fontWeight: 700,
+                                      outline: 'none',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {submittedTeams.map(t => (
+                                      <option key={t.team_id} value={t.team_id}>
+                                        {t.course_code} — {t.team_name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+
+                                <button
+                                  type="button"
+                                  disabled={loadingData || loadingGit}
+                                  onClick={() => {
+                                    fetchData();
+                                    fetchGitAnalytics(waitingTeam.team_id);
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '7px',
+                                    padding: '9px 16px',
+                                    borderRadius: '12px',
+                                    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                                    border: '1px solid rgba(192, 132, 252, 0.5)',
+                                    color: '#ffffff',
+                                    fontSize: '0.84rem',
+                                    fontWeight: 700,
+                                    cursor: (loadingData || loadingGit) ? 'not-allowed' : 'pointer',
+                                    opacity: (loadingData || loadingGit) ? 0.7 : 1,
+                                    boxShadow: '0 4px 14px rgba(124, 58, 237, 0.3)'
+                                  }}
+                                >
+                                  <RefreshCw size={14} className={(loadingData || loadingGit) ? 'animate-spin' : undefined} />
+                                  <span>{lang === 'vi' ? 'Làm Mới Trạng Thái' : 'Refresh Status'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleSwitchTeam(waitingTeam.team_id);
+                                    setIsEditingTeamRepo(true);
+                                    setTeamActionTab('submit');
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '9px 18px',
+                                    borderRadius: '12px',
+                                    background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff',
+                                    border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1',
+                                    color: isDark ? '#cbd5e1' : '#334155',
+                                    fontSize: '0.84rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: isDark ? '0 2px 10px rgba(0,0,0,0.2)' : '0 2px 8px rgba(15, 23, 42, 0.06)'
+                                  }}
+                                >
+                                  <Edit3 size={15} color={isDark ? '#c084fc' : '#7c3aed'} />
+                                  <span>{lang === 'vi' ? 'Chỉnh Sửa Đề Tài / Nộp Lại' : 'Edit Submission'}</span>
+                                </button>
+                              </div>
                             </div>
 
                             {/* KHỐI 1: THẺ TỔNG QUAN ĐỒ ÁN ĐÃ NỘP (HERO SUBMISSION CARD) */}
@@ -5606,13 +6047,17 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               className="glass-card"
                               style={{
                                 background: isDark ? 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 16, 38, 0.98) 100%)' : '#ffffff',
-                                border: isDark ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid #a7f3d0',
-                                boxShadow: isDark ? '0 20px 50px -15px rgba(16, 185, 129, 0.15)' : '0 10px 30px -10px rgba(16, 185, 129, 0.12)',
+                                border: teamStatus.isFinalized
+                                  ? (isDark ? '1px solid rgba(52, 211, 153, 0.45)' : '1px solid #6ee7b7')
+                                  : (isDark ? '1px solid rgba(167, 139, 250, 0.4)' : '1px solid #c4b5fd'),
+                                boxShadow: teamStatus.isFinalized
+                                  ? (isDark ? '0 20px 50px -15px rgba(16, 185, 129, 0.15)' : '0 10px 30px -10px rgba(16, 185, 129, 0.12)')
+                                  : (isDark ? '0 20px 50px -15px rgba(139, 92, 246, 0.22)' : '0 10px 30px -10px rgba(124, 58, 237, 0.14)'),
                                 borderRadius: '24px',
                                 padding: '2rem 2.4rem',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: '1.4rem',
+                                gap: '1.35rem',
                                 position: 'relative',
                                 overflow: 'hidden'
                               }}
@@ -5625,7 +6070,9 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 width: '220px',
                                 height: '220px',
                                 borderRadius: '50%',
-                                background: isDark ? 'radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, rgba(0,0,0,0) 70%)' : 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(0,0,0,0) 70%)',
+                                background: teamStatus.isFinalized
+                                  ? (isDark ? 'radial-gradient(circle, rgba(16, 185, 129, 0.16) 0%, rgba(0,0,0,0) 70%)' : 'radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, rgba(0,0,0,0) 70%)')
+                                  : (isDark ? 'radial-gradient(circle, rgba(168, 85, 247, 0.18) 0%, rgba(0,0,0,0) 70%)' : 'radial-gradient(circle, rgba(124, 58, 237, 0.08) 0%, rgba(0,0,0,0) 70%)'),
                                 pointerEvents: 'none'
                               }} />
 
@@ -5635,57 +6082,140 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '8px',
-                                  background: isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7',
-                                  border: isDark ? '1px solid rgba(52, 211, 153, 0.5)' : '1px solid #86efac',
+                                  background: teamStatus.isFinalized
+                                    ? (isDark ? 'rgba(16, 185, 129, 0.15)' : '#dcfce7')
+                                    : (isDark ? 'rgba(139, 92, 246, 0.18)' : '#f5f3ff'),
+                                  border: teamStatus.isFinalized
+                                    ? (isDark ? '1px solid rgba(52, 211, 153, 0.5)' : '1px solid #86efac')
+                                    : (isDark ? '1px solid rgba(167, 139, 250, 0.45)' : '1px solid #c4b5fd'),
                                   borderRadius: '9999px',
                                   padding: '5px 16px',
-                                  color: isDark ? '#34d399' : '#15803d',
+                                  color: teamStatus.isFinalized
+                                    ? (isDark ? '#34d399' : '#15803d')
+                                    : (isDark ? '#c4b5fd' : '#6d28d9'),
                                   fontSize: '0.82rem',
                                   fontWeight: 800,
                                   letterSpacing: '0.5px'
                                 }}>
-                                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDark ? '#34d399' : '#16a34a', boxShadow: isDark ? '0 0 10px #34d399' : 'none' }} />
-                                  <span>{lang === 'vi' ? '✓ ĐÃ NỘP ĐỒ ÁN & LINK GITHUB THÀNH CÔNG' : 'TEAM PROJECT SUBMITTED & LINKED'}</span>
+                                  <span style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: teamStatus.isFinalized ? (isDark ? '#34d399' : '#16a34a') : '#8b5cf6',
+                                    boxShadow: isDark ? `0 0 10px ${teamStatus.isFinalized ? '#34d399' : '#a78bfa'}` : 'none'
+                                  }} />
+                                  <span>
+                                    {teamStatus.isFinalized
+                                      ? (lang === 'vi' ? '✓ GIẢNG VIÊN ĐÃ DUYỆT & CÔNG BỐ ĐIỂM' : 'TEAM PROJECT GRADED & FINALIZED')
+                                      : (lang === 'vi' ? '✓ ĐÃ NỘP ĐỒ ÁN & LINK GITHUB THÀNH CÔNG' : 'TEAM PROJECT SUBMITTED & LINKED')}
+                                  </span>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#475569' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '0.82rem', color: isDark ? '#94a3b8' : '#475569' }}>
+                                  {teamStatus.isFinalized && teamStatus.scoreNum !== null && (
+                                    <span style={{
+                                      padding: '4px 14px',
+                                      borderRadius: '9px',
+                                      fontWeight: 900,
+                                      fontSize: '0.9rem',
+                                      background: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7',
+                                      border: isDark ? '1px solid rgba(52, 211, 153, 0.45)' : '1px solid #86efac',
+                                      color: isDark ? '#34d399' : '#15803d'
+                                    }}>
+                                      ★ {teamStatus.scoreNum.toFixed(1)} / 10
+                                    </span>
+                                  )}
                                   <div style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '6px',
-                                    background: isDark ? 'rgba(245, 158, 11, 0.12)' : '#fef3c7',
-                                    border: isDark ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid #fcd34d',
-                                    color: isDark ? '#fbbf24' : '#b45309',
-                                    padding: '3px 12px',
+                                    background: teamStatus.isFinalized
+                                      ? (isDark ? 'rgba(16, 185, 129, 0.12)' : '#dcfce7')
+                                      : teamStatus.isSecondReview
+                                      ? (isDark ? 'rgba(245, 158, 11, 0.14)' : '#fef3c7')
+                                      : (isDark ? 'rgba(168, 85, 247, 0.16)' : '#ede9fe'),
+                                    border: teamStatus.isFinalized
+                                      ? (isDark ? '1px solid rgba(52, 211, 153, 0.35)' : '1px solid #86efac')
+                                      : teamStatus.isSecondReview
+                                      ? (isDark ? '1px solid rgba(245, 158, 11, 0.38)' : '1px solid #fcd34d')
+                                      : (isDark ? '1px solid rgba(192, 132, 252, 0.4)' : '1px solid #c4b5fd'),
+                                    color: teamStatus.isFinalized
+                                      ? (isDark ? '#34d399' : '#15803d')
+                                      : teamStatus.isSecondReview
+                                      ? (isDark ? '#fbbf24' : '#b45309')
+                                      : (isDark ? '#d8b4fe' : '#6d28d9'),
+                                    padding: '4px 12px',
                                     borderRadius: '8px',
                                     fontWeight: 700
                                   }}>
-                                    <span>🟡</span>
-                                    <span>{lang === 'vi' ? 'Đang chờ GV thẩm định' : 'Pending Lecturer Review'}</span>
+                                    <span>{teamStatus.isFinalized ? '🟢' : teamStatus.isSecondReview ? '🟠' : '🟣'}</span>
+                                    <span>
+                                      {teamStatus.isFinalized
+                                        ? (lang === 'vi' ? 'Đã duyệt điểm chính thức' : 'Finalized')
+                                        : teamStatus.isSecondReview
+                                        ? (lang === 'vi' ? 'Chờ GV2 chấm chéo (BR-09)' : 'Pending 2nd Review')
+                                        : (lang === 'vi' ? 'Đang chờ Giảng viên chấm' : 'Pending Lecturer Grading')}
+                                    </span>
                                   </div>
                                   <span>
                                     {lang === 'vi' ? 'Nộp gần nhất: ' : 'Submitted: '}
                                     <strong style={{ color: isDark ? '#e2e8f0' : '#0f172a' }}>
-                                      {latestTeamSub?.submitted_at ? new Date(latestTeamSub.submitted_at).toLocaleString('vi-VN', { hour12: false }) : (lang === 'vi' ? 'Vừa xong' : 'Just now')}
+                                      {latestTeamSub?.submitted_at ? new Date(latestTeamSub.submitted_at).toLocaleString('vi-VN', { hour12: false }) : (lang === 'vi' ? 'Đã liên kết' : 'Linked')}
                                     </strong>
                                   </span>
                                 </div>
                               </div>
 
+                              {/* Status Explanation / Instructor Feedback Strip */}
+                              {teamStatus.isFinalized && teamStatus.feedbackNote ? (
+                                <div style={{
+                                  zIndex: 2,
+                                  padding: '12px 16px',
+                                  borderRadius: '14px',
+                                  background: isDark ? 'rgba(139, 92, 246, 0.12)' : '#f5f3ff',
+                                  border: isDark ? '1px solid rgba(167, 139, 250, 0.35)' : '1px solid #ddd6fe',
+                                  color: isDark ? '#e9d5ff' : '#4c1d95',
+                                  fontSize: '0.86rem',
+                                  lineHeight: 1.55
+                                }}>
+                                  <strong>{lang === 'vi' ? '💬 Nhận xét từ Giảng viên: ' : '💬 Instructor Feedback: '}</strong>
+                                  <span>"{teamStatus.feedbackNote}"</span>
+                                </div>
+                              ) : !teamStatus.isFinalized && (
+                                <div style={{
+                                  zIndex: 2,
+                                  padding: '11px 16px',
+                                  borderRadius: '14px',
+                                  background: isDark ? 'rgba(139, 92, 246, 0.1)' : '#f5f3ff',
+                                  border: isDark ? '1px solid rgba(167, 139, 250, 0.28)' : '1px solid #ddd6fe',
+                                  color: isDark ? '#cbd5e1' : '#4c1d95',
+                                  fontSize: '0.84rem',
+                                  lineHeight: 1.55
+                                }}>
+                                  {teamStatus.isSecondReview
+                                    ? (lang === 'vi'
+                                        ? `Bài nộp của nhóm "${waitingTeam.team_name}" (${waitingTeam.course_code}) đang chờ Giảng viên thứ 2 chấm chéo đối soát điểm theo quy trình BR-09.`
+                                        : `Submission for "${waitingTeam.team_name}" is pending second lecturer cross-review (BR-09).`)
+                                    : (lang === 'vi'
+                                        ? `Đồ án "${resolvedTopicName}" của nhóm ${waitingTeam.team_name} (${waitingTeam.course_code}) đã được ghi nhận trên hệ thống. Giảng viên phụ trách lớp sẽ chạy phân tích Git AST, kiểm tra tỷ lệ đóng góp từng thành viên và phê duyệt điểm kèm nhận xét.`
+                                        : `Project "${resolvedTopicName}" for ${waitingTeam.team_name} has been recorded. Your instructor will review Git telemetry, verify contributions, and release the finalized grade.`)}
+                                </div>
+                              )}
+
                               {/* Project Topic Title & Course Meta */}
                               <div style={{ zIndex: 2 }}>
                                 <div style={{ fontSize: '0.8rem', fontWeight: 700, color: isDark ? '#c084fc' : '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                                  {lang === 'vi' ? 'TÊN ĐỀ TÀI / DỰ ÁN TỐT NGHIỆP' : 'CAPSTONE PROJECT TOPIC'}
+                                  {lang === 'vi' ? 'TÊN ĐỀ TÀI / DỰ ÁN NHÓM' : 'TEAM PROJECT TOPIC'}
                                 </div>
                                 <h4 style={{ fontSize: '1.45rem', fontWeight: 900, color: isDark ? '#ffffff' : '#0f172a', margin: '0 0 10px 0', lineHeight: 1.3 }}>
-                                  {teamTopicName || myTeam.team_name}
+                                  {resolvedTopicName}
                                 </h4>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '0.84rem', color: isDark ? '#cbd5e1' : '#475569' }}>
-                                  <span>Học phần: <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{myTeam.course_code} - {myTeam.course_name}</strong></span>
+                                  <span>Học phần: <strong style={{ color: isDark ? '#a78bfa' : '#6d28d9' }}>{waitingTeam.course_code} - {waitingTeam.course_name}</strong></span>
                                   <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
-                                  <span>Nhóm: <strong style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>{myTeam.team_name}</strong> ({myTeam.semester || 'FA26'})</span>
+                                  <span>Nhóm: <strong style={{ color: isDark ? '#38bdf8' : '#0284c7' }}>{waitingTeam.team_name}</strong> ({waitingTeam.semester || 'FA26'})</span>
                                   <span style={{ color: isDark ? 'rgba(255,255,255,0.2)' : '#cbd5e1' }}>•</span>
-                                  <span>GVHD: <strong style={{ color: isDark ? '#f1f5f9' : '#0f172a' }}>{myTeam.lecturer_name || 'Nguyễn Thị Mai'}</strong></span>
+                                  <span>GVHD: <strong style={{ color: isDark ? '#f1f5f9' : '#0f172a' }}>{waitingTeam.lecturer_name || 'Nguyễn Thị Mai'}</strong></span>
                                 </div>
                               </div>
 
@@ -5883,173 +6413,166 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                 </p>
                               </div>
 
-                              {/* Stepper Horizontal Track */}
-                              <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-                                gap: '1rem',
-                                position: 'relative'
-                              }}>
-                                {/* Phase 1: Nộp Link Git (Complete - Emerald) */}
-                                <div style={{
-                                  background: isDark ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-                                  border: isDark ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid #6ee7b7',
-                                  borderRadius: '16px',
-                                  padding: '1.1rem 1.25rem',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '8px',
-                                  boxShadow: isDark ? '0 4px 15px rgba(16, 185, 129, 0.15)' : '0 4px 12px rgba(16, 185, 129, 0.12)'
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{
-                                      width: '32px',
-                                      height: '32px',
-                                      borderRadius: '10px',
-                                      background: '#10b981',
-                                      color: '#ffffff',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontWeight: 900,
-                                      fontSize: '0.9rem',
-                                      boxShadow: isDark ? '0 0 12px rgba(16, 185, 129, 0.6)' : '0 2px 8px rgba(16, 185, 129, 0.35)'
-                                    }}>
-                                      ✓
-                                    </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#34d399' : '#047857', textTransform: 'uppercase' }}>
-                                      {lang === 'vi' ? 'Đã ghi nhận' : 'Recorded'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#064e3b' }}>
-                                      1. {lang === 'vi' ? 'Nộp Link Git' : 'Git Repo Submitted'}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#065f46', marginTop: '2px', lineHeight: 1.4 }}>
-                                      {lang === 'vi' ? 'Link GitHub & branch main đã lưu trữ an toàn' : 'Repository and branch mapped'}
-                                    </div>
-                                  </div>
-                                </div>
+                              {/* Stepper Horizontal Track (Data-driven from teamStatus) */}
+                              {(() => {
+                                const phaseStyles = {
+                                  emerald: {
+                                    cardBg: isDark ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                                    cardBorder: isDark ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid #6ee7b7',
+                                    cardShadow: isDark ? '0 4px 15px rgba(16, 185, 129, 0.15)' : '0 4px 12px rgba(16, 185, 129, 0.12)',
+                                    iconBg: '#10b981',
+                                    iconShadow: isDark ? '0 0 12px rgba(16, 185, 129, 0.6)' : '0 2px 8px rgba(16, 185, 129, 0.35)',
+                                    badgeColor: isDark ? '#34d399' : '#047857',
+                                    titleColor: isDark ? '#f8fafc' : '#064e3b',
+                                    descColor: isDark ? '#94a3b8' : '#065f46'
+                                  },
+                                  purpleActive: {
+                                    cardBg: isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(15, 23, 42, 0.85) 100%)' : 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                                    cardBorder: isDark ? '1px solid rgba(192, 132, 252, 0.6)' : '1px solid #c4b5fd',
+                                    cardShadow: isDark ? '0 0 20px rgba(168, 85, 247, 0.25)' : '0 4px 12px rgba(124, 58, 237, 0.12)',
+                                    iconBg: 'linear-gradient(135deg, #a855f7, #7c3aed)',
+                                    iconShadow: isDark ? '0 0 15px rgba(168, 85, 247, 0.6)' : '0 2px 8px rgba(124, 58, 237, 0.35)',
+                                    badgeColor: isDark ? '#c084fc' : '#6d28d9',
+                                    titleColor: isDark ? '#ffffff' : '#4c1d95',
+                                    descColor: isDark ? '#cbd5e1' : '#5b21b6'
+                                  },
+                                  amber: {
+                                    cardBg: isDark ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                                    cardBorder: isDark ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid #fcd34d',
+                                    cardShadow: isDark ? '0 4px 15px rgba(245, 158, 11, 0.15)' : '0 4px 12px rgba(245, 158, 11, 0.12)',
+                                    iconBg: '#f59e0b',
+                                    iconShadow: isDark ? '0 0 12px rgba(245, 158, 11, 0.5)' : '0 2px 8px rgba(245, 158, 11, 0.35)',
+                                    badgeColor: isDark ? '#fbbf24' : '#b45309',
+                                    titleColor: isDark ? '#f8fafc' : '#78350f',
+                                    descColor: isDark ? '#94a3b8' : '#92400e'
+                                  },
+                                  muted: {
+                                    cardBg: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+                                    cardBorder: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #cbd5e1',
+                                    cardShadow: 'none',
+                                    iconBg: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0',
+                                    iconShadow: 'none',
+                                    badgeColor: isDark ? '#64748b' : '#475569',
+                                    titleColor: isDark ? '#cbd5e1' : '#334155',
+                                    descColor: isDark ? '#64748b' : '#475569'
+                                  }
+                                } as const;
 
-                                {/* Phase 2: Quét Telemetry & AI AST (Active - Neon Purple Pulse) */}
-                                <div style={{
-                                  background: isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
-                                  border: isDark ? '1px solid rgba(192, 132, 252, 0.6)' : '1px solid #c4b5fd',
-                                  borderRadius: '16px',
-                                  padding: '1.1rem 1.25rem',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '8px',
-                                  boxShadow: isDark ? '0 0 20px rgba(168, 85, 247, 0.25)' : '0 4px 12px rgba(124, 58, 237, 0.12)'
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{
-                                      width: '32px',
-                                      height: '32px',
-                                      borderRadius: '10px',
-                                      background: 'linear-gradient(135deg, #a855f7, #7c3aed)',
-                                      color: '#ffffff',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontWeight: 900,
-                                      fontSize: '0.9rem',
-                                      boxShadow: isDark ? '0 0 15px rgba(168, 85, 247, 0.6)' : '0 2px 8px rgba(124, 58, 237, 0.35)'
-                                    }}>
-                                      ⚡
-                                    </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#c084fc' : '#6d28d9', textTransform: 'uppercase' }}>
-                                      {lang === 'vi' ? 'Đã kích hoạt' : 'Telemetry Active'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#ffffff' : '#4c1d95' }}>
-                                      2. {lang === 'vi' ? 'Quét Telemetry & AI AST' : 'Telemetry & AST Engine'}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#cbd5e1' : '#5b21b6', marginTop: '2px', lineHeight: 1.4 }}>
-                                      {lang === 'vi' ? 'Đã lọc nhiễu BR-07, bóc tách LOC sạch' : 'Noise-filtered LOC & commits computed'}
-                                    </div>
-                                  </div>
-                                </div>
+                                const phases: Array<{
+                                  id: number;
+                                  icon: string;
+                                  badge: string;
+                                  title: string;
+                                  desc: string;
+                                  tone: keyof typeof phaseStyles;
+                                }> = [
+                                  {
+                                    id: 1,
+                                    icon: '✓',
+                                    badge: lang === 'vi' ? 'Đã hoàn tất' : 'Completed',
+                                    title: lang === 'vi' ? '1. Nộp Link Git' : '1. Git Repo Submitted',
+                                    desc: lang === 'vi' ? `Link GitHub & nhánh ${effectiveBranch} đã lưu trữ an toàn` : `Repository & branch ${effectiveBranch} linked`,
+                                    tone: 'emerald'
+                                  },
+                                  {
+                                    id: 2,
+                                    icon: '⚡',
+                                    badge: (teamStatus.isGitSynced || teamStatus.isFinalized || teamStatus.isSecondReview)
+                                      ? (lang === 'vi' ? 'Đã kích hoạt' : 'Telemetry Active')
+                                      : (lang === 'vi' ? 'Sẵn sàng quét' : 'Ready to Scan'),
+                                    title: lang === 'vi' ? '2. Quét Telemetry & AI AST' : '2. Telemetry & AST Scan',
+                                    desc: (teamStatus.isGitSynced || teamStatus.isFinalized || teamStatus.isSecondReview)
+                                      ? (lang === 'vi' ? 'Đã lọc nhiễu BR-07, bóc tách LOC sạch' : 'Noise-filtered LOC & commits computed')
+                                      : (lang === 'vi' ? 'Sẵn sàng phân tích Git AST & tỷ lệ đóng góp BR-07' : 'Ready for BR-07 Git AST sync'),
+                                    tone: (teamStatus.isGitSynced || teamStatus.isFinalized || teamStatus.isSecondReview) ? 'purpleActive' : 'amber'
+                                  },
+                                  {
+                                    id: 3,
+                                    icon: teamStatus.isFinalized ? '✓' : '👨‍🏫',
+                                    badge: teamStatus.isFinalized
+                                      ? (lang === 'vi' ? 'Đã duyệt' : 'Approved')
+                                      : teamStatus.isSecondReview
+                                      ? (lang === 'vi' ? 'Chờ GV2 (BR-09)' : '2nd Review')
+                                      : (lang === 'vi' ? 'Chờ giảng viên' : 'Pending Review'),
+                                    title: lang === 'vi' ? '3. Duyệt & Ghi Nhận Xét' : '3. Lecturer Evaluation',
+                                    desc: teamStatus.isFinalized
+                                      ? (lang === 'vi' ? 'Giảng viên đã hoàn tất chấm điểm & nhận xét' : 'Instructor finalized score & feedback')
+                                      : teamStatus.isSecondReview
+                                      ? (lang === 'vi' ? 'Đang chờ Giảng viên thứ 2 chấm chéo' : 'Awaiting 2nd lecturer cross-review')
+                                      : (lang === 'vi' ? 'GV đối soát đóng góp Git & chấm điểm đồ án' : 'Awaiting instructor contribution & grade review'),
+                                    tone: teamStatus.isFinalized ? 'emerald' : (teamStatus.isSecondReview ? 'amber' : 'purpleActive')
+                                  },
+                                  {
+                                    id: 4,
+                                    icon: teamStatus.isFinalized ? '🏆' : '🔒',
+                                    badge: teamStatus.isFinalized
+                                      ? (lang === 'vi' ? 'Đã mở khóa' : 'Unlocked')
+                                      : (lang === 'vi' ? 'Khóa đến khi duyệt' : 'Locked'),
+                                    title: lang === 'vi' ? '4. Mở Báo Cáo & Điểm Chốt' : '4. Final Report & Score',
+                                    desc: teamStatus.isFinalized
+                                      ? (lang === 'vi'
+                                          ? `Điểm chính thức: ★ ${(teamStatus.scoreNum ?? 0).toFixed(1)} / 10`
+                                          : `Official Grade: ★ ${(teamStatus.scoreNum ?? 0).toFixed(1)} / 10`)
+                                      : (lang === 'vi' ? 'Tự động mở khóa ngay khi Giảng viên phê duyệt' : 'Released right after instructor approval'),
+                                    tone: teamStatus.isFinalized ? 'emerald' : 'muted'
+                                  }
+                                ];
 
-                                {/* Phase 3: Giảng Viên Thẩm Định (Amber - Awaiting Review) */}
-                                <div style={{
-                                  background: isDark ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%)' : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                                  border: isDark ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid #fcd34d',
-                                  borderRadius: '16px',
-                                  padding: '1.1rem 1.25rem',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '8px',
-                                  boxShadow: isDark ? '0 4px 15px rgba(245, 158, 11, 0.15)' : '0 4px 12px rgba(245, 158, 11, 0.12)'
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{
-                                      width: '32px',
-                                      height: '32px',
-                                      borderRadius: '10px',
-                                      background: '#f59e0b',
-                                      color: '#ffffff',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontSize: '1rem',
-                                      boxShadow: isDark ? '0 0 12px rgba(245, 158, 11, 0.5)' : '0 2px 8px rgba(245, 158, 11, 0.35)'
-                                    }}>
-                                      👨‍🏫
-                                    </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#fbbf24' : '#b45309', textTransform: 'uppercase' }}>
-                                      {lang === 'vi' ? 'Đang thẩm định' : 'In Review'}
-                                    </span>
+                                return (
+                                  <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                                    gap: '1rem',
+                                    position: 'relative'
+                                  }}>
+                                    {phases.map((p) => {
+                                      const st = phaseStyles[p.tone];
+                                      return (
+                                        <div key={p.id} style={{
+                                          background: st.cardBg,
+                                          border: st.cardBorder,
+                                          borderRadius: '16px',
+                                          padding: '1.1rem 1.25rem',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          gap: '8px',
+                                          boxShadow: st.cardShadow
+                                        }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                            <div style={{
+                                              width: '32px',
+                                              height: '32px',
+                                              borderRadius: '10px',
+                                              background: st.iconBg,
+                                              color: p.tone === 'muted' ? (isDark ? '#94a3b8' : '#475569') : '#ffffff',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              fontWeight: 900,
+                                              fontSize: '0.9rem',
+                                              boxShadow: st.iconShadow,
+                                              flexShrink: 0
+                                            }}>
+                                              {p.icon}
+                                            </div>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: st.badgeColor, textTransform: 'uppercase', textAlign: 'right' }}>
+                                              {p.badge}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: st.titleColor }}>
+                                              {p.title}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: st.descColor, marginTop: '2px', lineHeight: 1.4 }}>
+                                              {p.desc}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                  <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#f8fafc' : '#78350f' }}>
-                                      3. {lang === 'vi' ? 'Giảng Viên Thẩm Định' : 'Faculty Evaluation'}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#92400e', marginTop: '2px', lineHeight: 1.4 }}>
-                                      {lang === 'vi' ? 'GV đối soát đóng góp và chất lượng code' : 'Instructor reviews contributions'}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Phase 4: Công Bố Điểm & Báo Cáo Chốt (Locked/Muted) */}
-                                <div style={{
-                                  background: isDark ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
-                                  border: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #cbd5e1',
-                                  borderRadius: '16px',
-                                  padding: '1.1rem 1.25rem',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '8px'
-                                }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{
-                                      width: '32px',
-                                      height: '32px',
-                                      borderRadius: '10px',
-                                      background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0',
-                                      color: isDark ? '#94a3b8' : '#475569',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontSize: '0.9rem'
-                                    }}>
-                                      🏆
-                                    </div>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDark ? '#64748b' : '#475569', textTransform: 'uppercase' }}>
-                                      {lang === 'vi' ? 'Đang khóa' : 'Locked'}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <div style={{ fontSize: '0.88rem', fontWeight: 800, color: isDark ? '#cbd5e1' : '#334155' }}>
-                                      4. {lang === 'vi' ? 'Báo Cáo Điểm Chốt' : 'Final Grade & Report'}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#64748b' : '#475569', marginTop: '2px', lineHeight: 1.4 }}>
-                                      {lang === 'vi' ? 'Chốt điểm sau khi hoàn tất kiểm tra' : 'Released after moderation'}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
+                                );
+                              })()}
                             </div>
 
                             {/* KHỐI 3: QUICK TELEMETRY STRIP (3 THẺ TÓM TẮT NHANH) */}
@@ -6199,13 +6722,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       // =========================================================================
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                          {/* Banner nhắc nhở nếu đang ở chế độ chỉnh sửa */}
-                          {isEditingTeamRepo && (
+                          {/* Banner trạng thái riêng của nhóm đã xác nhận nộp (hoặc đang chỉnh sửa nộp lại) */}
+                          {(isEditingTeamRepo || currentTeamSub) && (
                             <div style={{
-                              background: isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(124, 58, 237, 0.12) 100%)' : '#f5f3ff',
+                              background: isDark ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.16) 0%, rgba(124, 58, 237, 0.1) 100%)' : '#f5f3ff',
                               border: isDark ? '1px solid rgba(168, 85, 247, 0.45)' : '1px solid #c4b5fd',
                               borderRadius: '14px',
-                              padding: '12px 20px',
+                              padding: '11px 18px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
@@ -6214,28 +6737,41 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               boxShadow: isDark ? '0 4px 15px rgba(124, 58, 237, 0.15)' : '0 4px 12px rgba(124, 58, 237, 0.08)'
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <Edit3 size={18} color={isDark ? '#c084fc' : '#6d28d9'} />
-                                <span style={{ fontSize: '0.88rem', color: isDark ? '#f1f5f9' : '#4c1d95', fontWeight: 700 }}>
-                                  {lang === 'vi'
-                                    ? 'Đang ở chế độ chỉnh sửa thông tin đề tài & kho lưu trữ Git nhóm.'
-                                    : 'Editing project topic & GitHub repository details.'}
+                                {isEditingTeamRepo ? <Edit3 size={17} color={isDark ? '#c084fc' : '#6d28d9'} /> : <Clock size={17} color={isDark ? '#c084fc' : '#6d28d9'} />}
+                                <span style={{ fontSize: '0.86rem', color: isDark ? '#f1f5f9' : '#4c1d95', fontWeight: 700 }}>
+                                  {isEditingTeamRepo
+                                    ? (lang === 'vi'
+                                        ? `Đang ở chế độ chỉnh sửa / nộp lại đồ án nhóm ${myTeam.team_name}.`
+                                        : `Editing team project submission for ${myTeam.team_name}.`)
+                                    : (lang === 'vi'
+                                        ? `✓ Nhóm ${myTeam.team_name} (${myTeam.course_code}) đã xác nhận nộp lúc ${new Date(currentTeamSub!.submitted_at).toLocaleString('vi-VN', { hour12: false })}.`
+                                        : `✓ ${myTeam.team_name} (${myTeam.course_code}) submitted at ${new Date(currentTeamSub!.submitted_at).toLocaleString('vi-VN', { hour12: false })}.`)}
                                 </span>
                               </div>
                               <button
                                 type="button"
-                                onClick={() => setIsEditingTeamRepo(false)}
+                                onClick={() => {
+                                  setIsEditingTeamRepo(false);
+                                  setTeamActionTab('waiting');
+                                }}
                                 style={{
-                                  background: isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff',
-                                  border: isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1',
-                                  color: isDark ? '#cbd5e1' : '#334155',
-                                  padding: '5px 14px',
+                                  background: isEditingTeamRepo
+                                    ? (isDark ? 'rgba(255, 255, 255, 0.08)' : '#ffffff')
+                                    : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                                  border: isEditingTeamRepo
+                                    ? (isDark ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #cbd5e1')
+                                    : '1px solid rgba(192, 132, 252, 0.5)',
+                                  color: isEditingTeamRepo ? (isDark ? '#cbd5e1' : '#334155') : '#ffffff',
+                                  padding: '6px 14px',
                                   borderRadius: '8px',
                                   fontSize: '0.78rem',
                                   fontWeight: 700,
                                   cursor: 'pointer'
                                 }}
                               >
-                                {lang === 'vi' ? '✕ Hủy chỉnh sửa & Quay lại' : '✕ Cancel Edit'}
+                                {isEditingTeamRepo
+                                  ? (lang === 'vi' ? '✕ Hủy & Về Chờ GV Chấm' : '✕ Cancel Edit')
+                                  : (lang === 'vi' ? 'Xem Chờ Giảng Viên Chấm →' : 'View Waiting Status →')}
                               </button>
                             </div>
                           )}
@@ -6338,15 +6874,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                       {myTeams.length > 1 && (
                                         <select
                                           value={myTeam.team_id}
-                                          onChange={e => {
-                                            const selectedId = Number(e.target.value);
-                                            const chosen = myTeams.find(t => t.team_id === selectedId);
-                                            if (chosen) {
-                                              setMyTeam(chosen);
-                                              setSelectedFilter(String(chosen.team_id));
-                                              if (chosen.repo_url) setRepoUrl(chosen.repo_url);
-                                            }
-                                          }}
+                                          onChange={e => handleSwitchTeam(Number(e.target.value))}
                                           style={{
                                             padding: '6px 12px',
                                             borderRadius: '8px',
@@ -6539,7 +7067,10 @@ III. QUY CHUẨN DOCKER SANDBOX:
                                   {isEditingTeamRepo && (
                                     <button
                                       type="button"
-                                      onClick={() => setIsEditingTeamRepo(false)}
+                                      onClick={() => {
+                                        setIsEditingTeamRepo(false);
+                                        setTeamActionTab('waiting');
+                                      }}
                                       style={{
                                         padding: '13px 18px',
                                         borderRadius: '12px',
@@ -6724,7 +7255,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       renderGitAnalyticsView()
                     )}
                   </div>
-            )
+                  );
+                })()
           )}
 
               {/* Submission Confirmation Modal */}
@@ -6901,20 +7433,35 @@ III. QUY CHUẨN DOCKER SANDBOX:
           );
         })()}
 
-        {/* ───── TAB: RESULTS (Student Score & Clean Breakdown Only) ───── */}
+        {/* ───── TAB: RESULTS (Split: Điểm Bài Tập Cá Nhân vs Điểm Đồ Án Nhóm) ───── */}
         {activeTab === 'results' && (() => {
-          const seenAssignIds = new Set<number | string>();
-          const latestOnlySubmissions = displayedSubmissions.filter((s) => {
-            const key = s.assignment_id ?? s.submission_id;
-            if (seenAssignIds.has(key)) return false;
-            seenAssignIds.add(key);
-            return true;
-          });
-          const olderSubmissionsCount = Math.max(0, displayedSubmissions.length - latestOnlySubmissions.length);
-          const visibleResults = showAllSubmissionHistory ? displayedSubmissions : latestOnlySubmissions;
+          const allIndividualSubs = displayedSubmissions.filter(s => !isTeamGitSubmission(s));
+          const allTeamSubs = displayedSubmissions.filter(s => isTeamGitSubmission(s));
+          const latestIndividualSubs = getLatestSubmissionsPerAssignment(allIndividualSubs);
+          const latestTeamSubs = getLatestSubmissionsPerAssignment(allTeamSubs);
+
+          const activeAllSubs = resultsSubTab === 'team' ? allTeamSubs : allIndividualSubs;
+          const activeLatestSubs = resultsSubTab === 'team' ? latestTeamSubs : latestIndividualSubs;
+          const olderSubmissionsCount = Math.max(0, activeAllSubs.length - activeLatestSubs.length);
+          const visibleResults = showAllSubmissionHistory ? activeAllSubs : activeLatestSubs;
+
+          const resultSubTabs = [
+            {
+              id: 'individual' as const,
+              icon: '👤',
+              label: lang === 'vi' ? 'Điểm Bài Tập Cá Nhân' : 'Individual Scores',
+              count: latestIndividualSubs.length
+            },
+            {
+              id: 'team' as const,
+              icon: '👥',
+              label: lang === 'vi' ? 'Điểm Đồ Án Nhóm (Git)' : 'Team Project Scores',
+              count: latestTeamSubs.length
+            }
+          ];
 
           return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <h3 style={{ fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
                 <CheckCircle2 size={20} color="#10b981" /> {lang === 'vi' ? 'Kết quả chấm bài & Điểm số' : 'Grading Results & Scores'}
@@ -6947,13 +7494,70 @@ III. QUY CHUẨN DOCKER SANDBOX:
               </div>
             </div>
 
+            {/* 2 mục nhỏ điểm riêng: Bài Tập Cá Nhân vs Đồ Án Nhóm */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {resultSubTabs.map((tabItem) => {
+                const isActive = resultsSubTab === tabItem.id;
+                return (
+                  <button
+                    key={tabItem.id}
+                    type="button"
+                    onClick={() => {
+                      setResultsSubTab(tabItem.id);
+                      setShowAllSubmissionHistory(false);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      background: isActive
+                        ? 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)'
+                        : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#ffffff'),
+                      border: isActive
+                        ? '1px solid rgba(192, 132, 252, 0.55)'
+                        : (isDark ? '1px solid rgba(139, 92, 246, 0.28)' : '1px solid #ddd6fe'),
+                      color: isActive ? '#ffffff' : (isDark ? '#cbd5e1' : '#4c1d95'),
+                      fontWeight: 700,
+                      fontSize: '0.84rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      boxShadow: isActive ? '0 4px 14px rgba(124, 58, 237, 0.32)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span>{tabItem.icon}</span>
+                    <span>{tabItem.label}</span>
+                    <span style={{
+                      padding: '1px 8px',
+                      borderRadius: '9999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      background: isActive ? 'rgba(255, 255, 255, 0.22)' : (isDark ? 'rgba(139, 92, 246, 0.24)' : '#ede9fe'),
+                      color: isActive ? '#ffffff' : (isDark ? '#d8b4fe' : '#6d28d9')
+                    }}>
+                      {tabItem.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Live submissions from DB */}
             {visibleResults.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {visibleResults.map((sub) => {
+                  const isTeamSub = isTeamGitSubmission(sub);
+                  const teamMeta = isTeamSub ? getTeamProjectStatusMeta(sub) : null;
                   const scoreNum = Number(sub.final_score ?? sub.score ?? sub.ai_score ?? 0);
                   const isGrading = (sub.status === 'GRADING' || sub.status === 'QUEUED' || sub.grading_status === 'PROCESSING' || sub.grading_status === 'QUEUED') && sub.status !== 'FINALIZED';
-                  const isFailed = !isGrading && (sub.status === 'FAILED' || scoreNum < 5);
+                  const isAwaitingManualReview = Boolean(
+                    !isGrading &&
+                    sub.status !== 'FINALIZED' &&
+                    sub.status !== 'FAILED' &&
+                    (sub.status === 'SUBMITTED' || (isTeamSub && !teamMeta?.hasNumericScore))
+                  );
+                  const isFailed = !isGrading && !isAwaitingManualReview && (sub.status === 'FAILED' || scoreNum < 5);
 
                   return (
                     <div 
@@ -6961,7 +7565,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                       className="glass-card" 
                       style={{ 
                         padding: '1.5rem', 
-                        borderLeft: `4px solid ${isGrading ? '#f59e0b' : (isFailed ? '#ef4444' : '#10b981')}`,
+                        borderLeft: `4px solid ${isGrading ? '#f59e0b' : (isAwaitingManualReview ? '#8b5cf6' : (isFailed ? '#ef4444' : '#10b981'))}`,
                         background: isDark ? 'var(--bg-card)' : '#ffffff',
                         borderTop: isDark ? undefined : '1px solid #e2e8f0',
                         borderRight: isDark ? undefined : '1px solid #e2e8f0',
@@ -6975,25 +7579,44 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             {sub.assignment_title || 'Assignment #' + sub.assignment_id}
                           </h4>
                           <div style={{ fontSize: '0.8rem', color: isDark ? '#94a3b8' : '#64748b', display: 'flex', gap: '0.85rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                            {sub.language && (
+                            {(sub.language || isTeamSub) && (
                               <span style={{
                                 padding: '2px 9px',
                                 borderRadius: '6px',
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
-                                background: sub.language === 'java'
+                                background: isTeamSub
+                                  ? (isDark ? 'rgba(139, 92, 246, 0.18)' : '#ede9fe')
+                                  : sub.language === 'java'
                                   ? (isDark ? 'rgba(239, 68, 68, 0.18)' : '#fee2e2')
                                   : sub.language === 'python'
                                   ? (isDark ? 'rgba(139, 92, 246, 0.15)' : '#ede9fe')
                                   : (isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7'),
-                                color: sub.language === 'java'
+                                color: isTeamSub
+                                  ? (isDark ? '#c4b5fd' : '#6d28d9')
+                                  : sub.language === 'java'
                                   ? (isDark ? '#f87171' : '#b91c1c')
                                   : sub.language === 'python'
                                   ? (isDark ? '#a78bfa' : '#6d28d9')
                                   : (isDark ? '#fbbf24' : '#b45309'),
-                                border: `1px solid ${sub.language === 'java' ? (isDark ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5') : sub.language === 'python' ? (isDark ? 'rgba(139, 92, 246, 0.3)' : '#c4b5fd') : (isDark ? 'rgba(245, 158, 11, 0.3)' : '#fcd34d')}`
+                                border: `1px solid ${isTeamSub ? (isDark ? 'rgba(167, 139, 250, 0.35)' : '#c4b5fd') : sub.language === 'java' ? (isDark ? 'rgba(239, 68, 68, 0.4)' : '#fca5a5') : sub.language === 'python' ? (isDark ? 'rgba(139, 92, 246, 0.3)' : '#c4b5fd') : (isDark ? 'rgba(245, 158, 11, 0.3)' : '#fcd34d')}`
                               }}>
-                                {sub.language === 'java' ? '☕ Java (OpenJDK 17)' : sub.language === 'python' ? '🐍 Python 3' : '🟨 Node.js'}
+                                {isTeamSub
+                                  ? (lang === 'vi' ? '🔗 GitHub Repo (Nhóm)' : '🔗 GitHub Repo (Team)')
+                                  : sub.language === 'java' ? '☕ Java (OpenJDK 17)' : sub.language === 'python' ? '🐍 Python 3' : '🟨 Node.js'}
+                              </span>
+                            )}
+                            {sub.team_name && (
+                              <span style={{
+                                padding: '2px 9px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                background: isDark ? 'rgba(56, 189, 248, 0.14)' : '#e0f2fe',
+                                color: isDark ? '#38bdf8' : '#0369a1',
+                                border: `1px solid ${isDark ? 'rgba(56, 189, 248, 0.3)' : '#bae6fd'}`
+                              }}>
+                                👥 {sub.team_name}
                               </span>
                             )}
                             {sub.git_commit_hash && sub.git_commit_hash !== 'DIRECT_SUBMIT' && (
@@ -7053,7 +7676,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
 
                         {/* Status & Score Badges */}
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                          {!isGrading && (
+                          {!isGrading && !isAwaitingManualReview && (
                             <span style={{
                               padding: '6px 14px', borderRadius: '8px', fontSize: '0.92rem', fontWeight: 800,
                               background: isFailed
@@ -7097,6 +7720,16 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             }}>
                               <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 chấm chéo (BR-09)' : 'Pending 2nd Review'}
                             </span>
+                          ) : isAwaitingManualReview ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 700,
+                              background: isDark ? 'rgba(168, 85, 247, 0.18)' : '#ede9fe',
+                              color: isDark ? '#d8b4fe' : '#6d28d9',
+                              border: `1px solid ${isDark ? 'rgba(192, 132, 252, 0.4)' : '#c4b5fd'}`
+                            }}>
+                              <Clock size={13} /> {lang === 'vi' ? 'Đang chờ Giảng viên chấm' : 'Pending Lecturer Grading'}
+                            </span>
                           ) : (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '4px',
@@ -7122,7 +7755,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             </span>
                           )}
 
-                          {isFailed ? (
+                          {!isAwaitingManualReview && (isFailed ? (
                             <span style={{
                               display: 'inline-flex', alignItems: 'center', gap: '5px',
                               padding: '5px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 800,
@@ -7152,7 +7785,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                             }}>
                               <CheckCircle2 size={13} /> {lang === 'vi' ? 'ĐẠT (PASSED)' : 'PASSED'}
                             </span>
-                          )}
+                          ))}
                         </div>
                       </div>
 
@@ -7246,8 +7879,56 @@ III. QUY CHUẨN DOCKER SANDBOX:
                         </div>
                       )}
 
-                      {/* Compact Docker Sandbox Runner Bar (reopen terminal summary modal) */}
-                      {(() => {
+                      {/* Compact Runner / Team Git Bar */}
+                      {isTeamSub ? (
+                        <div style={{
+                          marginTop: '0.85rem',
+                          padding: '9px 14px',
+                          borderRadius: '10px',
+                          background: isDark ? 'rgba(139, 92, 246, 0.1)' : '#f5f3ff',
+                          border: `1px solid ${isDark ? 'rgba(167, 139, 250, 0.3)' : '#ddd6fe'}`,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '8px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.78rem', color: isDark ? '#d8b4fe' : '#5b21b6' }}>
+                            <GitBranch size={14} color={isDark ? '#c084fc' : '#7c3aed'} />
+                            <span style={{ fontWeight: 700 }}>
+                              {isAwaitingManualReview
+                                ? (lang === 'vi' ? 'Đã gửi GitHub Repo lên hệ thống — chờ Giảng viên chạy AST & duyệt điểm' : 'GitHub Repo submitted — awaiting lecturer evaluation')
+                                : (lang === 'vi' ? 'Báo cáo đồ án nhóm GitHub & Telemetry BR-07' : 'Team GitHub Project & BR-07 Telemetry')}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab('submit');
+                              setSubmitSubTab('team');
+                              if (sub.team_id) handleSwitchTeam(sub.team_id);
+                              setTeamActionTab('waiting');
+                            }}
+                            style={{
+                              background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                              border: '1px solid rgba(192, 132, 252, 0.45)',
+                              color: '#ffffff',
+                              padding: '5px 12px',
+                              borderRadius: '7px',
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            <Clock size={13} />
+                            <span>{lang === 'vi' ? 'Xem Chờ Giảng Viên Chấm' : 'View Waiting Status'}</span>
+                          </button>
+                        </div>
+                      ) : (() => {
                         const shortImg = getSandboxImageName(sub).split(' ')[0];
                         const containerTag = getSandboxContainerTag(sub);
                         const totalMs = (sub.test_results || []).reduce((acc, tc) => acc + Number(tc.execution_time_ms || 0), 0);
@@ -7329,8 +8010,8 @@ III. QUY CHUẨN DOCKER SANDBOX:
                               <FileCode size={13} />
                               <span>
                                 {expandedCodeMap[sub.submission_id] 
-                                  ? (lang === 'vi' ? 'Ẩn mã nguồn bài nộp' : 'Hide submitted code') 
-                                  : (lang === 'vi' ? `Xem mã nguồn đã nộp (${sub.language || 'javascript'})` : `View submitted code (${sub.language || 'javascript'})`)}
+                                  ? (isTeamSub ? (lang === 'vi' ? 'Ẩn thông tin hồ sơ nộp nhóm' : 'Hide project info') : (lang === 'vi' ? 'Ẩn mã nguồn bài nộp' : 'Hide submitted code')) 
+                                  : (isTeamSub ? (lang === 'vi' ? 'Xem thông tin hồ sơ nộp nhóm' : 'View project submission info') : (lang === 'vi' ? `Xem mã nguồn đã nộp (${sub.language || 'javascript'})` : `View submitted code (${sub.language || 'javascript'})`))}
                               </span>
                             </button>
 
@@ -7375,25 +8056,46 @@ III. QUY CHUẨN DOCKER SANDBOX:
                   <CheckCircle2 size={28} />
                 </div>
                 <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '8px', color: isDark ? '#f8fafc' : '#0f172a' }}>
-                  {lang === 'vi' ? 'Chưa có bài nộp nào' : 'No submissions yet'}
+                  {resultsSubTab === 'team'
+                    ? (lang === 'vi' ? 'Chưa có bài nộp Đồ án Nhóm nào' : 'No team project submissions yet')
+                    : (lang === 'vi' ? 'Chưa có bài nộp Bài tập Cá nhân nào' : 'No individual submissions yet')}
                 </h4>
                 <p style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.88rem', maxWidth: '520px', margin: '0 auto 1.5rem', lineHeight: 1.6 }}>
-                  {!myTeam
-                    ? (lang === 'vi' 
-                        ? 'Bạn chưa được phân công vào nhóm đồ án nào. Sau khi nộp bài cá nhân hoặc bài nhóm, kết quả chấm điểm sẽ hiển thị tại đây!'
-                        : 'You are not assigned to any project team yet. Submissions and grading will appear here once submitted.')
-                    : (lang === 'vi' 
-                        ? 'Bạn chưa có bài nộp nào. Sau khi nộp bài tại tab "Nộp bài", điểm số và kết quả chấm sẽ hiển thị tại đây!'
-                        : 'No submissions yet. Once submitted, grading scores and feedback will appear here!')}
+                  {resultsSubTab === 'team'
+                    ? (lang === 'vi'
+                        ? 'Mục này chỉ hiển thị kết quả Đồ án Nhóm (Git) của học phần bạn đang chọn sau khi nhóm xác nhận nộp bài.'
+                        : 'This section shows team Git project results for the selected course after submitting.')
+                    : (lang === 'vi'
+                        ? 'Mục này hiển thị điểm và chi tiết test case của các bài tập / bài thi cá nhân đã nộp.'
+                        : 'This section shows scores and test breakdowns for submitted individual assignments.')}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('submit')}
-                  className="btn-primary"
-                  style={{ padding: '8px 20px', fontSize: '0.88rem', margin: '0 auto' }}
-                >
-                  <ArrowRight size={15} /> {lang === 'vi' ? 'Đi đến trang Nộp bài' : 'Go to Submission Page'}
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  {resultsSubTab === 'team' && selectedFilter !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() => handleFilterChange('ALL')}
+                      className="btn-secondary"
+                      style={{ padding: '8px 16px', fontSize: '0.86rem' }}
+                    >
+                      {lang === 'vi' ? 'Xem tất cả học phần' : 'Show All Courses'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('submit');
+                      setSubmitSubTab(resultsSubTab);
+                      if (resultsSubTab === 'team') setTeamActionTab('submit');
+                    }}
+                    className="btn-primary"
+                    style={{ padding: '8px 20px', fontSize: '0.88rem' }}
+                  >
+                    <ArrowRight size={15} />
+                    {resultsSubTab === 'team'
+                      ? (lang === 'vi' ? 'Đi đến Đồ án Nhóm (Git)' : 'Go to Team Git Submission')
+                      : (lang === 'vi' ? 'Đi đến Bài tập Cá nhân' : 'Go to Individual Submission')}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -7690,6 +8392,7 @@ III. QUY CHUẨN DOCKER SANDBOX:
                   type="button"
                   onClick={() => {
                     setShowLiveSandboxModal(false);
+                    setResultsSubTab('individual');
                     setActiveTab('results');
                   }}
                   className="btn-primary"
