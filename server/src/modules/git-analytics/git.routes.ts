@@ -19,16 +19,18 @@ export { isNoiseFile, isSourceCodeFile, parseGitHubUrl } from './noise-filter.se
  */
 const GITHUB_USER_ALIASES: Record<string, string[]> = {
   // Nguyễn Tường Vy
-  'vyntqe180099@fpt.edu.vn': ['gi098', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
-  'tuongvy22102004@gmail.com': ['gi098', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
+  'vyntqe180099@fpt.edu.vn': ['gi098', 'min098-ui', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
+  'tuongvy22102004@gmail.com': ['gi098', 'min098-ui', 'tuongvy', 'tuongvy22102004', 'vynt', 'qe180099', 'vy', 'member2'],
   // Lê Nguyễn Ánh Mai
-  'lenguyenlinhnhi2110@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'min098-ui', 'anhmai', 'lenguyenlinhnhi', 'mai', 'member1'],
-  'lenguyenanhmai05@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'min098-ui', 'anhmai', 'lenguyenlinhnhi', 'mai', 'member1'],
+  'lenguyenlinhnhi2110@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'anhmai', 'amai', 'lenguyenlinhnhi', 'mai', 'member1'],
+  'lenguyenanhmai05@gmail.com': ['lenguyenanhmai05-dotcom', 'lenguyenanhmai05', 'anhmai', 'amai', 'lenguyenlinhnhi', 'mai', 'member1'],
   // Nguyễn Quốc Thanh Phong
   'tfongcs05@gmail.com': ['thanhfong05', 'tfongcs05', 'thanhphong', 'phong', 'member5'],
   // Đỗ Trần Đăng Khoa
   'dotrandangkhoa17@gmail.com': ['dotrandangkhoa17', 'dotrandangkhoa17-gif', 'khoa.dotrandang', 'khoa.dotrandang@ncc.asia', 'dangkhoa', 'khoa', 'member3', 'ai-tutor', 'socratic'],
   'khoa.dotrandang@ncc.asia': ['dotrandangkhoa17', 'dotrandangkhoa17-gif', 'khoa.dotrandang', 'khoa.dotrandang@ncc.asia', 'dangkhoa', 'khoa', 'member3', 'ai-tutor', 'socratic'],
+  // Lê Văn Bảo
+  'levanbao1602@gmail.com': ['levanbao1602', 'levanbao', 'le van bao', 'lê văn bảo'],
   // Đinh Gia Huy
   'dinhgiahuylol12345@gmail.com': ['dinhgiahuylol12345', 'dinhgiahuy140905', 'giahuy', 'dinhgiahuy', 'huy', 'member4', 'peer audit', 'git-analytics'],
 };
@@ -81,28 +83,42 @@ function sanitizeBranchName(rawBranch: unknown): string {
  */
 function matchCommitAuthor(gc: any, members: TeamMemberRow[]): number | null {
   const committerEmail = (gc.commit?.author?.email || '').toLowerCase().trim();
+  const committerEmailLocal = committerEmail.split('@')[0] || '';
   const noreplyLogin = committerEmail.match(/^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/i)?.[1] || '';
   const committerLogin = ((gc.author?.login || noreplyLogin) as string).toLowerCase().trim();
   const committerName = (gc.commit?.author?.name || '').toLowerCase().trim();
+  const committerNameTokens = committerName.split(/[\s._-]+/).filter(Boolean);
   const commitMsg = (gc.commit?.message || '').toLowerCase();
 
   // 1. Exact or prefix match on email
   for (const m of members) {
     const memEmail = m.email.toLowerCase().trim();
     const memUserPart = memEmail.split('@')[0];
-    if (committerEmail && (committerEmail === memEmail || committerEmail.startsWith(memUserPart) || memEmail.includes(committerEmail.split('@')[0]))) {
+    if (committerEmail && (committerEmail === memEmail || committerEmailLocal.startsWith(memUserPart) || (committerEmailLocal && memEmail.includes(committerEmailLocal)))) {
       return m.user_id;
     }
   }
 
-  // 2. Match GitHub login or known aliases
+  // 2. Match GitHub login or known aliases (avoid matching short aliases against domains like "@gmail.com")
+  const matchesAlias = (alias: string) => {
+    if (alias.length <= 3) {
+      return committerLogin === alias || committerEmailLocal === alias || committerNameTokens.includes(alias);
+    }
+    return (
+      committerEmail === alias ||
+      committerEmailLocal.includes(alias) ||
+      committerName.includes(alias) ||
+      committerLogin.includes(alias)
+    );
+  };
+
   for (const m of members) {
     const memEmail = m.email.toLowerCase().trim();
     const aliases = GITHUB_USER_ALIASES[memEmail] || [];
     if (committerLogin && (aliases.includes(committerLogin) || committerLogin.includes(memEmail.split('@')[0]))) {
       return m.user_id;
     }
-    if (aliases.some((alias) => committerEmail.includes(alias) || committerName.includes(alias) || committerLogin.includes(alias))) {
+    if (aliases.some(matchesAlias)) {
       return m.user_id;
     }
   }
@@ -360,15 +376,15 @@ async function fetchCommitsViaGitCli(
       try {
         await execFileAsync(
           'git',
-          ['clone', '--bare', '--filter=blob:none', '--branch', targetBranch, canonicalUrl, tmpBareDir],
-          { timeout: 30000 }
+          ['clone', '--bare', '--branch', targetBranch, canonicalUrl, tmpBareDir],
+          { timeout: 60000 }
         );
         refSpec = targetBranch;
       } catch {
         await execFileAsync(
           'git',
-          ['clone', '--bare', '--filter=blob:none', canonicalUrl, tmpBareDir],
-          { timeout: 30000 }
+          ['clone', '--bare', canonicalUrl, tmpBareDir],
+          { timeout: 60000 }
         );
         refSpec = 'HEAD';
       }
@@ -378,8 +394,8 @@ async function fetchCommitsViaGitCli(
     const COMMIT_MARKER = '__AITA_COMMIT_9F3A__';
     const { stdout } = await execFileAsync(
       'git',
-      ['log', refSpec, '--max-count=400', '--numstat', `--format=${COMMIT_MARKER}%n%H%n%an%n%ae%n%aI%n%s`],
-      { cwd: gitDir, timeout: 20000, maxBuffer: 25 * 1024 * 1024 }
+      ['log', refSpec, '--max-count=1000', '--numstat', `--format=${COMMIT_MARKER}%n%H%n%an%n%ae%n%aI%n%s`],
+      { cwd: gitDir, timeout: 45000, maxBuffer: 50 * 1024 * 1024 }
     );
 
     const blocks = stdout.split(`${COMMIT_MARKER}\n`).filter((b) => b.trim().length > 0);
