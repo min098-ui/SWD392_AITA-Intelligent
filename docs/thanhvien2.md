@@ -49,11 +49,15 @@
    - [4.31. Tối Ưu Hóa Cổng Nộp Bài Sinh Viên: Tách Biệt Gallery Đề Bài vs Form Nộp Bài & Bảo Mật Rubric Test Cases (BR-06)](#431-tối-ưu-hóa-cổng-nộp-bài-sinh-viên-tách-biệt-gallery-đề-bài-vs-form-nộp-bài--bảo-mật-rubric-test-cases-br-06)
    - [4.32. Hợp Nhất Quản Lý Nhóm Vào Học Phần & Tối Giản Hóa Roster Thành Viên (Loại Bỏ Phân Task Code)](#432-hợp-nhất-quản-lý-nhóm-vào-học-phần--tối-giản-hóa-roster-thành-viên-loại-bỏ-phân-task-code)
    - [4.33. Nâng Cấp Hạn Mức CPU Docker Sandbox 1.0 Core Phục Vụ Thực Thi Toàn Diện (BR-03)](#433-nâng-cấp-hạn-mức-cpu-docker-sandbox-10-core-phục-vụ-thực-thi-toàn-diện-br-03)
+   - [4.34. Hỗ Trợ Ngôn Ngữ Java 17 (OpenJDK 17) & Động Cơ Giải Nén – Chấm Thi Đa Câu Hỏi Q1–Q4 (ZIP PE Engine)](#434-hỗ-trợ-ngôn-ngữ-java-17-openjdk-17--động-cơ-giải-nén--chấm-thi-đa-câu-hỏi-q1q4-zip-pe-engine)
+   - [4.35. Live Sandbox Runner Terminal, Bộ Đề Thi Thực Hành CSD201 Python DSA & Tinh Chỉnh Tương Phản UI](#435-live-sandbox-runner-terminal-bộ-đề-thi-thực-hành-csd201-python-dsa--tinh-chỉnh-tương-phản-ui)
+   - [4.36. Tách Biệt Luồng Đồ Án Nhóm (TEAM Git Repo) Khỏi Sandbox & Hoàn Thiện Chấm Chéo 2 Giảng Viên BR-09](#436-tách-biệt-luồng-đồ-án-nhóm-team-git-repo-khỏi-sandbox--hoàn-thiện-chấm-chéo-2-giảng-viên-br-09)
+   - [4.37. Tối Ưu Đồng Bộ Git Telemetry Thực Tế (Group2-Monett 182 Commits & Khớp Chính Xác Tác Giả)](#437-tối-ưu-đồng-bộ-git-telemetry-thực-tế-group2-monett-182-commits--khớp-chính-xác-tác-giả)
 5. [Hệ Thống API Endpoints Chi Tiết](#5-hệ-thống-api-endpoints-chi-tiết)
 6. [Kết Quả Kiểm Thử Thực Tế (verify-member2.ts: 21/21 PASS & 6 Test Suites Toàn Diện)](#6-kết-quả-kiểm-thử-thực-tế-verify-member2ts-2121-pass--6-test-suites-toàn-diện)
 7. [Hướng Dẫn Demo Khi Bảo Vệ Đồ Án](#7-hướng-dẫn-demo-khi-bảo-vệ-đồ-án)
 8. [Video Minh Chứng Thực Nghiệm](#8-video-minh-chứng-thực-nghiệm-demo-video--proof-of-work)
-9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 21 Câu Hỏi Điển Hình)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs---21-câu-hỏi-điển-hình)
+9. [Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 23 Câu Hỏi Điển Hình)](#9-bộ-câu-hỏi-vấn-đáp--phản-biện-chuyên-sâu-defense-qa--faqs---23-câu-hỏi-điển-hình)
 
 ---
 
@@ -72,7 +76,7 @@ Thành Viên 2 (Nguyễn Tường Vy) phụ trách **"Trái tim thực thi & Đ�
 
 | Mã BR | Tên Quy Tắc | Yêu Cầu Kỹ Thuật & Giải Pháp Triển Khai |
 | :--- | :--- | :--- |
-| **BR-03** | **Giới Hạn Tài Nguyên Sandbox & Cô Lập An Toàn** | • **CPU Limit:** 1.0 CPU core (`NanoCpus: 1_000_000_000`).<br>• **RAM Limit:** 256MB (`Memory: 256MB`, `MemorySwap: 256MB` chống tràn swap).<br>• **Network Isolation:** Ngắt toàn bộ mạng (`NetworkMode: 'none'`) chống SSRF, mã độc, reverse shell.<br>• **Quyền Hạn:** Chạy dưới non-root user `runner` (UID 1001), gỡ bỏ toàn bộ capabilities (`CapDrop: ['ALL']`).<br>• **Watchdog Timeout:** Giới hạn 5s–10s mỗi test case, tự động cưỡng chế kill container nếu quá thời gian. |
+| **BR-03** | **Giới Hạn Tài Nguyên Sandbox & Cô Lập An Toàn** | • **CPU Limit:** 1.0 CPU core (`NanoCpus: 1_000_000_000`).<br>• **RAM Limit:** 256MB (`Memory: 256MB`, `MemorySwap: 256MB` chống tràn swap).<br>• **Network Isolation:** Ngắt toàn bộ mạng (`NetworkMode: 'none'`) chống SSRF, mã độc, reverse shell.<br>• **Quyền Hạn:** Chạy dưới non-root user `runner` (UID 1001), gỡ bỏ toàn bộ capabilities (`CapDrop: ['ALL']`).<br>• **Watchdog Timeout:** Giới hạn `10,000ms` (Node.js/Python) và `15,000ms` (Java 17) cho mỗi test case (đếm sau `container.start()`), tự động cưỡng chế kill container nếu quá thời gian. |
 | **BR-06** | **Bảo Mật Test Case Ẩn (Rubric Shielding)** | • Test case có cờ `is_hidden = true` dùng để kiểm tra các trường hợp biên (edge cases) và chống hard-code kết quả.<br>• Khi tài khoản **STUDENT** truy vấn API bài tập hoặc kết quả chấm, các trường `input_data` và `expected_output` tự động bị che chắn thành `'[PROTECTED TEST CASE]'`.<br>• Chỉ tài khoản **LECTURER** hoặc **ADMIN** mới xem được đề test chi tiết. |
 | **BR-09** | **Quy Trình Chấm Đa Tầng (Dual-Lecturer Moderation)** | • **Bước 1 (AI Pre-grading):** AI chấm sơ bộ, sinh feedback.<br>• **Bước 2 (GV1 Đánh giá):** Duyệt điểm AI hoặc tự chấm lại và yêu cầu GV2 chấm chéo.<br>• **Bước 3 (GV2 Chấm chéo):** GV2 chấm độc lập; nếu độ lệch $\le 0.5$ thì chốt điểm trung bình.<br>• **Bước 4 (Thống nhất):** Nếu độ lệch $> 0.5$, hai giảng viên lập biên bản đồng thuận. |
 
@@ -103,10 +107,10 @@ sequenceDiagram
     Worker->>DB: SELECT rubric_rules WHERE assignment_id = ?
 
     loop Chạy từng Rubric Rule
-        Worker->>Sandbox: Spin up Container (CPU 0.5, RAM 256MB, No Net)
+        Worker->>Sandbox: Spin up Container (CPU 1.0, RAM 256MB, No Net)
         Worker->>Sandbox: Nạp Code + Input qua In-memory TAR Stream
-        Sandbox-->>Worker: Trả về stdout, stderr, exitCode (Watchdog Timeout 5s)
-        Worker->>Worker: So sánh actual_output vs expected_output
+        Sandbox-->>Worker: Trả về stdout, stderr, exitCode (Watchdog 10s–15s)
+        Worker->>Worker: So sánh actual_output vs expected_output (normalizeOutput)
         Worker->>DB: INSERT grading_results (score, passed, execution_time_ms)
     end
 
@@ -657,6 +661,58 @@ Giải quyết triệt để vấn đề lẫn lộn giữa bài nộp cá nhân
 
 ---
 
+### 4.34. Hỗ Trợ Ngôn Ngữ Java 17 (OpenJDK 17) & Động Cơ Giải Nén – Chấm Thi Đa Câu Hỏi Q1–Q4 (ZIP PE Engine)
+* **Mở rộng Docker Sandbox lên 3 ngôn ngữ (`server/src/modules/grading/sandbox.service.ts`):**
+  * Bổ sung môi trường **Java 17** (`aita-sandbox-java:latest` cấu hình qua `Dockerfile.java`), chạy song song cùng **Python 3.11** (`aita-sandbox-python:latest`) và **Node.js 20**.
+  * Tự động nhận diện tên lớp Java (`public class <ClassName>`), biên dịch với chuẩn mã hóa UTF-8 (`javac -encoding UTF-8 <ClassName>.java`) và thực thi giới hạn JVM heap (`java -Xmx256m <ClassName> < /app/input.txt`).
+  * Vẫn tuân thủ tuyệt đối **BR-03**: `NanoCpus: 1_000_000_000` (1.0 Core), `Memory: 256MB`, `NetworkMode: 'none'`, `CapDrop: ['ALL']`, user `runner`.
+* **Ổn định Watchdog Timeout theo từng ngôn ngữ (`getSandboxTimeoutMs` trong `grading.worker.ts`):**
+  * Áp dụng hạn mức `15,000ms` cho **Java** (bù chi phí `javac` và JVM warmup) và `10,000ms` cho **Python / JavaScript**.
+  * Kích hoạt bộ đếm Watchdog **sau khi** `await container.start()` trong `sandbox.service.ts` để độ trễ IPC khởi tạo container của Docker Desktop trên Windows không gây lỗi timeout oan (false TLE).
+* **Chấm thi Thực hành (Practical Exam) 4 câu hỏi Q1–Q4 từ tệp `.zip`:**
+  * Phía Client (`student/page.tsx` với thư viện `JSZip`): Giải nén tệp `.zip` bài thi, tự động phân loại file mã nguồn `.java` hoặc `.py` vào 4 khối `QUESTION 1` – `QUESTION 4` (với dấu comment tương ứng `//` cho Java hoặc `#` cho Python) trước khi gửi lên `POST /api/submissions`.
+  * Phía Worker (`grading.worker.ts` với hàm `extractQuestionCode(fullCode, rule.criterion)`): Tự động tách đúng đoạn code của từng câu `Q1`–`Q4` khớp theo tiêu chí Rubric rule để thực thi cô lập trong Sandbox, đồng thời hỗ trợ tab xem mã nguồn từng câu Q1–Q4 ngay trong modal chấm bài của Giảng viên (`lecturer/page.tsx`).
+
+---
+
+### 4.35. Live Sandbox Runner Terminal, Bộ Đề Thi Thực Hành CSD201 Python DSA & Tinh Chỉnh Tương Phản UI
+* **Live Sandbox Runner Terminal Modal (`student/page.tsx`):**
+  * Hiển thị trực quan theo thời gian thực toàn bộ vòng đời chấm tự động: trạng thái hàng đợi BullMQ, Docker Image sử dụng (`aita-sandbox-java:latest` / `aita-sandbox-python:latest` / `aita-sandbox-node:latest`), Container ID, log stdout/stderr, bảng chi tiết Pass/Fail từng test case và mã băm toàn vẹn **SHA-256** (16 ký tự đầu trong `grading.worker.ts`).
+  * Bổ sung thanh Sandbox Runner nhỏ gọn cho phép sinh viên mở lại Terminal Modal bất cứ lúc nào sau khi chấm.
+* **Khởi tạo 2 Bộ Đề Thi Thực Hành CSD201 – Python DSA (`server/src/scripts/seed-csd201-python.ts`):**
+  * Tạo 2 đề thi thực hành môn **CSD201** (`CSD201 Practical Examination - Python DSA (Đề Số 1)` và `Đề Số 2`), mỗi đề gồm 4 câu hỏi `Q1`–`Q4` và 10 test cases chấm tự động trên container `aita-sandbox-python:latest` (thang điểm 10.0).
+  * Tạo bộ gói nộp bài thử nghiệm `.zip` chuẩn hóa cho cả 2 đề (`0`, `5`, `10` điểm) để kiểm chứng toàn trình trước hội đồng.
+* **Hoàn thiện nhãn ngôn ngữ & tương phản Light Mode (`lecturer/page.tsx` & `student/page.tsx`):**
+  * Card danh sách bài tập phía Giảng viên hiển thị động nhãn theo ngôn ngữ thực tế (`PYTHON • PE`, `JS • PE`, `JAVA • PE` dựa trên `allowed_language`).
+  * Tăng độ tương phản chữ/nền Light Mode trên badge tên bài tập, cột công nghệ thực thi và nút `Xem code` tại bảng bài nộp cá nhân, loại bỏ hiện tượng chữ mờ khó đọc khi trình chiếu.
+
+---
+
+### 4.36. Tách Biệt Luồng Đồ Án Nhóm (TEAM Git Repo) Khỏi Sandbox & Hoàn Thiện Chấm Chéo 2 Giảng Viên BR-09
+* **Tách bạch triệt để luồng `TEAM` vs `INDIVIDUAL` (`submissions.routes.ts`, `seed-team-projects.ts`, `student/page.tsx`):**
+  * Khi sinh viên nộp Đồ án Nhóm (`submission_type = 'TEAM'`) qua GitHub Repository URL, Branch và Commit SHA, hệ thống tự động chọn đúng bài tập `TEAM` theo học phần và **không đẩy nhầm sang đề thi cá nhân hay kích hoạt Docker Sandbox**.
+  * Bài nộp `TEAM` được lưu trực tiếp cho Giảng viên thẩm định thủ công & chấm dựa trên dữ liệu Git Telemetry BR-07.
+* **Hoàn thiện Quy trình Chấm Chéo 2 Giảng Viên BR-09 cho Bài Tập Cá Nhân (`lecturer/page.tsx`):**
+  * Bổ sung trực tiếp tài khoản giảng viên thật vào dropdown **Chỉ định GV 2 chấm kiểm định**: `Nguyen Lan (n011vynt@gmail.com)` (`user_id = 6`) và `Yen12 Yen (yeny36306@gmail.com)` (`user_id = 5`), tự động gợi ý GV 2 khác với người đang đăng nhập và gửi đúng `reviewer_2_id` lên API `POST /api/grading/review/request-second-opinion/:submissionId`.
+  * Ánh xạ `reviewer_1_name` theo `reviewer_1_id` (`5 -> Yen12 Yen`, `6 -> Nguyen Lan`) để khi GV 2 đăng nhập chấm ở Tab 2 vẫn hiển thị chính xác tên GV 1 đã chấm trước đó.
+  * Xử lý chặt phản hồi `!res.ok` ở cả 2 hàm `handleRequestSecondOpinion` và `handleSubmitSecondOpinion`: nếu vi phạm quy tắc `400 BR-09` (ví dụ GV 1 tự bấm nộp điểm GV 2), UI dừng chuyển bước và hiển thị `errorToast` (`zIndex: 1200` nổi trên modal `zIndex: 1000`).
+
+---
+
+### 4.37. Tối Ưu Đồng Bộ Git Telemetry Thực Tế (`Group2-Monett` 182 Commits & Khớp Chính Xác Tác Giả)
+* **Tăng tốc 32 lần engine đồng bộ Git CLI (`git.routes.ts` — `fetchCommitsViaGitCli`):**
+  * Khi GitHub REST API gặp giới hạn (unauthenticated > 20 uncached commits), fallback `git clone --bare` trước đây sử dụng `--filter=blob:none`, khiến `git log --numstat` phải gọi HTTP tải từng blob mất tới **~149 giây** và luôn chạm timeout `20s` (làm DB giữ nguyên 6 commit mẫu giả lập `+1,802 LOC`).
+  * Gỡ `--filter=blob:none` trên bare clone và nâng giới hạn `--max-count=1000`, `timeout: 45,000ms` giúp đọc toàn bộ commit + `--numstat` áp dụng **Noise Filter BR-07** chỉ trong **~4.7 giây**.
+* **Chuẩn hóa ánh xạ tác giả (`GITHUB_USER_ALIASES` & `matchCommitAuthor` trong `git.routes.ts`):**
+  * Bổ sung alias cho thành viên `Levanbao1602` (`levanbao1602@gmail.com`), chuyển alias `min098-ui` về đúng tài khoản `Nguyễn Tường Vy` (`vyntqe180099@fpt.edu.vn` / `tuongvy22102004@gmail.com`).
+  * Sửa logic khớp alias ngắn (`<= 3` ký tự như `'mai'`) chỉ đối chiếu theo exact token/local-part email để ngăn hiện tượng `'mai'` khớp nhầm vào domain `@gmail.com`.
+* **Kết quả đồng bộ thực tế (`Group2-Monett` & bảo toàn `SWD392`):**
+  * **`Group2-Monett` (`team_id = 4` — `https://github.com/lenguyenanhmai05-dotcom/Monett.git`, nhánh `main`):** đồng bộ đủ **182 / 182 commits thật** (`+149,909 / -35,253 LOC` sau Noise Filter, `0` commit bị sót): `Lê Nguyễn Ánh Mai` (81), `Nguyễn Quốc Thanh Phong` (37), `Nguyễn Tường Vy` (35), `Levanbao1602` (21), `Đỗ Trần Đăng Khoa` (8).
+  * **Nhóm 1 `Group 4 (AITA)` (`team_id = 1` — SWD392):** giữ nguyên vẹn **359 commits** (`+81,783 / -23,432 LOC`, `0` unmatched).
+  * Bổ sung nút **Đổi link** repo trực tiếp ngay trong tab Git Telemetry phía Sinh viên (`student/page.tsx`) để cập nhật URL repository và đồng bộ lại chỉ với 1 chạm.
+
+---
+
 ## 5. Hệ Thống API Endpoints Chi Tiết
 
 | Method | Endpoint | Quyền hạn | Chức năng chi tiết |
@@ -800,17 +856,17 @@ npm run test:member2
 
 ---
 
-## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 21 Câu Hỏi Điển Hình)
+## 9. Bộ Câu Hỏi Vấn Đáp & Phản Biện Chuyên Sâu (Defense Q&A / FAQs - 23 Câu Hỏi Điển Hình)
 
-Dưới đây là tổng hợp 21 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
+Dưới đây là tổng hợp 23 câu hỏi phản biện thực tế thường gặp nhất từ Hội đồng Giảng viên chấm đồ án SWD392 và kịch bản trả lời chuẩn xác dựa trên mã nguồn thực tế:
 
 ### ❓ Câu 1: Loại Container sử dụng trong Sandbox là gì và tại sao gọi là Ephemeral Container?
 * **Trả lời phản biện:**
   > *"Dạ thưa thầy, trên hệ thống container chấm điểm được thiết kế dưới dạng **Ephemeral Sandbox Container** (Container dùng 1 lần):
-  > - Tùy theo bài nộp của sinh viên là **JavaScript (Node.js)** hay **Python 3**, hệ thống tự động kích hoạt image siêu nhẹ tương ứng (**`node:20-alpine`** hoặc **`python:3.11-alpine`** dung lượng chỉ ~50MB).
+  > - Tùy theo bài nộp của sinh viên là **JavaScript (Node.js 20)**, **Python 3 (3.11)** hay **Java 17 (OpenJDK 17)**, hệ thống tự động kích hoạt image cô lập tương ứng (`node:20-alpine`, `aita-sandbox-python:latest` / `python:3.11-alpine`, hoặc `aita-sandbox-java:latest`).
   > - Container được cấu hình tạo riêng user không đặc quyền `runner` (UID 1001), ngắt quyền root để chống tấn công leo thang đặc quyền.
   > - Container này được code Backend tạo ra độc lập cho từng bài nộp/test case thông qua thư viện `dockerode`.
-  > - Cơ chế chạy là **chạy xong test case là tự động xoá (`container.remove`) ngay lập tức** trong khối `finally` (dòng 311 của `sandbox.service.ts`) để hoàn trả 100% tài nguyên CPU và RAM cho hệ thống, không để lại bất kỳ tiến trình rác nào chạy ngầm."*
+  > - Cơ chế chạy là **chạy xong test case là tự động xoá (`container.remove`) ngay lập tức** trong khối `finally` của `sandbox.service.ts` để hoàn trả 100% tài nguyên CPU và RAM cho hệ thống, không để lại bất kỳ tiến trình rác nào chạy ngầm."*
 
 ---
 
@@ -842,9 +898,9 @@ Dưới đây là tổng hợp 21 câu hỏi phản biện thực tế thường
 
 ### ❓ Câu 4: Hệ thống hỗ trợ những ngôn ngữ lập trình nào trong Sandbox?
 * **Trả lời phản biện:**
-  > *"Dạ thưa thầy, hệ thống hiện tại hỗ trợ 2 ngôn ngữ lập trình phổ biến nhất trong đào tạo đại học là **JavaScript (Node.js 20)** và **Python 3 (3.11)**:
-  > 1. **Kiến trúc mở (Open-Closed Principle):** Module `SandboxService` được thiết kế đa môi trường (`Dockerfile.node` và `Dockerfile.python`), tự động kích hoạt runner tương ứng tùy theo lựa chọn của sinh viên trên UI.
-  > 2. **Tối ưu tài nguyên:** Cả 2 base image đều sử dụng biến thể Alpine (`node:20-alpine` và `python:3.11-alpine`) dung lượng siêu nhẹ (~50MB), khởi động dưới 1.2 giây và ngắt mạng tuyệt đối để bảo vệ server trường ạ!"*
+  > *"Dạ thưa thầy, hệ thống hiện tại hỗ trợ đầy đủ **3 ngôn ngữ lập trình cốt lõi** trong chương trình đào tạo: **JavaScript (Node.js 20)**, **Python 3 (3.11)** và **Java 17 (OpenJDK 17)**:
+  > 1. **Kiến trúc mở (Open-Closed Principle):** Module `SandboxService` tích hợp sẵn 3 Dockerfile chuyên biệt (`Dockerfile.node`, `Dockerfile.python`, `Dockerfile.java`), tự động biên dịch `javac -encoding UTF-8` đối với Java hoặc nạp trực tiếp với Node.js/Python tùy bài nộp.
+  > 2. **Tối ưu tài nguyên & Timeout theo ngôn ngữ:** `getSandboxTimeoutMs()` cấp `15,000ms` cho Java 17 (đủ cho `javac` + JVM warmup) và `10,000ms` cho Python/Node.js, đồng thời khởi chạy Watchdog **sau** `container.start()` để tránh timeout giả do trễ Docker IPC."*
 
 ---
 
@@ -887,7 +943,7 @@ Dưới đây là tổng hợp 21 câu hỏi phản biện thực tế thường
   > *"Dạ thưa thầy/cô, hệ thống hiện tại đang áp dụng nghiêm ngặt giới hạn Docker Sandbox cô lập tài nguyên theo chuẩn **BR-03**:
   > - **Định mức CPU:** Cấu hình `NanoCpus: 1_000_000_000`, tương đương chính xác **1.0 CPU Core đầy đủ** (nâng cấp từ 0.5 core trước đây để tối ưu hóa tốc độ biên dịch và thực thi các bài toán phức tạp mà không làm quá tải CPU máy chủ).
   > - **Định mức RAM:** Cấu hình `Memory: 256MB` (`256 * 1024 * 1024 bytes`), nếu code sinh viên bị rò rỉ bộ nhớ hoặc tạo mảng quá lớn sẽ bị Linux kernel ngắt ngay lập tức với mã lỗi `OOMKilled` (`MEMORY_LIMIT_EXCEEDED`).
-  > - **Watchdog Timeout:** Giới hạn 5,000ms – 10,000ms (5–10 giây), tự động cưỡng chế hủy container nếu sinh viên viết vòng lặp vô tận (`while(true)`).
+  > - **Watchdog Timeout:** Giới hạn **10,000ms (Node.js/Python)** – **15,000ms (Java 17)**, tự động cưỡng chế hủy container nếu sinh viên viết vòng lặp vô tận (`while(true)`).
   > - **Cách ly mạng:** Cấu hình `NetworkMode: 'none'`, ngắt toàn bộ card mạng Internet để bảo vệ máy chủ trường học khỏi các cuộc tấn công SSRF hoặc kết nối ra ngoài trái phép.
   > - **Đặc quyền thực thi:** Khởi chạy dưới user phi đặc quyền `runner` (UID 1001) và gỡ bỏ toàn bộ capabilities (`CapDrop: ['ALL']`)."*
 
@@ -1024,12 +1080,29 @@ Dưới đây là tổng hợp 21 câu hỏi phản biện thực tế thường
 ### ❓ Câu 21: Tại sao định mức CPU của Docker Sandbox được nâng từ 0.5 CPU lên 1.0 CPU Core và việc này ảnh hưởng thế nào đến an toàn hệ thống?
 * **Trả lời phản biện:**
   > *"Dạ thưa thầy/cô, việc nâng hạn mức từ 0.5 CPU lên 1.0 CPU Core (`NanoCpus: 1_000_000_000`) mang lại hiệu quả thực thi vượt bậc mà vẫn đảm bảo 100% an toàn bảo mật cho máy chủ:
-  > 1. **Lý do kỹ thuật:** Khi sinh viên nộp các bài thi có cấu trúc phức tạp, việc biên dịch và khởi động runtime (ví dụ Node.js 20 hoặc Python với thư viện cấu trúc dữ liệu) ở mức 0.5 core khiến CPU throttling liên tục bị kích hoạt, làm tăng độ trễ chấm bài không đáng có. Nâng lên 1.0 CPU Core cho phép container sử dụng trọn vẹn sức mạnh của 1 luồng CPU, giúp thời gian chấm mỗi test case giảm xuống dưới 1.5 giây.
+  > 1. **Lý do kỹ thuật:** Khi sinh viên nộp các bài thi có cấu trúc phức tạp, việc biên dịch và khởi động runtime (ví dụ Java 17, Node.js 20 hoặc Python với thư viện cấu trúc dữ liệu) ở mức 0.5 core khiến CPU throttling liên tục bị kích hoạt, làm tăng độ trễ chấm bài không đáng có. Nâng lên 1.0 CPU Core cho phép container sử dụng trọn vẹn sức mạnh của 1 luồng CPU, giúp thời gian chấm mỗi test case ổn định và nhanh chóng.
   > 2. **Tính an toàn tuyệt đối không đổi:**
-  >    - **Khống chế thời gian (Watchdog):** Container vẫn bị giới hạn thời gian nghiêm ngặt (5000ms). Dù cấp 1.0 CPU, nếu mã nguồn bị lặp vô hạn `while(true)`, tiến trình watchdog sẽ tự động kill container ngay lập tức sau 5 giây.
-  >    - **Khống chế RAM:** Giới hạn 256MB ngăn chặn triệt để tấn công làm cạn kiệt bộ nhớ RAM.
+  >    - **Khống chế thời gian (Watchdog):** Container vẫn bị giới hạn thời gian nghiêm ngặt (`10,000ms` cho JS/Python, `15,000ms` cho Java). Nếu mã nguồn bị lặp vô hạn, tiến trình watchdog sẽ tự động kill container ngay lập tức.
+  >    - **Khống chế RAM:** Giới hạn 256MB ngăn chặn triệt để tấn công làm cạn kiệt bộ nhớ RAM (`OOMKilled`).
   >    - **Cách ly mạng:** `NetworkMode: 'none'` ngăn chặn 100% khả năng container gửi request ra ngoài.
   >    - **Quyền hạn:** User `runner` không có quyền root, không thể can thiệp vào máy chủ host."*
+
+---
+
+### ❓ Câu 22: Khi sinh viên nộp tệp `.zip` Practical Exam (Q1–Q4) cho môn Java (PRO192) hoặc Python (CSD201), hệ thống tách và chấm từng câu hỏi như thế nào?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, ở kỳ thi Practical Exam thực tế, sinh viên nộp 1 tệp `.zip` chứa nhiều file bài làm Q1, Q2, Q3, Q4. Hệ thống xử lý tự động qua 2 bước chặt chẽ:
+  > 1. **Giải nén & đánh dấu ranh giới câu hỏi phía Client (`JSZip` trong `student/page.tsx`):** Khi đọc tệp `.zip`, Client tự động lọc đúng mã nguồn (`.java` hoặc `.py`), phân nhóm vào 4 khối `QUESTION 1` đến `QUESTION 4` với định dạng comment theo ngôn ngữ (`// ==================== QUESTION 1 ====================` cho Java, `# ==================== QUESTION 1 ====================` cho Python).
+  > 2. **Bóc tách theo tiêu chí Rubric phía Worker (`extractQuestionCode` trong `grading.worker.ts`):** Khi chấm từng test case `rule.criterion` có gắn nhãn `Q1`–`Q4` (hoặc `Câu 1`–`Câu 4`), Worker trích đúng khối code của câu tương ứng để chạy trong Docker Sandbox cô lập, đồng thời tính mã băm **SHA-256** để đối soát toàn vẹn và hiển thị tab Q1–Q4 riêng biệt khi Giảng viên chấm kiểm định.
+  > 3. **Bảo vệ luồng Đồ án Nhóm (`TEAM`):** Nếu sinh viên nộp Đồ án Nhóm qua Git Repo, `submissions.routes.ts` và Frontend tách hẳn khỏi luồng PE cá nhân và **không kích hoạt Docker Sandbox**, tránh chấm nhầm test case thuật toán lên repository đồ án."*
+
+---
+
+### ❓ Câu 23: Hệ thống giải quyết thế nào khi GitHub API bị giới hạn hoặc repository có hàng trăm commits (như `Group2-Monett`), và quy trình chấm chéo BR-09 2 Giảng viên vận hành ra sao?
+* **Trả lời phản biện:**
+  > *"Dạ thưa thầy/cô, đây là hai điểm thực chiến rất quan trọng trong đồ án của nhóm:
+  > 1. **Đồng bộ Git Telemetry tốc độ cao cho repo lớn (`git.routes.ts`):** Khi repo có nhiều commit chưa cache vượt giới hạn unauthenticated GitHub REST API (> 20 commits) hoặc gặp HTTP 401/403, hệ thống chuyển sang `fetchCommitsViaGitCli`. Bằng cách clone bare đầy đủ (không dùng `--filter=blob:none` gây hàng trăm HTTP request chậm tới ~149s) rồi chạy `git log --numstat` áp dụng Noise Filter BR-07 và ánh xạ tác giả chuẩn hóa (`GITHUB_USER_ALIASES` + `matchCommitAuthor`), nhóm **`Group2-Monett`** đã đồng bộ trọn vẹn **182 / 182 commits thật** (`0` commit bị sót) chỉ trong ~4.7 giây, trong khi vẫn bảo toàn nguyên vẹn **359 commits** của nhóm SWD392.
+  > 2. **Quy trình Dual-Lecturer Moderation (BR-09) trên tài khoản thật:** Trên UI Giảng viên (`lecturer/page.tsx`), GV 1 (`Yen12 Yen`, ID 5) sau khi chấm hoặc điều chỉnh điểm có thể chỉ định đích danh GV 2 (`Nguyen Lan`, ID 6). Backend kiểm tra ràng buộc `reviewer_2_id !== reviewer_1_id` và `sub.reviewer_1_id !== reviewerId`; nếu hợp lệ, GV 2 đăng nhập thấy chính xác tên GV 1, tự chấm độc lập để hệ thống tự chốt khi lệch $\le 0.5$ điểm hoặc mở biên bản đồng thuận khi lệch $> 0.5$ điểm."*
 
 ---
 
