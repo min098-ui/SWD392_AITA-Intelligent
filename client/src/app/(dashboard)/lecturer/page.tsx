@@ -32,14 +32,19 @@ interface SubmissionItem {
   sandboxOutput: string;
   aiFeedback: string;
   overrideNote: string;
+  rawStatus?: string;
+  course_id?: number;
   team_id?: number;
+  team_leader_name?: string;
+  project_topic?: string;
+  branch_name?: string;
   assignment_id?: number;
   assignment_title?: string;
   is_late?: boolean;
   late_minutes?: number;
   submitted_at_raw?: string;
   // BR-09: Collaborative Dual-Lecturer Moderation
-  moderationStatus?: 'AI_PREGRADED' | 'FIRST_REVIEWED' | 'PENDING_SECOND_REVIEW' | 'FINALIZED';
+  moderationStatus?: 'SUBMITTED' | 'AI_PREGRADED' | 'FIRST_REVIEWED' | 'PENDING_SECOND_REVIEW' | 'FINALIZED';
   ai_score?: number;
   reviewer_1_name?: string;
   reviewer_1_score?: number;
@@ -75,6 +80,16 @@ interface SubmissionItem {
     code_hash?: string;
   }>;
 }
+
+const parseTeamGitMeta = (codeContent?: string) => {
+  const content = codeContent || '';
+  const extract = (pattern: RegExp) => content.match(pattern)?.[1]?.trim() || '';
+  return {
+    topic: extract(/\/\/\s*Đề tài đồ án:\s*(.+)/i),
+    branch: extract(/\/\/\s*Nhánh kiểm thử:\s*(.+)/i),
+    leader: extract(/\/\/\s*Trưởng nhóm:\s*(.+)/i),
+  };
+};
 
 interface CourseItem {
   course_id: number;
@@ -188,6 +203,10 @@ export default function LecturerDashboard() {
       const saved = sessionStorage.getItem('aita_lecturer_active_tab');
       if (saved && ['courses', 'teams', 'students', 'overview', 'config', 'git-submit', 'analytics'].includes(saved)) {
         setActiveTabState(saved as any);
+      }
+      const savedSubTab = sessionStorage.getItem('aita_lecturer_overview_subtab');
+      if (savedSubTab === 'individual' || savedSubTab === 'team') {
+        setOverviewSubTabState(savedSubTab);
       }
       const docTheme = (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || null;
       const savedTheme = (localStorage.getItem('aita_theme') as 'dark' | 'light') || docTheme || 'light';
@@ -362,6 +381,7 @@ export default function LecturerDashboard() {
   // Chế độ hiển thị dạng List View (như mẫu chuẩn AITA) hoặc Grid View
   const [assignmentCardStyle, setAssignmentCardStyle] = useState<'list' | 'grid'>('list');
   const [isAssignmentsMenuOpen, setIsAssignmentsMenuOpen] = useState<boolean>(true);
+  const [isOverviewSubMenuOpen, setIsOverviewSubMenuOpen] = useState<boolean>(true);
   const [assignmentSearchQuery, setAssignmentSearchQuery] = useState<string>('');
   const [assignmentTypeFilter, setAssignmentTypeFilter] = useState<'ALL' | 'INDIVIDUAL' | 'TEAM'>('ALL');
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
@@ -860,7 +880,13 @@ III. QUY CHUẨN DOCKER SANDBOX:
   // Submissions state (Trống theo mặc định, chỉ hiển thị khi sinh viên nộp bài thật)
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
   // Phân hệ Bài Nộp: Cá nhân vs Nhóm Đồ án
-  const [overviewSubTab, setOverviewSubTab] = useState<'individual' | 'team'>('individual');
+  const [overviewSubTab, setOverviewSubTabState] = useState<'individual' | 'team'>('individual');
+  const setOverviewSubTab = (subTab: 'individual' | 'team') => {
+    setOverviewSubTabState(subTab);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('aita_lecturer_overview_subtab', subTab);
+    }
+  };
   // Phân hệ Báo cáo Git: Radar đóng góp vs Nộp repo mới
   const [gitViewMode, setGitViewMode] = useState<'radar' | 'submit'>('radar');
   const [teamViewMode, setTeamViewMode] = useState<'table' | 'radar'>('table');
@@ -889,12 +915,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
   const [activeModalStage, setActiveModalStage] = useState<'review1' | 'review2' | 'consensus'>('review1');
   const [reviewer1Score, setReviewer1Score] = useState<number>(0);
   const [reviewer1Notes, setReviewer1Notes] = useState<string>('');
-  const [assignedReviewer2, setAssignedReviewer2] = useState<string>('ThS. Trần Thị Chuyên Môn');
+  const [assignedReviewer2, setAssignedReviewer2] = useState<string>('Nguyen Lan');
   const [reviewer2Score, setReviewer2Score] = useState<number>(0);
   const [reviewer2Notes, setReviewer2Notes] = useState<string>('');
   const [consensusNotes, setConsensusNotes] = useState<string>('');
   const [finalScoreInput, setFinalScoreInput] = useState<number>(0);
   const [scoreDiffNotice, setScoreDiffNotice] = useState<string>('');
+  const [teamScoreInput, setTeamScoreInput] = useState<string>('');
+  const [teamFeedbackInput, setTeamFeedbackInput] = useState<string>('');
   const [selectedQuestionTab, setSelectedQuestionTab] = useState<'all' | 'Q1' | 'Q2' | 'Q3' | 'Q4'>('all');
 
   // Real Git Analytics State for Lecturer
@@ -1099,12 +1127,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
       const authHeader: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
       // 1. Fetch courses
+      let fetchedCourses: CourseItem[] = [];
       const courseRes = await fetch('http://localhost:5000/api/courses', {
         headers: { ...authHeader }
       });
       if (courseRes.ok) {
         const cData = await courseRes.json();
         if (cData.courses) {
+          fetchedCourses = cData.courses;
           setCourses(cData.courses);
           if (cData.courses.length > 0) {
             setTeamCourseId(prev => prev || cData.courses[0].course_id);
@@ -1114,12 +1144,14 @@ III. QUY CHUẨN DOCKER SANDBOX:
       }
 
       // 2. Fetch teams
+      let fetchedTeams: TeamItem[] = [];
       const teamRes = await fetch('http://localhost:5000/api/teams', {
         headers: { ...authHeader }
       });
       if (teamRes.ok) {
         const tData = await teamRes.json();
         if (tData.teams) {
+          fetchedTeams = tData.teams;
           setTeams(tData.teams);
           tData.teams.forEach((tm: any) => {
             fetchGitForTeam(tm.team_id);
@@ -1141,7 +1173,34 @@ III. QUY CHUẨN DOCKER SANDBOX:
         }
       }
 
-      // 4. Fetch real submissions from live database
+      // 4. Fetch assignments & test case rubrics first so submissions can resolve course_id
+      let fetchedAssignments: AssignmentItem[] = [];
+      const assignRes = await fetch('http://localhost:5000/api/assignments', {
+        headers: { ...authHeader }
+      });
+      if (assignRes.ok) {
+        const aData = await assignRes.json();
+        if (aData.assignments) {
+          // Giữ toàn bộ fetchedAssignments (bao gồm anchor TEAM) để resolve course_id cho submissions,
+          // nhưng ẩn các bản ghi đồ án nhóm (submission_type === 'TEAM') khỏi màn Đề bài & Rubrics giảng viên.
+          fetchedAssignments = aData.assignments;
+          const visibleAssignments = aData.assignments.filter((a: any) => a.submission_type !== 'TEAM');
+          setAssignments(visibleAssignments);
+          if (visibleAssignments.length > 0) {
+            setSelectedAssignmentId(prev => {
+              const exists = visibleAssignments.some((a: any) => a.assignment_id === prev);
+              const targetId = exists ? prev! : visibleAssignments[0].assignment_id;
+              fetchRubricsForAssignment(targetId);
+              return targetId;
+            });
+          } else {
+            setSelectedAssignmentId(null);
+            setRubricRules([]);
+          }
+        }
+      }
+
+      // 5. Fetch real submissions from live database
       const subRes = await fetch('http://localhost:5000/api/submissions', {
         headers: { ...authHeader }
       });
@@ -1152,10 +1211,43 @@ III. QUY CHUẨN DOCKER SANDBOX:
             const finalScore = s.final_score != null ? parseFloat(s.final_score) : (s.reviewer_1_score != null ? parseFloat(s.reviewer_1_score) : (s.ai_score != null ? parseFloat(s.ai_score) : (s.score != null ? parseFloat(s.score) : 0)));
             const autoScore = s.ai_score != null ? parseFloat(s.ai_score) : (s.score != null ? parseFloat(s.score) : finalScore);
             const isTeam = Boolean(s.team_id || s.assignment_submission_type === 'TEAM' || (s.team_name && s.team_name.trim() !== ''));
+            const matchedAssignment = fetchedAssignments.find((a) => a.assignment_id === s.assignment_id);
+            const matchedTeam = fetchedTeams.find((t) => t.team_id === s.team_id);
+            const leaderMember = matchedTeam?.members?.find((m) => m.role === 'LEADER');
+            const gitMeta = isTeam ? parseTeamGitMeta(s.code_content) : { topic: '', branch: '', leader: '' };
+            const resolvedCourseId = s.course_id ?? matchedAssignment?.course_id ?? matchedTeam?.course_id;
+            const matchedCourse = fetchedCourses.find((c) => c.course_id === resolvedCourseId);
+            const hasManualScore = s.final_score != null || s.reviewer_1_score != null;
+            const isAwaitingManualTeamGrade = isTeam && s.status !== 'FINALIZED' && !hasManualScore;
+            const resolvedStatus = isAwaitingManualTeamGrade
+              ? 'Pending Grading'
+              : (s.grading_status === 'PROCESSING' || s.grading_status === 'QUEUED' || s.status === 'QUEUED' || s.status === 'GRADING') && s.status !== 'FINALIZED'
+                ? 'Pending'
+                : (finalScore < 5 || s.status === 'FAILED' || s.grading_status === 'FAILED' ? 'Failed' : 'Passed');
+            const resolvedStatusColor = isAwaitingManualTeamGrade
+              ? '#7c3aed'
+              : (s.grading_status === 'PROCESSING' || s.grading_status === 'QUEUED' || s.status === 'QUEUED' || s.status === 'GRADING') && s.status !== 'FINALIZED'
+                ? 'var(--accent-warning)'
+                : (finalScore < 5 || s.status === 'FAILED' || s.grading_status === 'FAILED' ? 'var(--accent-error)' : 'var(--accent-success)');
+            const resolvedModerationStatus: SubmissionItem['moderationStatus'] = isTeam
+              ? ((s.status === 'FINALIZED' || hasManualScore) ? 'FINALIZED' : 'SUBMITTED')
+              : (s.status === 'FINALIZED'
+                ? 'FINALIZED'
+                : (s.needs_second_review
+                  ? 'PENDING_SECOND_REVIEW'
+                  : (s.reviewer_1_score != null
+                    ? 'FIRST_REVIEWED'
+                    : 'AI_PREGRADED')));
+
             return {
               id: s.submission_id,
+              rawStatus: s.status,
+              course_id: resolvedCourseId,
               team: s.team_name || (s.team_id ? `Nhóm #${s.team_id}` : (s.submitter_name || `Sinh viên #${s.submitted_by_user_id || s.user_id || s.submission_id}`)),
               team_id: s.team_id,
+              team_leader_name: leaderMember?.full_name || gitMeta.leader || undefined,
+              project_topic: gitMeta.topic || undefined,
+              branch_name: gitMeta.branch || 'main',
               assignment_id: s.assignment_id,
               assignment_title: s.assignment_title,
               submission_type: isTeam ? 'TEAM' : 'INDIVIDUAL',
@@ -1168,31 +1260,33 @@ III. QUY CHUẨN DOCKER SANDBOX:
               commit: (s.git_commit_hash || '').substring(0, 12),
               code_content: s.code_content || '',
               language: s.language || 'javascript',
-              status: (s.grading_status === 'PROCESSING' || s.grading_status === 'QUEUED' || s.status === 'QUEUED' || s.status === 'GRADING') && s.status !== 'FINALIZED'
-                ? 'Pending'
-                : (finalScore < 5 || s.status === 'FAILED' || s.grading_status === 'FAILED' ? 'Failed' : 'Passed'),
-              statusColor: (s.grading_status === 'PROCESSING' || s.grading_status === 'QUEUED' || s.status === 'QUEUED' || s.status === 'GRADING') && s.status !== 'FINALIZED'
-                ? 'var(--accent-warning)'
-                : (finalScore < 5 || s.status === 'FAILED' || s.grading_status === 'FAILED' ? 'var(--accent-error)' : 'var(--accent-success)'),
-              grade: finalScore,
-              final_score: finalScore,
-              aiScore: autoScore >= 8 ? 'A' : (autoScore >= 6 ? 'B' : (autoScore >= 5 ? 'C' : 'D')),
-              ai_score: autoScore,
+              status: resolvedStatus,
+              statusColor: resolvedStatusColor,
+              grade: isAwaitingManualTeamGrade ? 0 : finalScore,
+              final_score: isAwaitingManualTeamGrade ? undefined : finalScore,
+              aiScore: isTeam ? '-' : (autoScore >= 8 ? 'A' : (autoScore >= 6 ? 'B' : (autoScore >= 5 ? 'C' : 'D'))),
+              ai_score: isTeam ? undefined : autoScore,
               time: new Date(s.submitted_at).toLocaleString(),
-              sandboxOutput: s.output_logs || (finalScore === 0 
-                ? (s.test_results && s.test_results.length > 0 
-                    ? `Docker Sandbox: 0/${s.test_results.length} test cases Passed (0.0/10). Phát hiện lỗi runtime hoặc Watchdog Timeout (BR-03).`
-                    : 'Docker Sandbox: Đang xử lý chấm điểm hoặc phát hiện lỗi runtime / Watchdog Timeout (BR-03).')
-                : (s.test_results && s.test_results.length > 0 
-                    ? `Docker Sandbox thực thi thành công: ${s.test_results.filter((t: any) => t.passed).length}/${s.test_results.length} test cases Passed (${finalScore}/10)`
-                    : `Docker Sandbox thực thi thành công (${finalScore}/10)`)),
-              aiFeedback: s.ai_feedback || (finalScore === 0 
-                ? 'Hệ thống phát hiện bài làm chưa vượt qua được test cases kiểm thử tự động. Cần kiểm tra lại các trường hợp biên và vòng lặp.' 
-                : 'Thuật toán Two Pointers / Hash Map tối ưu O(N), mã nguồn sạch và đạt chuẩn kiến trúc.'),
+              sandboxOutput: isTeam
+                ? (s.ai_feedback || 'Đã nhận GitHub Repository nhóm. Chờ Giảng viên phụ trách xem xét & chấm điểm.')
+                : (s.output_logs || (finalScore === 0
+                    ? (s.test_results && s.test_results.length > 0
+                        ? `Docker Sandbox: 0/${s.test_results.length} test cases Passed (0.0/10). Phát hiện lỗi runtime hoặc Watchdog Timeout (BR-03).`
+                        : 'Docker Sandbox: Đang xử lý chấm điểm hoặc phát hiện lỗi runtime / Watchdog Timeout (BR-03).')
+                    : (s.test_results && s.test_results.length > 0
+                        ? `Docker Sandbox thực thi thành công: ${s.test_results.filter((t: any) => t.passed).length}/${s.test_results.length} test cases Passed (${finalScore}/10)`
+                        : `Docker Sandbox thực thi thành công (${finalScore}/10)`))),
+              aiFeedback: isTeam
+                ? (s.ai_feedback || 'Đã ghi nhận đường dẫn GitHub Repository nhóm & đồng bộ Telemetry BR-07.')
+                : (s.ai_feedback || (finalScore === 0
+                    ? 'Hệ thống phát hiện bài làm chưa vượt qua được test cases kiểm thử tự động. Cần kiểm tra lại các trường hợp biên và vòng lặp.'
+                    : 'Thuật toán Two Pointers / Hash Map tối ưu O(N), mã nguồn sạch và đạt chuẩn kiến trúc.')),
               overrideNote: s.reviewer_1_notes || '',
-              moderationStatus: s.status === 'FINALIZED' ? 'FINALIZED' : (s.needs_second_review ? 'PENDING_SECOND_REVIEW' : (s.reviewer_1_score ? 'FIRST_REVIEWED' : 'AI_PREGRADED')),
-              reviewer_1_name: s.reviewer_1_name || (currentUser?.fullName || 'Yen12 Yen'),
-              reviewer_1_score: s.reviewer_1_score != null ? parseFloat(s.reviewer_1_score) : finalScore,
+              moderationStatus: resolvedModerationStatus,
+              reviewer_1_name: isTeam
+                ? (matchedCourse?.lecturer_name || s.reviewer_1_name || currentUser?.fullName || 'Giảng viên phụ trách')
+                : (s.reviewer_1_name || (Number(s.reviewer_1_id) === 5 ? 'Yen12 Yen' : Number(s.reviewer_1_id) === 6 ? 'Nguyen Lan' : (currentUser?.fullName || 'Yen12 Yen'))),
+              reviewer_1_score: s.reviewer_1_score != null ? parseFloat(s.reviewer_1_score) : (isTeam ? (hasManualScore ? finalScore : undefined) : (isAwaitingManualTeamGrade ? undefined : finalScore)),
               reviewer_1_notes: s.reviewer_1_notes || '',
               needs_second_review: s.needs_second_review,
               reviewer_2_name: s.reviewer_2_name,
@@ -1205,28 +1299,6 @@ III. QUY CHUẨN DOCKER SANDBOX:
           setSubmissions(mapped);
         } else {
           setSubmissions([]);
-        }
-      }
-
-      // 5. Fetch assignments & test case rubrics
-      const assignRes = await fetch('http://localhost:5000/api/assignments', {
-        headers: { ...authHeader }
-      });
-      if (assignRes.ok) {
-        const aData = await assignRes.json();
-        if (aData.assignments) {
-          setAssignments(aData.assignments);
-          if (aData.assignments.length > 0) {
-            setSelectedAssignmentId(prev => {
-              const exists = aData.assignments.some((a: any) => a.assignment_id === prev);
-              const targetId = exists ? prev! : aData.assignments[0].assignment_id;
-              fetchRubricsForAssignment(targetId);
-              return targetId;
-            });
-          } else {
-            setSelectedAssignmentId(null);
-            setRubricRules([]);
-          }
         }
       }
     } catch (err) {
@@ -2453,6 +2525,19 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
     setConsensusNotes(sub.consensus_notes || '');
     setFinalScoreInput(sub.final_score ?? sub.grade ?? 0);
     setScoreDiffNotice('');
+    const defaultRev2 = currentUser?.email === 'n011vynt@gmail.com' ? 'Yen12 Yen' : 'Nguyen Lan';
+    setAssignedReviewer2(sub.reviewer_2_name || defaultRev2);
+
+    if (sub.submission_type === 'TEAM') {
+      const savedTeamScore = sub.final_score ?? sub.reviewer_1_score;
+      setTeamScoreInput(savedTeamScore != null ? String(savedTeamScore) : '');
+      setTeamFeedbackInput(sub.reviewer_1_notes || sub.overrideNote || '');
+      setActiveModalStage('review1');
+      return;
+    }
+
+    setTeamScoreInput('');
+    setTeamFeedbackInput('');
 
     if (sub.moderationStatus === 'PENDING_SECOND_REVIEW') {
       setActiveModalStage('review2');
@@ -2501,26 +2586,39 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
     e.preventDefault();
     if (!selectedSub) return;
 
+    const reviewer2Id = assignedReviewer2 === 'Yen12 Yen' ? 5 : assignedReviewer2 === 'Nguyen Lan' ? 6 : 2;
+
     try {
       const token = await getToken();
-      await fetch(`http://localhost:5000/api/grading/review/request-second-opinion/${selectedSub.id}`, {
+      const res = await fetch(`http://localhost:5000/api/grading/review/request-second-opinion/${selectedSub.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           reviewer_1_score: Number(reviewer1Score),
           reviewer_1_notes: reviewer1Notes,
-          reviewer_2_id: 2
+          reviewer_2_id: reviewer2Id
         })
-      }).catch(() => {});
-    } catch (e) {}
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setErrorToast(errData.message || (lang === 'vi' ? 'Không thể chuyển bài cho GV 2.' : 'Failed to request second opinion.'));
+        setTimeout(() => setErrorToast(''), 4500);
+        return;
+      }
+    } catch (err) {
+      setErrorToast(lang === 'vi' ? 'Lỗi kết nối máy chủ khi chuyển bài cho GV 2!' : 'Network error requesting second opinion!');
+      setTimeout(() => setErrorToast(''), 4500);
+      return;
+    }
 
+    const r1Name = currentUser?.fullName || 'Yen12 Yen';
     setSubmissions(prev => prev.map(s => {
       if (s.id === selectedSub.id) {
         return {
           ...s,
           moderationStatus: 'PENDING_SECOND_REVIEW',
           needs_second_review: true,
-          reviewer_1_name: currentUser?.fullName || 'Yen12 Yen',
+          reviewer_1_name: r1Name,
           reviewer_1_score: Number(reviewer1Score),
           reviewer_1_notes: reviewer1Notes,
           reviewer_2_name: assignedReviewer2,
@@ -2528,6 +2626,16 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
       }
       return s;
     }));
+    setSelectedSub(prev => prev ? {
+      ...prev,
+      moderationStatus: 'PENDING_SECOND_REVIEW',
+      needs_second_review: true,
+      reviewer_1_name: r1Name,
+      reviewer_1_score: Number(reviewer1Score),
+      reviewer_1_notes: reviewer1Notes,
+      reviewer_2_name: assignedReviewer2,
+    } : prev);
+    fetchData();
 
     setSuccessToast(lang === 'vi' 
       ? `🔄 Đã chuyển bài cho ${assignedReviewer2} chấm chéo độc lập (PENDING_SECOND_REVIEW)!` 
@@ -2547,15 +2655,25 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
 
     try {
       const token = await getToken();
-      await fetch(`http://localhost:5000/api/grading/review/second-opinion/${selectedSub.id}`, {
+      const res = await fetch(`http://localhost:5000/api/grading/review/second-opinion/${selectedSub.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           reviewer_2_score: s2,
           reviewer_2_notes: reviewer2Notes
         })
-      }).catch(() => {});
-    } catch (e) {}
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setErrorToast(errData.message || (lang === 'vi' ? 'Không thể gửi điểm GV 2!' : 'Failed to submit Reviewer 2 score!'));
+        setTimeout(() => setErrorToast(''), 4500);
+        return;
+      }
+    } catch (err) {
+      setErrorToast(lang === 'vi' ? 'Lỗi kết nối máy chủ khi gửi điểm GV 2!' : 'Network error submitting Reviewer 2 score!');
+      setTimeout(() => setErrorToast(''), 4500);
+      return;
+    }
 
     if (diff <= 0.5) {
       // Độ lệch nhỏ <= 0.5: Tự động chốt điểm trung bình
@@ -2574,6 +2692,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
         }
         return s;
       }));
+      fetchData();
       setSuccessToast(lang === 'vi' 
         ? `✅ Độ lệch nhỏ (${diff.toFixed(1)} ≤ 0.5) — Hệ thống tự động đồng thuận điểm chốt: ${avgScore}/10!` 
         : `✅ Scores aligned (Diff ≤ 0.5). Auto-finalized average: ${avgScore}/10!`);
@@ -2581,6 +2700,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
       setTimeout(() => setSuccessToast(''), 4000);
     } else {
       // Độ lệch lớn > 0.5: Chuyển sang bước thảo luận đồng thuận
+      const r2Name = currentUser?.fullName || assignedReviewer2;
       setScoreDiffNotice(lang === 'vi' 
         ? `⚠️ Điểm GV1 (${s1}) và GV2 (${s2}) bị lệch ${diff.toFixed(1)} điểm (> 0.5). Cần lập biên bản đồng thuận trước khi chốt!` 
         : `⚠️ Score discrepancy: |${s1} - ${s2}| = ${diff.toFixed(1)} (> 0.5). Consensus meeting required!`);
@@ -2594,11 +2714,19 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
           return {
             ...s,
             reviewer_2_score: s2,
-            reviewer_2_notes: reviewer2Notes
+            reviewer_2_notes: reviewer2Notes,
+            reviewer_2_name: r2Name
           };
         }
         return s;
       }));
+      setSelectedSub(prev => prev ? {
+        ...prev,
+        reviewer_2_score: s2,
+        reviewer_2_notes: reviewer2Notes,
+        reviewer_2_name: r2Name
+      } : prev);
+      fetchData();
     }
   };
 
@@ -2643,40 +2771,76 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
     e.preventDefault();
     if (!selectedSub) return;
 
+    const isTeamSubmission = selectedSub.submission_type === 'TEAM';
+    let numericScore = Number(reviewer1Score);
+    let feedbackNotes = reviewer1Notes || 'Chấm điểm và đánh giá bởi Giảng viên';
+
+    if (isTeamSubmission) {
+      const trimmedScore = teamScoreInput.trim();
+      const parsedScore = Number(trimmedScore);
+      if (!trimmedScore || Number.isNaN(parsedScore) || parsedScore < 0 || parsedScore > 10) {
+        setErrorToast(
+          lang === 'vi'
+            ? 'Vui lòng nhập điểm hợp lệ từ 0 đến 10 cho Đồ án nhóm!'
+            : 'Please enter a valid team score between 0 and 10!'
+        );
+        setTimeout(() => setErrorToast(''), 4000);
+        return;
+      }
+      numericScore = Math.round(parsedScore * 100) / 100;
+      feedbackNotes = teamFeedbackInput.trim() || 'Giảng viên phụ trách môn đã chấm điểm & nhận xét.';
+    }
+
     try {
       const token = await getToken();
-      await fetch(`http://localhost:5000/api/grading/review/manual-grade/${selectedSub.id}`, {
+      const res = await fetch(`http://localhost:5000/api/grading/review/manual-grade/${selectedSub.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          final_score: Number(reviewer1Score),
-          notes: reviewer1Notes || 'Chấm điểm và đánh giá bởi Giảng viên'
+          final_score: numericScore,
+          notes: feedbackNotes
         })
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setErrorToast(errData.message || (lang === 'vi' ? 'Không thể lưu điểm. Vui lòng thử lại!' : 'Failed to save grade.'));
+        setTimeout(() => setErrorToast(''), 4000);
+        return;
+      }
     } catch (err) {
       console.error('Error saving manual grade:', err);
+      setErrorToast(lang === 'vi' ? 'Lỗi kết nối khi lưu điểm!' : 'Network error saving grade!');
+      setTimeout(() => setErrorToast(''), 4000);
+      return;
     }
 
     setSubmissions(prev => prev.map(s => {
       if (s.id === selectedSub.id) {
         return {
           ...s,
+          rawStatus: 'FINALIZED',
           moderationStatus: 'FINALIZED',
-          grade: Number(reviewer1Score),
-          final_score: Number(reviewer1Score),
-          reviewer_1_score: Number(reviewer1Score),
-          reviewer_1_notes: reviewer1Notes,
-          status: Number(reviewer1Score) >= 5 ? 'Passed (Graded)' : 'Failed (Graded)',
-          statusColor: Number(reviewer1Score) >= 5 ? 'var(--accent-success)' : 'var(--accent-error)'
+          grade: numericScore,
+          final_score: numericScore,
+          reviewer_1_score: numericScore,
+          reviewer_1_notes: feedbackNotes,
+          status: numericScore >= 5 ? 'Passed (Graded)' : 'Failed (Graded)',
+          statusColor: numericScore >= 5 ? 'var(--accent-success)' : 'var(--accent-error)'
         };
       }
       return s;
     }));
 
-    setSuccessToast(lang === 'vi' ? 'Đã lưu điểm và công bố kết quả thành công!' : 'Grade saved and published successfully!');
+    setSuccessToast(
+      isTeamSubmission
+        ? (lang === 'vi'
+          ? `Đã lưu điểm Đồ án nhóm (${numericScore}/10) và công bố cho nhóm!`
+          : `Saved team project grade (${numericScore}/10) and published to group!`)
+        : (lang === 'vi' ? 'Đã lưu điểm và công bố kết quả thành công!' : 'Grade saved and published successfully!')
+    );
     setSelectedSub(null);
     setTimeout(() => setSuccessToast(''), 3500);
     fetchData();
@@ -3723,7 +3887,11 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 .replace(/–\s*Java OOP Standard Exam\s*\([Qq]1\s*[-–]\s*[Qq]4\)/i, '(Đề Số 1)')
                 .replace(/\([Qq]1\s*[-–]\s*[Qq]4\)/i, '(Đề Số 1)');
 
-              const isExam = Boolean(a.title?.includes('PE') || a.title?.includes('Practical Exam') || a.allowed_language?.toUpperCase() === 'JAVA');
+              const isExam = Boolean(a.title?.includes('PE') || a.title?.includes('Practical Exam') || a.allowed_language?.toUpperCase() === 'JAVA' || a.allowed_language?.toUpperCase() === 'PYTHON');
+              const langLower = (a.allowed_language || '').toLowerCase();
+              const isPythonAssign = langLower === 'python' || (a.title || '').toLowerCase().includes('python');
+              const isJsAssign = langLower === 'javascript' || langLower === 'js';
+              const peIconLabel = isPythonAssign ? 'PYTHON • PE' : isJsAssign ? 'JS • PE' : 'JAVA • PE';
               const courseDisplayName = aCourse ? `${aCourse.course_name} (${aCourse.course_code})` : (a.course_code || 'Học phần');
 
               // Tính toán đường tròn SVG
@@ -3766,8 +3934,8 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                       flexShrink: 0
                     }}>
                       <Code2 size={28} color="#6d28d9" style={{ filter: 'drop-shadow(0 2px 4px rgba(109, 40, 217, 0.2))' }} />
-                      <span style={{ fontSize: '0.62rem', fontWeight: 800, color: '#7c3aed', letterSpacing: '0.04em', marginTop: '2px' }}>
-                        JAVA • PE
+                      <span style={{ fontSize: isPythonAssign ? '0.54rem' : '0.62rem', fontWeight: 800, color: '#7c3aed', letterSpacing: isPythonAssign ? '0.02em' : '0.04em', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                        {peIconLabel}
                       </span>
                     </div>
 
@@ -4163,8 +4331,8 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
         const inCourseTeam = teams.some(t => t.course_id === selectedCourseId && t.members && t.members.some(m => m.user_id === s.user_id || (m.email && s.email && m.email.toLowerCase() === s.email.toLowerCase())));
         const sSubs = submissions.filter(sub => (sub.submitter_email && s.email && sub.submitter_email.toLowerCase() === s.email.toLowerCase()) || (sub.submitter_name && s.full_name && sub.submitter_name.toLowerCase() === s.full_name.toLowerCase()));
         const inCourseSubs = sSubs.some(sub => {
-          const asg = assignments.find(a => a.assignment_id === sub.assignment_id);
-          return asg && asg.course_id === selectedCourseId;
+          const cid = sub.course_id ?? assignments.find(a => a.assignment_id === sub.assignment_id)?.course_id;
+          return cid === selectedCourseId;
         });
         const hasAnyTeam = teams.some(t => t.members && t.members.some(m => m.user_id === s.user_id || (m.email && s.email && m.email.toLowerCase() === s.email.toLowerCase())));
         if (!inCourseTeam && !inCourseSubs && hasAnyTeam) return false;
@@ -4223,8 +4391,8 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
         const inCourseTeam = teams.some(t => t.course_id === selectedCourseId && t.members && t.members.some(m => m.user_id === s.user_id || (m.email && s.email && m.email.toLowerCase() === s.email.toLowerCase())));
         const sSubs = submissions.filter(sub => (sub.submitter_email && s.email && sub.submitter_email.toLowerCase() === s.email.toLowerCase()) || (sub.submitter_name && s.full_name && sub.submitter_name.toLowerCase() === s.full_name.toLowerCase()));
         const inCourseSubs = sSubs.some(sub => {
-          const asg = assignments.find(a => a.assignment_id === sub.assignment_id);
-          return asg && asg.course_id === selectedCourseId;
+          const cid = sub.course_id ?? assignments.find(a => a.assignment_id === sub.assignment_id)?.course_id;
+          return cid === selectedCourseId;
         });
         const hasAnyTeam = teams.some(t => t.members && t.members.some(m => m.user_id === s.user_id || (m.email && s.email && m.email.toLowerCase() === s.email.toLowerCase())));
         if (!inCourseTeam && !inCourseSubs && hasAnyTeam) return false;
@@ -5353,38 +5521,168 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                   )}
                 </button>
 
-                {/* Sub-item 3: Chấm bài tự động */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTab('overview');
-                  }}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '9px 12px',
-                    borderRadius: '12px',
-                    border: activeTab === 'overview' ? '1px solid #c4b5fd' : '1px solid transparent',
-                    background: activeTab === 'overview' ? '#ede9fe' : 'transparent',
-                    boxShadow: activeTab === 'overview' ? '0 2px 8px rgba(109, 40, 217, 0.08)' : 'none',
-                    color: activeTab === 'overview' ? '#6d28d9' : '#475569',
-                    fontSize: '0.92rem',
-                    fontWeight: activeTab === 'overview' ? 700 : 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    textAlign: 'left'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                    <Sparkles size={16} color={activeTab === 'overview' ? '#6d28d9' : '#64748b'} style={{ flexShrink: 0 }} />
-                    <span style={{ whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
-                      {lang === 'vi' ? 'Chấm bài tự động' : 'Auto-Grading'}
-                    </span>
-                  </div>
-                </button>
+                {/* Sub-item 3: Chấm bài tự động (Gồm 2 thư mục con: Bài tập cá nhân & Đồ án nhóm (Git)) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', width: '100%' }}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (activeTab !== 'overview') {
+                        setActiveTab('overview');
+                        setIsOverviewSubMenuOpen(true);
+                      } else {
+                        setIsOverviewSubMenuOpen(prev => !prev);
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '9px 12px',
+                      borderRadius: '12px',
+                      border: activeTab === 'overview' ? '1px solid #c4b5fd' : '1px solid transparent',
+                      background: activeTab === 'overview' ? '#ede9fe' : 'transparent',
+                      boxShadow: activeTab === 'overview' ? '0 2px 8px rgba(109, 40, 217, 0.08)' : 'none',
+                      color: activeTab === 'overview' ? '#6d28d9' : '#475569',
+                      fontSize: '0.92rem',
+                      fontWeight: activeTab === 'overview' ? 700 : 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                      <Sparkles size={16} color={activeTab === 'overview' ? '#6d28d9' : '#64748b'} style={{ flexShrink: 0 }} />
+                      <span style={{ whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
+                        {lang === 'vi' ? 'Chấm bài tự động' : 'Auto-Grading'}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      size={14}
+                      color={activeTab === 'overview' ? '#6d28d9' : '#94a3b8'}
+                      style={{
+                        flexShrink: 0,
+                        transform: (activeTab === 'overview' && isOverviewSubMenuOpen) ? 'rotate(0deg)' : 'rotate(-90deg)',
+                        transition: 'transform 0.2s ease'
+                      }}
+                    />
+                  </button>
+
+                  {activeTab === 'overview' && isOverviewSubMenuOpen && (() => {
+                    const courseScopedSubs = selectedCourseId !== null
+                      ? submissions.filter(s => s.course_id === selectedCourseId)
+                      : submissions;
+                    const indSubCount = courseScopedSubs.filter(s => s.submission_type !== 'TEAM' && !s.team_id).length;
+                    const teamSubCount = courseScopedSubs.filter(s => s.submission_type === 'TEAM' || Boolean(s.team_id)).length;
+                    const isIndActive = overviewSubTab === 'individual';
+                    const isTeamActive = overviewSubTab === 'team';
+
+                    return (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '3px',
+                        marginLeft: '12px',
+                        paddingLeft: '10px',
+                        borderLeft: '2px solid #ddd6fe',
+                        paddingTop: '2px',
+                        paddingBottom: '2px'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTab('overview');
+                            setOverviewSubTab('individual');
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '7px 10px',
+                            borderRadius: '10px',
+                            border: isIndActive ? '1px solid #c4b5fd' : '1px solid transparent',
+                            background: isIndActive ? '#f5f3ff' : 'transparent',
+                            color: isIndActive ? '#6d28d9' : '#475569',
+                            fontSize: '0.84rem',
+                            fontWeight: isIndActive ? 700 : 500,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <FileCode size={14} color={isIndActive ? '#7c3aed' : '#64748b'} style={{ flexShrink: 0 }} />
+                            <span style={{ whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
+                              {lang === 'vi' ? 'Bài tập cá nhân' : 'Individual Tasks'}
+                            </span>
+                          </div>
+                          {indSubCount > 0 && (
+                            <span style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              padding: '1px 7px',
+                              borderRadius: '999px',
+                              background: isIndActive ? '#6d28d9' : '#f1f5f9',
+                              color: isIndActive ? '#ffffff' : '#64748b',
+                              flexShrink: 0
+                            }}>
+                              {indSubCount}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTab('overview');
+                            setOverviewSubTab('team');
+                            setTeamViewMode('table');
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '7px 10px',
+                            borderRadius: '10px',
+                            border: isTeamActive ? '1px solid #c4b5fd' : '1px solid transparent',
+                            background: isTeamActive ? '#f5f3ff' : 'transparent',
+                            color: isTeamActive ? '#6d28d9' : '#475569',
+                            fontSize: '0.84rem',
+                            fontWeight: isTeamActive ? 700 : 500,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <GitPullRequest size={14} color={isTeamActive ? '#7c3aed' : '#64748b'} style={{ flexShrink: 0 }} />
+                            <span style={{ whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
+                              {lang === 'vi' ? 'Đồ án nhóm (Git)' : 'Team Projects (Git)'}
+                            </span>
+                          </div>
+                          {teamSubCount > 0 && (
+                            <span style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              padding: '1px 7px',
+                              borderRadius: '999px',
+                              background: isTeamActive ? '#6d28d9' : '#ede9fe',
+                              color: isTeamActive ? '#ffffff' : '#6d28d9',
+                              flexShrink: 0
+                            }}>
+                              {teamSubCount}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             )}
           </div>
@@ -5674,7 +5972,12 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                     ) : activeTab === 'students' ? (
                       lang === 'vi' ? 'Danh sách sinh viên' : 'Student Roster'
                     ) : activeTab === 'overview' ? (
-                      lang === 'vi' ? 'Chấm bài tự động' : 'Auto-Grading') : null}
+                      `${lang === 'vi' ? 'Chấm bài tự động' : 'Auto-Grading'} › ${
+                        overviewSubTab === 'team'
+                          ? (lang === 'vi' ? 'Đồ án nhóm (Git)' : 'Team Projects (Git)')
+                          : (lang === 'vi' ? 'Bài tập cá nhân' : 'Individual Tasks')
+                      }`
+                    ) : null}
                   </span>
                 </>
               )}
@@ -5719,7 +6022,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
             position: 'fixed',
             top: '85px',
             right: '25px',
-            zIndex: 100,
+            zIndex: 1200,
             background: 'rgba(16, 185, 129, 0.95)',
             color: '#fff',
             padding: '12px 20px',
@@ -5741,7 +6044,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
             position: 'fixed',
             top: '85px',
             right: '25px',
-            zIndex: 100,
+            zIndex: 1200,
             background: 'rgba(239, 68, 68, 0.95)',
             color: '#fff',
             padding: '12px 20px',
@@ -6090,9 +6393,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                         gap: '6px',
                         padding: '6px 14px',
                         borderRadius: '8px',
-                        background: teamViewMode === 'table' ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(124, 58, 237, 0.9))' : 'rgba(255, 255, 255, 0.05)',
-                        border: teamViewMode === 'table' ? 'none' : '1px solid rgba(255, 255, 255, 0.1)',
-                        color: teamViewMode === 'table' ? '#fff' : '#cbd5e1',
+                        background: teamViewMode === 'table' ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(124, 58, 237, 0.9))' : (isDark ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc'),
+                        border: teamViewMode === 'table' ? 'none' : (isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid #cbd5e1'),
+                        color: teamViewMode === 'table' ? '#fff' : (isDark ? '#cbd5e1' : '#475569'),
                         fontSize: '0.82rem',
                         fontWeight: 700,
                         cursor: 'pointer',
@@ -6114,7 +6417,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                         borderRadius: '8px',
                         background: teamViewMode === 'radar' ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(124, 58, 237, 0.9))' : 'rgba(139, 92, 246, 0.12)',
                         border: teamViewMode === 'radar' ? 'none' : '1px solid rgba(139, 92, 246, 0.3)',
-                        color: teamViewMode === 'radar' ? '#fff' : '#a78bfa',
+                        color: teamViewMode === 'radar' ? '#fff' : '#7c3aed',
                         fontSize: '0.82rem',
                         fontWeight: 700,
                         cursor: 'pointer',
@@ -6246,28 +6549,53 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                   <span>{lang === 'vi' ? (filterLatestOnly ? 'Bản nộp mới nhất' : 'Tất cả lần nộp') : (filterLatestOnly ? 'Latest Only' : 'All Submissions')}</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleRegradeAll}
-                  disabled={isRegrading}
-                  className="btn-secondary"
-                  title={lang === 'vi' ? 'Chạy lại Docker Sandbox cho toàn bộ bài nộp trên bộ Test Cases mới nhất' : 'Re-run Docker Sandbox for all submissions'}
-                  style={{
-                    padding: '8px 14px',
-                    fontSize: '0.82rem',
-                    gap: '6px',
-                    borderRadius: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    cursor: isRegrading ? 'not-allowed' : 'pointer',
-                    background: 'rgba(124, 58, 237, 0.15)',
-                    border: '1px solid rgba(124, 58, 237, 0.35)',
-                    color: '#c4b5fd'
-                  }}
-                >
-                  <RotateCw size={14} className={isRegrading ? 'animate-spin' : ''} />
-                  <span>{isRegrading ? (lang === 'vi' ? 'Đang chấm...' : 'Re-grading...') : (lang === 'vi' ? 'Chấm lại toàn bộ' : 'Re-grade All')}</span>
-                </button>
+                {overviewSubTab === 'individual' ? (
+                  <button
+                    type="button"
+                    onClick={handleRegradeAll}
+                    disabled={isRegrading}
+                    className="btn-secondary"
+                    title={lang === 'vi' ? 'Chạy lại Docker Sandbox cho toàn bộ bài nộp trên bộ Test Cases mới nhất' : 'Re-run Docker Sandbox for all submissions'}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '0.82rem',
+                      gap: '6px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: isRegrading ? 'not-allowed' : 'pointer',
+                      background: 'rgba(124, 58, 237, 0.15)',
+                      border: '1px solid rgba(124, 58, 237, 0.35)',
+                      color: isDark ? '#c4b5fd' : '#6d28d9'
+                    }}
+                  >
+                    <RotateCw size={14} className={isRegrading ? 'animate-spin' : ''} />
+                    <span>{isRegrading ? (lang === 'vi' ? 'Đang chấm...' : 'Re-grading...') : (lang === 'vi' ? 'Chấm lại toàn bộ' : 'Re-grade All')}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fetchData()}
+                    className="btn-secondary"
+                    title={lang === 'vi' ? 'Tải lại danh sách bài nộp đồ án nhóm mới nhất' : 'Refresh team submissions'}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '0.82rem',
+                      gap: '6px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      background: isDark ? 'rgba(124, 58, 237, 0.15)' : '#f5f3ff',
+                      border: '1px solid rgba(124, 58, 237, 0.35)',
+                      color: isDark ? '#c4b5fd' : '#6d28d9',
+                      fontWeight: 600
+                    }}
+                  >
+                    <RotateCw size={14} />
+                    <span>{lang === 'vi' ? 'Làm mới danh sách' : 'Refresh'}</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -6289,12 +6617,12 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                         </>
                       ) : (
                         <>
-                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Nhóm Đồ Án & Milestone' : 'Team & Milestone'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Nhóm Đồ Án & Đề Tài' : 'Team & Project Topic'}</th>
                           <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Kho lưu trữ Git' : 'Repository'}</th>
-                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Docker Sandbox' : 'Sandbox Status'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Trạng thái Nộp / Git' : 'Submission Status'}</th>
                           <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Điểm đồ án (Thang 10)' : 'Grade (10)'}</th>
                           <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Radar Free-Rider (BR-07)' : 'BR-07 Radar'}</th>
-                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Kiểm duyệt' : 'Review'}</th>
+                          <th style={{ padding: '14px 18px' }}>{lang === 'vi' ? 'Trạng thái chấm' : 'Grading Status'}</th>
                           <th style={{ padding: '14px 18px', textAlign: 'center' }}>{lang === 'vi' ? 'Hành động' : 'Action'}</th>
                         </>
                       )}
@@ -6302,7 +6630,10 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                   </thead>
                   <tbody>
                     {(() => {
-                      let displayedList = submissions.filter(item => {
+                      const courseFilteredSubs = selectedCourseId !== null
+                        ? submissions.filter(item => item.course_id === selectedCourseId)
+                        : submissions;
+                      let displayedList = courseFilteredSubs.filter(item => {
                         if (overviewSubTab === 'individual') {
                           return item.submission_type === 'INDIVIDUAL' || !item.team_id;
                         } else {
@@ -6321,6 +6652,8 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                         const q = searchQuery.toLowerCase().trim();
                         displayedList = displayedList.filter(item => 
                           (item.team && item.team.toLowerCase().includes(q)) ||
+                          (item.team_leader_name && item.team_leader_name.toLowerCase().includes(q)) ||
+                          (item.project_topic && item.project_topic.toLowerCase().includes(q)) ||
                           (item.submitter_name && item.submitter_name.toLowerCase().includes(q)) ||
                           (item.submitter_email && item.submitter_email.toLowerCase().includes(q)) ||
                           (item.assignment_title && item.assignment_title.toLowerCase().includes(q)) ||
@@ -6331,9 +6664,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                       }
 
                       if (statusFilter === 'PASSED') {
-                        displayedList = displayedList.filter(item => item.status.includes('Passed') || item.grade >= 5);
+                        displayedList = displayedList.filter(item => item.moderationStatus !== 'SUBMITTED' && (item.status.includes('Passed') || (item.final_score ?? item.grade) >= 5));
                       } else if (statusFilter === 'FAILED') {
-                        displayedList = displayedList.filter(item => item.status.includes('Failed') || item.grade < 5);
+                        displayedList = displayedList.filter(item => item.moderationStatus !== 'SUBMITTED' && (item.status.includes('Failed') || (item.final_score ?? item.grade) < 5));
                       } else if (statusFilter === 'FINALIZED') {
                         displayedList = displayedList.filter(item => item.moderationStatus === 'FINALIZED');
                       } else if (statusFilter === 'SECOND_REVIEW') {
@@ -6376,7 +6709,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                     {row.submitter_name ? row.submitter_name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() : 'SV'}
                                   </div>
                                   <div>
-                                    <strong style={{ fontSize: '0.92rem', color: '#f8fafc', display: 'block' }}>
+                                    <strong style={{ fontSize: '0.92rem', color: isDark ? '#f8fafc' : '#0f172a', display: 'block' }}>
                                       {row.submitter_name || row.team}
                                     </strong>
                                     {row.submitter_email && (
@@ -6388,9 +6721,9 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                   <div style={{ marginTop: '5px' }}>
                                     <span style={{ 
                                       display: 'inline-flex', alignItems: 'center', gap: '4px', 
-                                      fontSize: '0.74rem', color: '#c4b5fd', fontWeight: 600,
-                                      background: 'rgba(124, 58, 237, 0.12)', padding: '2px 8px', 
-                                      borderRadius: '6px', border: '1px solid rgba(139, 92, 246, 0.3)' 
+                                      fontSize: '0.74rem', color: isDark ? '#c4b5fd' : '#5b21b6', fontWeight: 700,
+                                      background: isDark ? 'rgba(139, 92, 246, 0.16)' : '#ede9fe', padding: '3px 9px', 
+                                      borderRadius: '6px', border: isDark ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid #c4b5fd' 
                                     }}>
                                       <BookOpen size={11} /> {row.assignment_title}
                                     </span>
@@ -6409,20 +6742,25 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                     👥
                                   </div>
                                   <div>
-                                    <strong style={{ fontSize: '0.95rem', color: '#f8fafc', display: 'block' }}>
+                                    <strong style={{ fontSize: '0.95rem', color: isDark ? '#f8fafc' : '#0f172a', display: 'block' }}>
                                       {row.team}
                                     </strong>
-                                    <span style={{ fontSize: '0.76rem', color: '#a78bfa', fontWeight: 600 }}>
-                                      {lang === 'vi' ? 'Trưởng nhóm: Đinh Gia Huy' : 'Leader: Dinh Gia Huy'}
+                                    <span style={{ fontSize: '0.76rem', color: isDark ? '#c4b5fd' : '#6d28d9', fontWeight: 600 }}>
+                                      {lang === 'vi' ? `Trưởng nhóm: ${row.team_leader_name || row.submitter_name}` : `Leader: ${row.team_leader_name || row.submitter_name}`}
                                     </span>
                                   </div>
                                 </div>
+                                {row.project_topic && (
+                                  <div style={{ marginTop: '5px', fontSize: '0.76rem', fontWeight: 600, color: isDark ? '#e2e8f0' : '#334155', lineHeight: 1.35 }}>
+                                    📌 {row.project_topic}
+                                  </div>
+                                )}
                                 {row.assignment_title && (
                                   <div style={{ marginTop: '5px' }}>
                                     <span style={{ 
                                       display: 'inline-flex', alignItems: 'center', gap: '4px', 
-                                      fontSize: '0.74rem', color: '#a78bfa', fontWeight: 600,
-                                      background: 'rgba(139, 92, 246, 0.12)', padding: '2px 8px', 
+                                      fontSize: '0.74rem', color: isDark ? '#c4b5fd' : '#6d28d9', fontWeight: 600,
+                                      background: isDark ? 'rgba(139, 92, 246, 0.14)' : '#f5f3ff', padding: '2px 8px', 
                                       borderRadius: '6px', border: '1px solid rgba(139, 92, 246, 0.3)' 
                                     }}>
                                       <GitPullRequest size={11} /> {row.assignment_title}
@@ -6457,29 +6795,29 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                     display: 'inline-flex', alignItems: 'center', gap: '5px',
                                     padding: '3px 8px', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 700,
                                     background: row.language === 'java'
-                                      ? 'rgba(239, 68, 68, 0.15)'
+                                      ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2')
                                       : row.language === 'python'
-                                      ? 'rgba(139, 92, 246, 0.15)'
-                                      : 'rgba(245, 158, 11, 0.15)',
+                                      ? (isDark ? 'rgba(139, 92, 246, 0.18)' : '#ede9fe')
+                                      : (isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7'),
                                     color: row.language === 'java'
-                                      ? '#f87171'
+                                      ? (isDark ? '#f87171' : '#b91c1c')
                                       : row.language === 'python'
-                                      ? '#a78bfa'
-                                      : '#fbbf24',
-                                    border: `1px solid ${row.language === 'java' ? 'rgba(239, 68, 68, 0.35)' : row.language === 'python' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                                      ? (isDark ? '#c4b5fd' : '#5b21b6')
+                                      : (isDark ? '#fbbf24' : '#b45309'),
+                                    border: `1px solid ${row.language === 'java' ? (isDark ? 'rgba(239, 68, 68, 0.35)' : '#fca5a5') : row.language === 'python' ? (isDark ? 'rgba(139, 92, 246, 0.35)' : '#c4b5fd') : (isDark ? 'rgba(245, 158, 11, 0.35)' : '#fcd34d')}`,
                                     marginBottom: '5px'
                                   }}>
-                                    <Code2 size={12} /> {row.language === 'java' ? '☕ Java 17' : row.language === 'python' ? 'Python 3.11' : 'Node.js 20'}
+                                    <Code2 size={12} /> {row.language === 'java' ? '☕ Java 17' : row.language === 'python' ? '🐍 Python 3.11' : 'Node.js 20'}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => openGradingModal(row)}
                                     style={{
                                       display: 'flex', alignItems: 'center', gap: '5px',
-                                      background: 'rgba(255, 255, 255, 0.05)',
-                                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                                      borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem',
-                                      color: '#c4b5fd', cursor: 'pointer'
+                                      background: isDark ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
+                                      border: isDark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #cbd5e1',
+                                      borderRadius: '6px', padding: '3px 8px', fontSize: '0.75rem', fontWeight: 600,
+                                      color: isDark ? '#c4b5fd' : '#5b21b6', cursor: 'pointer'
                                     }}
                                   >
                                     <Eye size={12} /> {lang === 'vi' ? `Xem code (${row.code_content.split('\n').length} dòng)` : 'View Code'}
@@ -6490,7 +6828,8 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                   <span style={{
                                     display: 'inline-flex', alignItems: 'center', gap: '5px',
                                     padding: '3px 8px', borderRadius: '6px', fontSize: '0.76rem', fontWeight: 600,
-                                    background: 'rgba(255, 255, 255, 0.06)', color: '#cbd5e1'
+                                    background: isDark ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9', color: isDark ? '#cbd5e1' : '#334155',
+                                    border: isDark ? 'none' : '1px solid #cbd5e1'
                                   }}>
                                     <FileCode size={12} /> {row.repo ? row.repo.replace('https://github.com/', '') : 'Tệp nén (.zip)'}
                                   </span>
@@ -6499,12 +6838,14 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                             ) : (
                               row.repo ? (
                                 <div>
-                                  <a href={row.repo} target="_blank" rel="noreferrer" style={{ color: '#a78bfa', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, fontSize: '0.86rem' }}>
-                                    <ExternalLink size={14} /> {row.repo.replace('https://github.com/', '')}
+                                  <a href={row.repo} target="_blank" rel="noreferrer" style={{ color: isDark ? '#c4b5fd' : '#6d28d9', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, fontSize: '0.86rem', wordBreak: 'break-all' }}>
+                                    <ExternalLink size={14} style={{ flexShrink: 0 }} /> {row.repo.replace('https://github.com/', '')}
                                   </a>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-                                    <code style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>SHA: {row.commit}</code>
-                                    <span style={{ fontSize: '0.7rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa' }}>main</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                    <code style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>SHA: {row.commit || 'pending'}</code>
+                                    <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: isDark ? 'rgba(139, 92, 246, 0.18)' : '#ede9fe', color: isDark ? '#c4b5fd' : '#6d28d9', fontWeight: 600 }}>
+                                      {row.branch_name || 'main'}
+                                    </span>
                                   </div>
                                 </div>
                               ) : (
@@ -6513,20 +6854,55 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                             )}
                           </td>
 
-                          {/* Column 3: Sandbox */}
+                          {/* Column 3: Sandbox or Team Git Submission Status */}
                           <td style={{ padding: '16px 18px', color: row.statusColor }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
-                              {row.status.includes('Passed') ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                              {row.status}
-                            </div>
-                            <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                              1.0 Core • 256MB RAM
-                            </div>
+                            {overviewSubTab === 'team' ? (
+                              row.moderationStatus === 'SUBMITTED' ? (
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: isDark ? '#c4b5fd' : '#6d28d9' }}>
+                                    <Clock size={16} />
+                                    {lang === 'vi' ? 'Đã nộp GitHub Repo' : 'GitHub Submitted'}
+                                  </div>
+                                  <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    {lang === 'vi' ? 'Chờ Giảng viên đánh giá' : 'Awaiting lecturer review'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                                    {row.status.includes('Passed') ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                                    {row.status}
+                                  </div>
+                                  <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                    {lang === 'vi' ? `Đồ án nhóm • Nhánh ${row.branch_name || 'main'}` : `Team Repo • ${row.branch_name || 'main'}`}
+                                  </div>
+                                </div>
+                              )
+                            ) : (
+                              <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                                  {row.status.includes('Passed') ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                                  {row.status}
+                                </div>
+                                <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  1.0 Core • 256MB RAM
+                                </div>
+                              </>
+                            )}
                           </td>
 
                           {/* Column 4: Grade */}
-                          <td style={{ padding: '16px 18px', fontSize: '1.1rem', fontWeight: 800, color: (row.final_score ?? row.grade) >= 8 ? '#34d399' : ((row.final_score ?? row.grade) >= 5 ? '#f59e0b' : '#f43f5e') }}>
-                            {(row.final_score ?? row.grade).toFixed(1)} / 10
+                          <td style={{ padding: '16px 18px', fontSize: '1.1rem', fontWeight: 800, color: (row.moderationStatus === 'SUBMITTED' && row.final_score == null) ? (isDark ? '#c4b5fd' : '#7c3aed') : ((row.final_score ?? row.grade) >= 8 ? '#10b981' : ((row.final_score ?? row.grade) >= 5 ? '#f59e0b' : '#f43f5e')) }}>
+                            {row.moderationStatus === 'SUBMITTED' && row.final_score == null ? (
+                              <div>
+                                <span>-- / 10</span>
+                                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  {lang === 'vi' ? 'Chờ chấm' : 'Pending'}
+                                </div>
+                              </div>
+                            ) : (
+                              `${(row.final_score ?? row.grade).toFixed(1)} / 10`
+                            )}
                           </td>
 
                           {/* Column 5: AI Quality or Free-Rider Radar */}
@@ -6543,7 +6919,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                       <span style={{
                                         display: 'inline-flex', alignItems: 'center', gap: '4px',
                                         padding: '3px 8px', borderRadius: '6px', fontSize: '0.74rem',
-                                        background: 'rgba(239, 68, 68, 0.15)', color: '#f87171',
+                                        background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444',
                                         border: '1px solid rgba(239, 68, 68, 0.35)', fontWeight: 700
                                       }}>
                                         <AlertTriangle size={12} /> Cảnh báo Free-Rider
@@ -6552,7 +6928,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                       <span style={{
                                         display: 'inline-flex', alignItems: 'center', gap: '4px',
                                         padding: '3px 8px', borderRadius: '6px', fontSize: '0.74rem',
-                                        background: 'rgba(16, 185, 129, 0.12)', color: '#34d399',
+                                        background: 'rgba(16, 185, 129, 0.12)', color: '#059669',
                                         border: '1px solid rgba(16, 185, 129, 0.25)', fontWeight: 600
                                       }}>
                                         <CheckCircle2 size={12} /> Đạt chuẩn BR-07
@@ -6566,10 +6942,10 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                       }}
                                       style={{
                                         display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                        background: 'rgba(139, 92, 246, 0.1)',
+                                        background: isDark ? 'rgba(139, 92, 246, 0.1)' : '#f5f3ff',
                                         border: '1px solid rgba(139, 92, 246, 0.25)',
                                         borderRadius: '6px', padding: '3px 8px', fontSize: '0.74rem',
-                                        color: '#a78bfa', cursor: 'pointer', fontWeight: 600
+                                        color: isDark ? '#c4b5fd' : '#6d28d9', cursor: 'pointer', fontWeight: 600
                                       }}
                                     >
                                       <BarChart2 size={12} /> {lang === 'vi' ? 'Xem radar đóng góp' : 'View Radar'}
@@ -6583,22 +6959,27 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           {/* Column 6: Moderation */}
                           <td style={{ padding: '16px 18px' }}>
                             {row.moderationStatus === 'FINALIZED' && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 700 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(16, 185, 129, 0.15)', color: isDark ? '#34d399' : '#047857', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 700 }}>
                                 <CheckCircle2 size={12} /> {lang === 'vi' ? 'Đã Chốt Điểm' : 'Finalized'}
                               </span>
                             )}
                             {row.moderationStatus === 'PENDING_SECOND_REVIEW' && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(245, 158, 11, 0.15)', color: isDark ? '#fbbf24' : '#b45309', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700 }}>
                                 <AlertTriangle size={12} /> {lang === 'vi' ? 'Chờ GV2 Chấm Chéo' : 'Pending 2nd Review'}
                               </span>
                             )}
                             {row.moderationStatus === 'FIRST_REVIEWED' && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(124, 58, 237, 0.15)', color: '#c4b5fd', border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: isDark ? 'rgba(124, 58, 237, 0.15)' : '#ede9fe', color: isDark ? '#c4b5fd' : '#6d28d9', border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700 }}>
                                 <Clock size={12} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
                               </span>
                             )}
+                            {row.moderationStatus === 'SUBMITTED' && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: isDark ? 'rgba(139, 92, 246, 0.16)' : '#f5f3ff', color: isDark ? '#c4b5fd' : '#6d28d9', border: '1px solid rgba(139, 92, 246, 0.35)', fontWeight: 700 }}>
+                                <Clock size={12} /> {lang === 'vi' ? 'Chờ Giảng viên chấm' : 'Pending Review'}
+                              </span>
+                            )}
                             {(!row.moderationStatus || row.moderationStatus === 'AI_PREGRADED') && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 700 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', fontSize: '0.76rem', background: isDark ? 'rgba(168, 85, 247, 0.15)' : '#f5f3ff', color: isDark ? '#c084fc' : '#6d28d9', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 700 }}>
                                 <Sparkles size={12} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
                               </span>
                             )}
@@ -6618,7 +6999,7 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                                 onClick={() => handleViewGradingHistory(row.id)}
                                 className="btn-secondary" 
                                 title={lang === 'vi' ? 'Xem lịch sử các lần chấm & so sánh điểm' : 'View grading history and score diff'}
-                                style={{ padding: '7px 10px', fontSize: '0.82rem', background: 'rgba(124, 58, 237, 0.12)', border: '1px solid rgba(139, 92, 246, 0.3)', color: '#c4b5fd' }}
+                                style={{ padding: '7px 10px', fontSize: '0.82rem', background: isDark ? 'rgba(124, 58, 237, 0.12)' : '#f5f3ff', border: '1px solid rgba(139, 92, 246, 0.3)', color: isDark ? '#c4b5fd' : '#6d28d9' }}
                               >
                                 <History size={14} />
                               </button>
@@ -6681,17 +7062,56 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                         <Clock size={11} /> {lang === 'vi' ? 'GV1 Đã Đánh Giá' : '1st Reviewed'}
                       </span>
                     )}
-                    {(!selectedSub.moderationStatus || selectedSub.moderationStatus === 'AI_PREGRADED') && (
+                    {selectedSub.moderationStatus === 'SUBMITTED' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', fontWeight: 600 }}>
+                        <Clock size={11} /> {lang === 'vi' ? 'Chờ Giảng viên chấm' : 'Pending Review'}
+                      </span>
+                    )}
+                    {selectedSub.submission_type !== 'TEAM' && (!selectedSub.moderationStatus || selectedSub.moderationStatus === 'AI_PREGRADED') && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 7px', borderRadius: '5px', fontSize: '0.72rem', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', fontWeight: 600 }}>
                         <Sparkles size={11} /> {lang === 'vi' ? 'AI Chấm Sơ Bộ' : 'AI Pre-Graded'}
                       </span>
                     )}
                     <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'inline', color: '#0f172a' }}>
-                      {lang === 'vi' ? 'Hội đồng Kiểm Định Bài Nộp (BR-09 Dual-Lecturer Moderation)' : 'Collaborative Dual-Lecturer Moderation (BR-09)'}
+                      {selectedSub.submission_type === 'TEAM'
+                        ? (lang === 'vi' ? 'Đánh Giá & Chấm Điểm Đồ Án Nhóm (Git BR-07)' : 'Team Git Project Evaluation (BR-07)')
+                        : (lang === 'vi' ? 'Hội đồng Kiểm Định Bài Nộp (BR-09 Dual-Lecturer Moderation)' : 'Collaborative Dual-Lecturer Moderation (BR-09)')}
                     </h3>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
-                    {selectedSub.language && (
+                    {selectedSub.submission_type === 'TEAM' ? (
+                      <>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '5px',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          background: '#ede9fe',
+                          color: '#6d28d9',
+                          border: '1px solid #c4b5fd'
+                        }}>
+                          👥 {lang === 'vi' ? 'Đồ án nhóm (GitHub Repo)' : 'Team Project (GitHub Repo)'}
+                        </span>
+                        {(() => {
+                          const subCourse = courses.find((c) => c.course_id === selectedSub.course_id);
+                          const lecturerDisplay = subCourse?.lecturer_name || selectedSub.reviewer_1_name;
+                          return lecturerDisplay ? (
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '5px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              background: '#f8fafc',
+                              color: '#334155',
+                              border: '1px solid #cbd5e1'
+                            }}>
+                              {lang === 'vi' ? 'GV phụ trách môn:' : 'Course Lecturer:'}{' '}
+                              <strong style={{ color: '#0f172a' }}>{lecturerDisplay}</strong>
+                            </span>
+                          ) : null;
+                        })()}
+                      </>
+                    ) : selectedSub.language && (
                       <span style={{
                         padding: '2px 7px',
                         borderRadius: '5px',
@@ -6729,8 +7149,44 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 </button>
               </div>
 
-              {/* 📄 MÃ NGUỒN BÀI NỘP TRỰC TIẾP (DIRECT CODE) & 4 CÂU HỎI PE */}
-              {selectedSub.code_content && (() => {
+              {/* 📄 HỒ SƠ ĐỒ ÁN NHÓM (GIT REPO) HOẶC MÃ NGUỒN BÀI NỘP CÁ NHÂN */}
+              {selectedSub.submission_type === 'TEAM' ? (
+                <div style={{
+                  marginBottom: '0.85rem',
+                  background: '#f5f3ff',
+                  border: '1px solid #ddd6fe',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  fontSize: '0.8rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                    <span style={{ fontWeight: 800, color: '#5b21b6', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <GitPullRequest size={15} color="#7c3aed" /> {lang === 'vi' ? 'Hồ Sơ Nộp Đồ Án Nhóm (GitHub Repository)' : 'Team Project Submission Profile'}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#ffffff', color: '#6d28d9', border: '1px solid #c4b5fd' }}>
+                      {lang === 'vi' ? `Nhánh: ${selectedSub.branch_name || 'main'}` : `Branch: ${selectedSub.branch_name || 'main'}`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px' }}>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>{lang === 'vi' ? 'Nhóm & Trưởng nhóm' : 'Team & Leader'}</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{selectedSub.team}</div>
+                      <div style={{ fontSize: '0.74rem', color: '#6d28d9', fontWeight: 600 }}>{lang === 'vi' ? `Trưởng nhóm: ${selectedSub.team_leader_name || selectedSub.submitter_name} • Người nộp: ${selectedSub.submitter_name}` : `Leader: ${selectedSub.team_leader_name || selectedSub.submitter_name}`}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>{lang === 'vi' ? 'Đề tài & Liên kết GitHub' : 'Topic & GitHub URL'}</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{selectedSub.project_topic || selectedSub.assignment_title || 'Đồ án nhóm'}</div>
+                      {selectedSub.repo ? (
+                        <a href={selectedSub.repo} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#6d28d9', fontWeight: 600, marginTop: '2px', wordBreak: 'break-all' }}>
+                          <ExternalLink size={12} style={{ flexShrink: 0 }} /> {selectedSub.repo}
+                        </a>
+                      ) : (
+                        <span style={{ fontSize: '0.74rem', color: '#64748b' }}>Chưa có link repo</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (selectedSub.code_content && (() => {
                 const code = selectedSub.code_content || '';
                 const extractSection = (qNum: string) => {
                   if (!code) return '';
@@ -6905,10 +7361,81 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                     </pre>
                   </div>
                 );
-              })()}
+              })())}
 
-              {/* 🧪 BẢNG ĐỐI SOÁT CHI TIẾT TEST CASES & BÁO CÁO LỖI DOCKER SANDBOX (HẠNG MỤC 1 - GIAO DIỆN SÁNG CHUẨN) */}
-              {(() => {
+              {/* 🧪 BẢNG ĐỐI SOÁT CHI TIẾT TEST CASES (CÁ NHÂN) HOẶC GIT TELEMETRY BR-07 (NHÓM) */}
+              {selectedSub.submission_type === 'TEAM' ? (() => {
+                const teamTelemetry = selectedSub.team_id ? gitAnalyticsMap[selectedSub.team_id] : null;
+                const members = teamTelemetry?.member_contributions || [];
+                const freeRiderCount = members.filter((m: any) => m.is_free_rider || (m.percentage_loc != null && m.percentage_loc < 5)).length;
+                return (
+                  <div style={{
+                    marginBottom: '0.85rem',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '12px 14px',
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <GitBranch size={16} color="#7c3aed" />
+                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a' }}>
+                          {lang === 'vi' ? 'Kiểm Tra Đóng Góp Git & Radar Free-Rider (BR-07)' : 'Git Contribution Telemetry & Free-Rider Radar (BR-07)'}
+                        </span>
+                      </div>
+                      {selectedSub.team_id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedGitTeamId(selectedSub.team_id!);
+                            setOverviewSubTab('team');
+                            setTeamViewMode('radar');
+                            setSelectedSub(null);
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            background: '#ede9fe',
+                            border: '1px solid #c4b5fd',
+                            color: '#6d28d9',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <BarChart2 size={13} /> {lang === 'vi' ? 'Mở Radar Free-Rider BR-07' : 'Open Free-Rider Radar'}
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', fontSize: '0.78rem', color: '#334155', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                      {members.length > 0 ? (
+                        <>
+                          <span>
+                            {lang === 'vi'
+                              ? `Đã phân tích ${members.length} thành viên (${teamTelemetry?.total_commits ?? 0} commits, đã lọc nhiễu BR-07).`
+                              : `Analyzed ${members.length} members (${teamTelemetry?.total_commits ?? 0} commits).`}
+                          </span>
+                          <span style={{ fontWeight: 700, color: freeRiderCount > 0 ? '#dc2626' : '#059669' }}>
+                            {freeRiderCount > 0
+                              ? (lang === 'vi' ? `⚠️ Phát hiện ${freeRiderCount} thành viên dưới ngưỡng đóng góp` : `⚠️ ${freeRiderCount} free-rider alert(s)`)
+                              : (lang === 'vi' ? '✅ Tỷ lệ đóng góp đạt chuẩn BR-07' : '✅ Contributions balanced')}
+                          </span>
+                        </>
+                      ) : (
+                        <span>
+                          {lang === 'vi'
+                            ? 'Chưa đồng bộ commit live cho nhóm này — bấm "Mở Radar Free-Rider BR-07" để Sync Git hoặc xem GitHub Repository trực tiếp trước khi cho điểm.'
+                            : 'No live Git commits synced yet. Open Free-Rider Radar to sync or review the GitHub repo directly.'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })() : (() => {
                 const trList = selectedSub.test_results || [];
                 const passedCount = trList.filter(t => t.passed).length;
                 const totalTests = trList.length;
@@ -7147,6 +7674,126 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                 );
               })()}
 
+              {selectedSub.submission_type === 'TEAM' ? (
+                (() => {
+                  const subCourse = courses.find((c) => c.course_id === selectedSub.course_id);
+                  const assignedLecturerName = subCourse?.lecturer_name || selectedSub.reviewer_1_name || (lang === 'vi' ? 'Giảng viên phụ trách môn' : 'Course Lecturer');
+                  const assignedLecturerEmail = subCourse?.lecturer_email;
+                  const isDifferentTesterAccount = Boolean(
+                    assignedLecturerEmail &&
+                    currentUser?.email &&
+                    currentUser.email.toLowerCase() !== assignedLecturerEmail.toLowerCase()
+                  );
+
+                  return (
+                    <form
+                      onSubmit={handleSaveGrade}
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        padding: '14px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                        <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Award size={15} color="#7c3aed" />
+                          {lang === 'vi' ? 'Giảng Viên Phụ Trách Môn Tự Chấm Điểm' : 'Course Lecturer Direct Grading'}
+                        </span>
+                        <span style={{ fontSize: '0.73rem', fontWeight: 700, padding: '3px 9px', borderRadius: '6px', background: '#ede9fe', color: '#6d28d9', border: '1px solid #c4b5fd' }}>
+                          {lang === 'vi' ? '1 Giảng viên môn • Không qua AI / GV 2' : 'Single Course Lecturer • No AI / GV 2'}
+                        </span>
+                      </div>
+
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#475569' }}>
+                          <strong style={{ color: '#0f172a' }}>{lang === 'vi' ? 'Học phần:' : 'Course:'}</strong>{' '}
+                          {subCourse?.course_name || selectedSub.assignment_title}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#475569', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+                          <strong style={{ color: '#0f172a' }}>{lang === 'vi' ? 'Giảng viên phụ trách:' : 'Assigned Lecturer:'}</strong>{' '}
+                          <span style={{ fontWeight: 700, color: '#6d28d9' }}>{assignedLecturerName}</span>
+                          {assignedLecturerEmail && (
+                            <span style={{ color: '#64748b', fontSize: '0.76rem' }}>({assignedLecturerEmail})</span>
+                          )}
+                        </div>
+                        {isDifferentTesterAccount && (
+                          <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                            {lang === 'vi'
+                              ? `Đang thao tác bằng tài khoản kiểm thử (${currentUser?.fullName || currentUser?.email}). Kết quả vẫn được ghi nhận cho học phần này.`
+                              : `Viewing with test account (${currentUser?.fullName || currentUser?.email}). Grade will still be saved for this course.`}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                        <div style={{ width: '150px', flexShrink: 0 }}>
+                          <label style={{ fontSize: '0.76rem', color: '#475569', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                            {lang === 'vi' ? 'Điểm Đồ án (0–10):' : 'Project Score (0–10):'}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={10}
+                            step={0.1}
+                            required
+                            value={teamScoreInput}
+                            onChange={(e) => setTeamScoreInput(e.target.value)}
+                            placeholder="VD: 8.5"
+                            className="input"
+                            style={{ width: '100%', padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: '0.92rem' }}
+                          />
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: '240px' }}>
+                          <label style={{ fontSize: '0.76rem', color: '#475569', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                            {lang === 'vi' ? 'Nhận xét của Giảng viên phụ trách:' : 'Course Lecturer Feedback:'}
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={teamFeedbackInput}
+                            onChange={(e) => setTeamFeedbackInput(e.target.value)}
+                            placeholder={lang === 'vi' ? 'Nhập nhận xét về GitHub repo, mức độ đóng góp BR-07 và chất lượng đồ án...' : 'Enter feedback on GitHub repo, BR-07 contribution, and project quality...'}
+                            className="input"
+                            style={{ width: '100%', padding: '7px 10px', fontSize: '0.84rem', resize: 'vertical', minHeight: '60px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', paddingTop: '4px' }}>
+                        {selectedSub.moderationStatus === 'FINALIZED' && selectedSub.final_score != null && (
+                          <span style={{ fontSize: '0.76rem', color: '#15803d', fontWeight: 600, marginRight: 'auto' }}>
+                            ✓ {lang === 'vi' ? `Điểm đang công bố: ${selectedSub.final_score}/10` : `Currently published: ${selectedSub.final_score}/10`}
+                          </span>
+                        )}
+                        <button
+                          type="submit"
+                          style={{
+                            fontSize: '0.8rem',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            border: '1px solid #6d28d9',
+                            background: '#7c3aed',
+                            color: '#ffffff',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)'
+                          }}
+                        >
+                          <CheckCircle2 size={14} /> {lang === 'vi' ? 'Lưu điểm & Công bố cho nhóm' : 'Save Grade & Publish to Team'}
+                        </button>
+                      </div>
+                    </form>
+                  );
+                })()
+              ) : (
+                <>
               {/* BR-09 Stage Tabs */}
               <div style={{ display: 'flex', gap: '6px', marginBottom: '0.75rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
                 <button 
@@ -7314,6 +7961,8 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                           fontSize: '0.78rem'
                         }}
                       >
+                        <option value="Nguyen Lan">Nguyen Lan (n011vynt@gmail.com • Giảng viên phản biện)</option>
+                        <option value="Yen12 Yen">Yen12 Yen (yeny36306@gmail.com • Giảng viên môn)</option>
                         <option value="ThS. Trần Thị Chuyên Môn">ThS. Trần Thị Chuyên Môn (Bộ môn Kỹ thuật Phần mềm)</option>
                         <option value="TS. Lê Hoàng Nam">TS. Lê Hoàng Nam (Phản biện độc lập)</option>
                         <option value="PGS.TS. Phạm Văn Minh">PGS.TS. Phạm Văn Minh (Trưởng hội đồng chuyên môn)</option>
@@ -7573,52 +8222,58 @@ Môi trường chấm: Docker OpenJDK 17 Sandbox cô lập (aita-sandbox-java:la
                   </form>
                 </div>
               )}
+                </>
+              )}
 
               {/* Footer Modal */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.85rem', borderTop: '1px solid #e2e8f0', paddingTop: '0.65rem' }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <button 
-                    type="button"
-                    disabled={isRegrading}
-                    onClick={handleRerunGrading}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      fontSize: '0.78rem',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      color: '#334155',
-                      fontWeight: 700,
-                      cursor: isRegrading ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    {isRegrading ? <Loader2 size={13} className="animate-spin" /> : <RotateCw size={13} />}
-                    <span>{lang === 'vi' ? 'Chấm lại (Regrade)' : 'Re-run Sandbox Grading'}</span>
-                  </button>
+                  {selectedSub.submission_type !== 'TEAM' && (
+                    <button 
+                      type="button"
+                      disabled={isRegrading}
+                      onClick={handleRerunGrading}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '0.78rem',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        color: '#334155',
+                        fontWeight: 700,
+                        cursor: isRegrading ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isRegrading ? <Loader2 size={13} className="animate-spin" /> : <RotateCw size={13} />}
+                      <span>{lang === 'vi' ? 'Chấm lại (Regrade)' : 'Re-run Sandbox Grading'}</span>
+                    </button>
+                  )}
 
-                  <button 
-                    type="button"
-                    onClick={() => handleViewGradingHistory(selectedSub.id)}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      fontSize: '0.78rem',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      background: '#ede9fe',
-                      border: '1px solid #c4b5fd',
-                      color: '#6d28d9',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <History size={13} />
-                    <span>{lang === 'vi' ? 'Lịch sử chấm & So sánh' : 'Grading History & Diff'}</span>
-                  </button>
+                  {selectedSub.submission_type !== 'TEAM' && (
+                    <button 
+                      type="button"
+                      onClick={() => handleViewGradingHistory(selectedSub.id)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        fontSize: '0.78rem',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        background: '#ede9fe',
+                        border: '1px solid #c4b5fd',
+                        color: '#6d28d9',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <History size={13} />
+                      <span>{lang === 'vi' ? 'Lịch sử chấm & So sánh' : 'Grading History & Diff'}</span>
+                    </button>
+                  )}
                 </div>
 
                 <button 
